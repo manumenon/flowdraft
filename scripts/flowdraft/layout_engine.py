@@ -543,12 +543,13 @@ def layout_panel_children(
 ) -> None:
     """Position a panel's children and compute the panel's final size.
 
-    Children are arranged according to ``panel["layout"]["direction"]``:
-    ``row``, ``column``, ``flow``, or ``grid``.  After main children are
-    placed, an optional footer is centred below them with extra gap.
+    Children with explicit coordinates in the spec are kept as absolute
+    positions (converted to relative offsets).  Remaining children are
+    arranged according to ``panel["layout"]["direction"]``: ``row``,
+    ``column``, ``flow``, or ``grid``.
 
-    The panel's ``width`` and ``height`` are updated in-place to reflect
-    the children bounding box plus padding.
+    The panel's ``width`` and ``height`` are updated in-place to enclose
+    all children plus padding.
 
     Args:
         panel:     The panel node dict (mutated in-place).
@@ -565,62 +566,96 @@ def layout_panel_children(
 
     main_ids, footer_id = _separate_footer(children_ids, nodes_map)
 
+    # ── Separate manually positioned from auto-laid out children ─────
+    manual_ids = []
+    auto_ids = []
+    parent_x = panel.get("x", 0.0) or 0.0
+    parent_y = panel.get("y", 0.0) or 0.0
+
+    for cid in main_ids:
+        node = nodes_map.get(cid)
+        if node is None:
+            continue
+        if node.get("x") is not None or node.get("y") is not None:
+            manual_ids.append(cid)
+            node["x"] = (node.get("x") or 0.0) - parent_x
+            node["y"] = (node.get("y") or 0.0) - parent_y
+        else:
+            auto_ids.append(cid)
+
+    footer_is_manual = False
+    if footer_id and footer_id in nodes_map:
+        f_node = nodes_map[footer_id]
+        if f_node.get("x") is not None or f_node.get("y") is not None:
+            footer_is_manual = True
+            f_node["x"] = (f_node.get("x") or 0.0) - parent_x
+            f_node["y"] = (f_node.get("y") or 0.0) - parent_y
+
     # Auto-detect direction for input panels (children are all inputs → row)
-    if direction == _DEFAULT_DIRECTION and main_ids:
+    if direction == _DEFAULT_DIRECTION and auto_ids:
         child_types = {
-            nodes_map.get(cid, {}).get("type", "card") for cid in main_ids
+            nodes_map.get(cid, {}).get("type", "card") for cid in auto_ids
         }
         if child_types == {"input"}:
             direction = "row"
 
     # Auto-detect flow for large card sets (>3 cards in a row panel)
-    if direction == "row" and len(main_ids) > cfg["max_cols"]:
+    if direction == "row" and len(auto_ids) > cfg["max_cols"]:
         all_cards = all(
-            nodes_map.get(cid, {}).get("type") == "card" for cid in main_ids
+            nodes_map.get(cid, {}).get("type") == "card" for cid in auto_ids
         )
         if all_cards:
             direction = "flow"
 
-    # ── Place main children ──────────────────────────────────────────
+    # ── Place auto-laid out main children ────────────────────────────
     origin_x = pad["left"]
     origin_y = pad["top"]
+    content_w, content_h = 0.0, 0.0
 
-    if direction == "column":
-        content_w, content_h = _layout_column(
-            main_ids, nodes_map, gap, origin_x, origin_y,
-        )
-    elif direction == "flow":
-        content_w, content_h = _layout_flow(
-            main_ids, nodes_map, gap, cfg["max_cols"],
-            origin_x, origin_y,
-        )
-    elif direction == "grid":
-        content_w, content_h = _layout_grid(
-            main_ids, nodes_map, gap, cfg["grid_cols"],
-            origin_x, origin_y,
-        )
-    else:  # "row" (default)
-        content_w, content_h = _layout_row(
-            main_ids, nodes_map, gap, origin_x, origin_y,
-        )
+    if auto_ids:
+        if direction == "column":
+            content_w, content_h = _layout_column(
+                auto_ids, nodes_map, gap, origin_x, origin_y,
+            )
+        elif direction == "flow":
+            content_w, content_h = _layout_flow(
+                auto_ids, nodes_map, gap, cfg["max_cols"],
+                origin_x, origin_y,
+            )
+        elif direction == "grid":
+            content_w, content_h = _layout_grid(
+                auto_ids, nodes_map, gap, cfg["grid_cols"],
+                origin_x, origin_y,
+            )
+        else:  # "row" (default)
+            content_w, content_h = _layout_row(
+                auto_ids, nodes_map, gap, origin_x, origin_y,
+            )
 
-    # ── Place footer (centred below main content) ────────────────────
-    footer_h: float = 0.0
-    if footer_id and footer_id in nodes_map:
+    # ── Place auto-laid out footer ───────────────────────────────────
+    if footer_id and footer_id in nodes_map and not footer_is_manual:
+        ref_w = content_w
+        if manual_ids:
+            max_manual_x = max((nodes_map[cid]["x"] + nodes_map[cid]["width"] for cid in manual_ids), default=0.0)
+            ref_w = max(content_w, max_manual_x - origin_x)
+
         footer_node = nodes_map[footer_id]
         footer_top = origin_y + content_h + _FOOTER_GAP
         footer_w = footer_node["width"]
-
-        # Centre footer below the content area
-        total_content_w = content_w
-        footer_x = origin_x + max(0, (total_content_w - footer_w) / 2)
+        footer_x = origin_x + max(0, (ref_w - footer_w) / 2)
         footer_node["x"] = footer_x
         footer_node["y"] = footer_top
-        footer_h = _FOOTER_GAP + footer_node["height"]
 
-    # ── Update panel dimensions ──────────────────────────────────────
-    panel["width"] = content_w + pad["left"] + pad["right"]
-    panel["height"] = origin_y + content_h + footer_h + pad["bottom"]
+    # ── Update panel dimensions to enclose all children ─────────────
+    all_child_nodes = [nodes_map[cid] for cid in children_ids if cid in nodes_map]
+    if all_child_nodes:
+        max_child_x = max(n["x"] + n["width"] for n in all_child_nodes)
+        max_child_y = max(n["y"] + n["height"] for n in all_child_nodes)
+        panel["width"] = max_child_x + pad["right"]
+        panel["height"] = max_child_y + pad["bottom"]
+    else:
+        panel["width"] = pad["left"] + pad["right"]
+        panel["height"] = pad["top"] + pad["bottom"]
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1072,7 +1107,12 @@ def layout(
         layout_panel_children(panel, nodes_map)
 
     # ── Step 2: Auto-layout top-level elements ───────────────────────
-    _auto_layout_toplevel(toplevel_ids, nodes_map, connections)
+    unpositioned_toplevel_ids = {
+        nid for nid in toplevel_ids
+        if nodes_map[nid].get("x") is None or nodes_map[nid].get("y") is None
+    }
+    if unpositioned_toplevel_ids:
+        _auto_layout_toplevel(unpositioned_toplevel_ids, nodes_map, connections)
 
     # ── Step 3: Position free elements ───────────────────────────────
     _position_free_elements(nodes, nodes_map, connections)

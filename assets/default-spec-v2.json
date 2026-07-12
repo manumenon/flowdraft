@@ -14,14 +14,16 @@
       "id": "input_panel",
       "type": "panel",
       "title": "Telemetry & Knowledge Ingest",
-      "layout": { "direction": "row", "gap": 20, "padding": { "left": 20, "right": 20, "top": 60, "bottom": 20 } },
+      "x": 129.2,
+      "y": 287.1,
+      "layout": { "direction": "column", "gap": 20, "padding": { "left": 20, "right": 20, "top": 60, "bottom": 20 } },
       "style": { "strokeColor": "#22c86f", "strokeWidth": 2, "cornerRadius": 16 },
       "children": [
-        { "id": "input_0", "type": "input", "title": "Vector Streams", "icon": "database", "style": { "color": "#3b82f6", "strokeWidth": 2.5, "cornerRadius": 8 } },
-        { "id": "input_1", "type": "input", "title": "LLM Context Caches", "icon": "cpu", "style": { "color": "#a855f7", "strokeWidth": 2.5, "cornerRadius": 8 } },
-        { "id": "input_2", "type": "input", "title": "GitOps State", "icon": "git-branch", "style": { "color": "#10b981", "strokeWidth": 2.5, "cornerRadius": 8 } },
-        { "id": "input_3", "type": "input", "title": "User Sessions", "icon": "users", "style": { "color": "#f59e0b", "strokeWidth": 2.5, "cornerRadius": 8 } },
-        { "id": "input_4", "type": "input", "title": "Graph DB Nodes", "icon": "share-2", "style": { "color": "#ec4899", "strokeWidth": 2.5, "cornerRadius": 8 } }
+        { "id": "input_0", "type": "input", "title": "Vector Streams", "icon": "database", "x": 149.2, "y": 347.1, "style": { "color": "#3b82f6", "strokeWidth": 2.5, "cornerRadius": 8 } },
+        { "id": "input_1", "type": "input", "title": "LLM Context Caches", "icon": "cpu", "x": 149.2, "y": 428.6, "style": { "color": "#a855f7", "strokeWidth": 2.5, "cornerRadius": 8 } },
+        { "id": "input_2", "type": "input", "title": "GitOps State", "icon": "git-branch", "x": 149.2, "y": 522.6, "style": { "color": "#10b981", "strokeWidth": 2.5, "cornerRadius": 8 } },
+        { "id": "input_3", "type": "input", "title": "User Sessions", "icon": "users", "x": 149.2, "y": 608.1, "style": { "color": "#f59e0b", "strokeWidth": 2.5, "cornerRadius": 8 } },
+        { "id": "input_4", "type": "input", "title": "Graph DB Nodes", "icon": "share-2", "x": 149.2, "y": 689.6, "style": { "color": "#ec4899", "strokeWidth": 2.5, "cornerRadius": 8 } }
       ]
     },
 
@@ -30,7 +32,9 @@
       "type": "panel",
       "title": "Orchestration & Synchronization Core",
       "subtitle": "(Asynchronous distributed pipeline)",
-      "layout": { "direction": "flow", "gap": 20, "padding": { "left": 24, "right": 24, "top": 70, "bottom": 24 } },
+      "x": 295.9,
+      "y": 476.8,
+      "layout": { "direction": "row", "gap": 20, "padding": { "left": 24, "right": 24, "top": 70, "bottom": 24 } },
       "style": { "strokeColor": "#1d8be8", "strokeWidth": 3, "cornerRadius": 20, "colorPreset": "core" },
       "children": [
         {
@@ -38,6 +42,8 @@
           "title": "Ingest & Decouple",
           "body": "Poll memory queues\nParse raw markdown\nResolve sequence IDs",
           "icon": "activity",
+          "x": 599.2,
+          "y": 664.9,
           "style": { "color": "#3b82f6", "strokeWidth": 2, "cornerRadius": 12, "bold": true }
         },
         {
@@ -45,6 +51,8 @@
           "title": "Privacy Guardrail",
           "body": "Regex & NER scrubbing\nToken redactor\nHash system secrets",
           "icon": "shield-check",
+          "x": 319.9,
+          "y": 651.8,
           "style": { "color": "#10b981", "strokeWidth": 2, "cornerRadius": 12, "bold": true }
         },
         {
@@ -52,6 +60,8 @@
           "title": "Vector Embedding",
           "body": "Chunk long forms\nGenerate embeddings\nCompute cosine similarity",
           "icon": "layers",
+          "x": 566.0,
+          "y": 546.8,
           "style": { "color": "#a855f7", "strokeWidth": 2, "cornerRadius": 12, "bold": true }
         },
         {
@@ -59,6 +69,8 @@
           "title": "Graph Stitching",
           "body": "Extract entities\nMap dependencies\nUpdate entity relations",
           "icon": "git-commit",
+          "x": 842.9,
+          "y": 548.8,
           "style": { "color": "#ec4899", "strokeWidth": 2, "cornerRadius": 12, "bold": true }
         },
         {
@@ -66,6 +78,8 @@
           "title": "Consensus Lock",
           "body": "Raft protocol tick\nResolve delta drift\nCommit state update",
           "icon": "lock",
+          "x": 1130.4,
+          "y": 580.1,
           "style": { "color": "#f59e0b", "strokeWidth": 2, "cornerRadius": 12, "bold": true }
         }
       ]
@@ -76,6 +90,8 @@
       "type": "diamond",
       "title": "State Validated?",
       "body": "Zero PII detected\nSchema matched\nMerge conflict clear",
+      "x": 970.3,
+      "y": 653.8,
       "style": { "color": "#ef4444", "strokeWidth": 3 }
     },
 
@@ -84,6 +100,8 @@
       "type": "card",
       "title": "Dispatched Context to Fabric",
       "icon": "zap",
+      "x": 1132.9,
+      "y": 685.1,
       "style": { "color": "#10b981", "strokeWidth": 2.5, "cornerRadius": 12 }
     },
 
@@ -92,6 +110,8 @@
       "type": "panel",
       "title": "Distributed Ingestion Layer",
       "badge": "event driven",
+      "x": 39.0,
+      "y": 829.1,
       "layout": { "direction": "column", "gap": 17, "padding": { "left": 20, "right": 20, "top": 60, "bottom": 20 } },
       "style": { "strokeColor": "#22c86f", "strokeWidth": 2, "cornerRadius": 16, "colorPreset": "green" },
       "children": [
@@ -100,6 +120,8 @@
           "title": "Ephemeral Buffers",
           "body": "Redis Stream queues\nKafka transaction logs\nIn-memory hot keys",
           "icon": "zap",
+          "x": 59.0,
+          "y": 889.1,
           "style": { "color": "#10b981", "strokeWidth": 2, "cornerRadius": 10 }
         },
         {
@@ -107,6 +129,8 @@
           "title": "Model-Agnostic Parsers",
           "body": "Claude XML tags\nOpenAI JSON schemas\nMarkdown execution blocks",
           "icon": "code",
+          "x": 59.0,
+          "y": 1047.2,
           "style": { "color": "#10b981", "strokeWidth": 2, "cornerRadius": 10 }
         },
         {
@@ -114,6 +138,8 @@
           "title": "Stream Aggregators",
           "body": "Agent token usage logs\nException trace states\nTool execution histories",
           "icon": "terminal",
+          "x": 59.0,
+          "y": 1207.7,
           "style": { "color": "#10b981", "strokeWidth": 2, "cornerRadius": 10 }
         }
       ]
@@ -124,6 +150,8 @@
       "type": "panel",
       "title": "Persistent State Mesh",
       "subtitle": "(Distributed, encrypted, multi-model storage tier)",
+      "x": 1107.8,
+      "y": 138.0,
       "layout": { "direction": "row", "gap": 28, "padding": { "left": 20, "right": 20, "top": 100, "bottom": 20 } },
       "style": { "strokeColor": "#bd54d3", "strokeWidth": 2, "cornerRadius": 16, "colorPreset": "purple" },
       "children": [
@@ -132,6 +160,8 @@
           "title": "System WAL",
           "body": "Write-Ahead Log\nSQLite manifest\nRollback transaction journal",
           "icon": "database",
+          "x": 1127.8,
+          "y": 238.0,
           "style": { "color": "#bd54d3", "strokeWidth": 2, "cornerRadius": 10 }
         },
         {
@@ -139,6 +169,8 @@
           "title": "Blob Engine",
           "body": "Immutable cold backups\nRaw system snap dumps\nLZ4 compression",
           "icon": "archive",
+          "x": 1307.6,
+          "y": 250.4,
           "style": { "color": "#bd54d3", "strokeWidth": 2, "cornerRadius": 10 }
         },
         {
@@ -146,6 +178,8 @@
           "title": "Vector Database",
           "body": "pgvector storage\nDynamic HNSW index\nQuantized float weights",
           "icon": "disc",
+          "x": 1511.8,
+          "y": 238.0,
           "style": { "color": "#bd54d3", "strokeWidth": 2, "cornerRadius": 10 }
         },
         {
@@ -153,6 +187,8 @@
           "title": "Knowledge Graph",
           "body": "Neo4j / Memgraph\nSemantic connections\nTransitive paths",
           "icon": "share-2",
+          "x": 1703.8,
+          "y": 238.0,
           "style": { "color": "#bd54d3", "strokeWidth": 2, "cornerRadius": 10 }
         }
       ],
@@ -160,6 +196,8 @@
         "id": "center_footer",
         "type": "card",
         "title": "Hybrid Search Engine (HNSW Index + BM25 Lexical + Cypher Traversal)",
+        "x": 1140.0,
+        "y": 415.6,
         "style": { "color": "#bd54d3", "strokeWidth": 2, "cornerRadius": 8 }
       }
     },
@@ -168,6 +206,8 @@
       "id": "right_panel",
       "type": "panel",
       "title": "Agent Execution Fabric",
+      "x": 1444.4,
+      "y": 487.3,
       "layout": { "direction": "column", "gap": 14, "padding": { "left": 20, "right": 20, "top": 60, "bottom": 20 } },
       "style": { "strokeColor": "#f4b64e", "strokeWidth": 2, "cornerRadius": 16, "colorPreset": "amber" },
       "children": [
@@ -176,6 +216,8 @@
           "title": "Dynamic Planner",
           "body": "Injects real-time context\nAdapts runbook goals\nCalculates token budget",
           "icon": "sliders",
+          "x": 1464.4,
+          "y": 547.3,
           "style": { "color": "#f4b64e", "strokeWidth": 2, "cornerRadius": 10 }
         },
         {
@@ -183,6 +225,8 @@
           "title": "Ephemeral Tools",
           "body": "Sandboxed runtimes\nShort-lived API configurations\nLocal file operations",
           "icon": "box",
+          "x": 1464.4,
+          "y": 705.4,
           "style": { "color": "#f4b64e", "strokeWidth": 2, "cornerRadius": 10 }
         },
         {
@@ -190,6 +234,8 @@
           "title": "Persona Registry",
           "body": "Cross-agent alignment\nHistorical user biases\nGlobal system behaviors",
           "icon": "user-check",
+          "x": 1464.4,
+          "y": 863.5,
           "style": { "color": "#f4b64e", "strokeWidth": 2, "cornerRadius": 10 }
         }
       ]
@@ -203,20 +249,20 @@
     { "from": "input_3", "to": "core_0", "exitPort": "bottom", "entryPort": "top" },
     { "from": "input_4", "to": "core_0", "exitPort": "bottom", "entryPort": "top" },
 
-    { "from": "core_0", "to": "core_1", "exitPort": "right", "entryPort": "left" },
-    { "from": "core_1", "to": "core_2", "exitPort": "right", "entryPort": "left" },
+    { "from": "core_0", "to": "core_1", "exitPort": "left", "entryPort": "right" },
+    { "from": "core_1", "to": "core_2", "exitPort": "top", "entryPort": "left" },
     { "from": "core_2", "to": "core_3", "exitPort": "right", "entryPort": "left" },
     { "from": "core_3", "to": "core_4", "exitPort": "right", "entryPort": "left" },
 
-    { "from": "core_4", "to": "decision", "exitPort": "right", "entryPort": "left" },
-    { "from": "decision", "to": "output", "exitPort": "right", "entryPort": "left" },
+    { "from": "core_4", "to": "decision", "exitPort": "left", "entryPort": "top" },
+    { "from": "decision", "to": "output", "exitPort": "bottom", "entryPort": "left" },
     { "from": "decision", "to": "core_0", "exitPort": "top", "entryPort": "top" },
 
-    { "from": "output", "to": "right_0", "exitPort": "bottom", "entryPort": "top" },
-    { "from": "left_0", "to": "core_0", "exitPort": "top", "entryPort": "bottom" },
+    { "from": "output", "to": "right_0", "exitPort": "right", "entryPort": "left" },
+    { "from": "left_0", "to": "core_0", "exitPort": "right", "entryPort": "bottom" },
 
-    { "from": "core_2", "to": "store_2", "exitPort": "bottom", "entryPort": "top" },
-    { "from": "core_3", "to": "store_3", "exitPort": "bottom", "entryPort": "top" },
+    { "from": "core_2", "to": "store_2", "exitPort": "top", "entryPort": "bottom" },
+    { "from": "core_3", "to": "store_3", "exitPort": "top", "entryPort": "bottom" },
     { "from": "store_3", "to": "right_0", "exitPort": "right", "entryPort": "left" },
     { "from": "right_0", "to": "decision", "exitPort": "left", "entryPort": "bottom" },
 
