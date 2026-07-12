@@ -9,3 +9,4 @@ work/
 dist/
 build/
 *.egg-info/
+.auth/
