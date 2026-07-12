@@ -6,6 +6,8 @@
     "frames": 90
   },
   "hand": false,
+  "theme": "dark",
+  "auto_layout": true,
   "signature": "@FlowDraft",
   "title": {
     "prefix": "Architecture of the",
@@ -13,124 +15,272 @@
     "subtitle": "Multi-Agent State Synchronization & Graph RAG"
   },
   "input_title": "Telemetry & Knowledge Ingest",
+  "input_panel_style": {
+    "padding": {"left": 20, "right": 20, "top": 60, "bottom": 20},
+    "strokeColor": "#22c86f",
+    "strokeWidth": 2,
+    "cornerRadius": 16
+  },
   "inputs": [
     {
       "label": "Vector Streams",
       "icon": "database",
-      "color": "#3b82f6"
+      "color": "#3b82f6",
+      "color_preset": "blue",
+      "style": {
+        "strokeWidth": 2.5,
+        "cornerRadius": 8
+      }
     },
     {
       "label": "LLM Context Caches",
       "icon": "cpu",
-      "color": "#a855f7"
+      "color": "#a855f7",
+      "color_preset": "purple",
+      "style": {
+        "strokeWidth": 2.5,
+        "cornerRadius": 8
+      }
     },
     {
       "label": "GitOps State",
       "icon": "git-branch",
-      "color": "#10b981"
+      "color": "#10b981",
+      "color_preset": "green",
+      "style": {
+        "strokeWidth": 2.5,
+        "cornerRadius": 8
+      }
     },
     {
       "label": "User Sessions",
       "icon": "users",
-      "color": "#f59e0b"
+      "color": "#f59e0b",
+      "color_preset": "amber",
+      "style": {
+        "strokeWidth": 2.5,
+        "cornerRadius": 8
+      }
     },
     {
       "label": "Graph DB Nodes",
       "icon": "share-2",
-      "color": "#ec4899"
+      "color": "#ec4899",
+      "color_preset": "pink",
+      "style": {
+        "strokeWidth": 2.5,
+        "cornerRadius": 8
+      }
     }
   ],
   "core": {
     "title": "Orchestration & Synchronization Core",
     "subtitle": "(Asynchronous distributed pipeline)",
+    "color_preset": "core",
+    "style": {
+      "padding": {"left": 24, "right": 24, "top": 70, "bottom": 24},
+      "strokeColor": "#1d8be8",
+      "strokeWidth": 3,
+      "cornerRadius": 20
+    },
     "cards": [
       {
         "title": "Ingest & Decouple",
         "thought": "Buffer incoming hot state updates using an ephemeral event bus.",
         "body": "Poll memory queues\nParse raw markdown\nResolve sequence IDs",
-        "icon": "activity"
+        "icon": "activity",
+        "color": "#3b82f6",
+        "color_preset": "blue",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 12,
+          "bold": true
+        }
       },
       {
         "title": "Privacy Guardrail",
         "thought": "Intercept PII and secrets before writing to storage layers.",
         "body": "Regex & NER scrubbing\nToken redactor\nHash system secrets",
-        "icon": "shield-check"
+        "icon": "shield-check",
+        "color": "#10b981",
+        "color_preset": "green",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 12,
+          "bold": true
+        }
       },
       {
         "title": "Vector Embedding",
         "thought": "Generate semantic vectors to calculate state drift over time.",
         "body": "Chunk long forms\nGenerate embeddings\nCompute cosine similarity",
-        "icon": "layers"
+        "icon": "layers",
+        "color": "#a855f7",
+        "color_preset": "purple",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 12,
+          "bold": true
+        }
       },
       {
         "title": "Graph Stitching",
         "thought": "Link dynamic agent memories to the central knowledge graph topology.",
         "body": "Extract entities\nMap dependencies\nUpdate entity relations",
-        "icon": "git-commit"
+        "icon": "git-commit",
+        "color": "#ec4899",
+        "color_preset": "pink",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 12,
+          "bold": true
+        }
       },
       {
         "title": "Consensus Lock",
         "thought": "Prevent race conditions when multiple agent clusters write to the same memory space.",
         "body": "Raft protocol tick\nResolve delta drift\nCommit state update",
-        "icon": "lock"
+        "icon": "lock",
+        "color": "#f59e0b",
+        "color_preset": "amber",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 12,
+          "bold": true
+        }
       }
     ]
   },
   "decision": {
     "title": "State Validated?",
-    "body": "Zero PII detected\nSchema matched\nMerge conflict clear"
+    "body": "Zero PII detected\nSchema matched\nMerge conflict clear",
+    "color": "#ef4444",
+    "color_preset": "pink",
+    "style": {
+      "strokeWidth": 3
+    }
   },
   "output": {
     "label": "Dispatched Context to Fabric",
-    "icon": "zap"
+    "icon": "zap",
+    "color": "#10b981",
+    "color_preset": "green",
+    "style": {
+      "strokeWidth": 2.5,
+      "cornerRadius": 12
+    }
   },
   "loop_label": "Iterate state sync until vector drift < 2% and WAL entries commit to storage blocks",
   "retry_label": "Timeout / Consensus recovery path",
   "left_panel": {
     "title": "Distributed Ingestion Layer",
     "badge": "event driven",
+    "color_preset": "green",
+    "style": {
+      "padding": {"left": 20, "right": 20, "top": 60, "bottom": 20},
+      "strokeColor": "#22c86f",
+      "strokeWidth": 2,
+      "cornerRadius": 16
+    },
     "cards": [
       {
         "title": "Ephemeral Buffers",
         "body": "Redis Stream queues\nKafka transaction logs\nIn-memory hot keys",
-        "icon": "zap"
+        "icon": "zap",
+        "color": "#10b981",
+        "color_preset": "green",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       },
       {
         "title": "Model-Agnostic Parsers",
         "body": "Claude XML tags\nOpenAI JSON schemas\nMarkdown execution blocks",
-        "icon": "code"
+        "icon": "code",
+        "color": "#10b981",
+        "color_preset": "green",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       },
       {
         "title": "Stream Aggregators",
         "body": "Agent token usage logs\nException trace states\nTool execution histories",
-        "icon": "terminal"
+        "icon": "terminal",
+        "color": "#10b981",
+        "color_preset": "green",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       }
     ]
   },
   "center_panel": {
     "title": "Persistent State Mesh",
     "subtitle": "(Distributed, encrypted, multi-model storage tier)",
-    "footer": "Hybrid Search Engine (HNSW Index + BM25 Lexical + Cypher Traversal)",
+    "color_preset": "purple",
+    "style": {
+      "padding": {"left": 20, "right": 20, "top": 60, "bottom": 20},
+      "strokeColor": "#bd54d3",
+      "strokeWidth": 2,
+      "cornerRadius": 16
+    },
+    "footer": {
+      "title": "Hybrid Search Engine (HNSW Index + BM25 Lexical + Cypher Traversal)",
+      "color": "#bd54d3",
+      "color_preset": "purple",
+      "style": {
+        "strokeWidth": 2,
+        "cornerRadius": 8
+      }
+    },
     "cards": [
       {
         "title": "System WAL",
         "body": "Write-Ahead Log\nSQLite manifest\nRollback transaction journal",
-        "icon": "database"
+        "icon": "database",
+        "color": "#bd54d3",
+        "color_preset": "purple",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       },
       {
         "title": "Blob Engine",
         "body": "Immutable cold backups\nRaw system snap dumps\nLZ4 compression",
-        "icon": "archive"
+        "icon": "archive",
+        "color": "#bd54d3",
+        "color_preset": "purple",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       },
       {
         "title": "Vector Database",
         "body": "pgvector storage\nDynamic HNSW index\nQuantized float weights",
-        "icon": "disc"
+        "icon": "disc",
+        "color": "#bd54d3",
+        "color_preset": "purple",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       },
       {
         "title": "Knowledge Graph",
         "body": "Neo4j / Memgraph\nSemantic connections\nTransitive paths",
-        "icon": "share-2"
+        "icon": "share-2",
+        "color": "#bd54d3",
+        "color_preset": "purple",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       }
     ]
   },
@@ -138,21 +288,46 @@
     "title": "Agent Execution Fabric",
     "incoming_label": "Dynamic Compile",
     "return_label": "Feedback Loop",
+    "color_preset": "amber",
+    "style": {
+      "padding": {"left": 20, "right": 20, "top": 60, "bottom": 20},
+      "strokeColor": "#f4b64e",
+      "strokeWidth": 2,
+      "cornerRadius": 16
+    },
     "cards": [
       {
         "title": "Dynamic Planner",
         "body": "Injects real-time context\nAdapts runbook goals\nCalculates token budget",
-        "icon": "sliders"
+        "icon": "sliders",
+        "color": "#f4b64e",
+        "color_preset": "amber",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       },
       {
         "title": "Ephemeral Tools",
         "body": "Sandboxed runtimes\nShort-lived API configurations\nLocal file operations",
-        "icon": "box"
+        "icon": "box",
+        "color": "#f4b64e",
+        "color_preset": "amber",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       },
       {
         "title": "Persona Registry",
         "body": "Cross-agent alignment\nHistorical user biases\nGlobal system behaviors",
-        "icon": "user-check"
+        "icon": "user-check",
+        "color": "#f4b64e",
+        "color_preset": "amber",
+        "style": {
+          "strokeWidth": 2,
+          "cornerRadius": 10
+        }
       }
     ]
   }

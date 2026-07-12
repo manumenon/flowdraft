@@ -63,6 +63,8 @@ def wrap_line(draw: ImageDraw.ImageDraw, line: str, font, max_width: float) -> l
     if not line:
         return [line]
     if has_cjk(line):
+        KINK_START = set("）｝]｝,.}。，、？！?”’»)]｝")
+        KINK_END = set("（｛[“‘«([｛")
         tokens = []
         current_group = ""
         for char in line:
@@ -72,6 +74,24 @@ def wrap_line(draw: ImageDraw.ImageDraw, line: str, font, max_width: float) -> l
                     current_group = ""
                 tokens.append(" ")
             elif ("\u3400" <= char <= "\u9fff") or ("\u3040" <= char <= "\u30ff") or ("\uac00" <= char <= "\ud7a3"):
+                if current_group:
+                    tokens.append(current_group)
+                    current_group = ""
+                tokens.append(char)
+            elif char in KINK_START:
+                if current_group:
+                    current_group += char
+                elif tokens:
+                    if tokens[-1] == " ":
+                        if len(tokens) > 1:
+                            tokens[-2] += char
+                        else:
+                            tokens.append(char)
+                    else:
+                        tokens[-1] += char
+                else:
+                    tokens.append(char)
+            elif char in KINK_END:
                 if current_group:
                     tokens.append(current_group)
                     current_group = ""
@@ -163,6 +183,7 @@ def fit_text(
     bold: bool = False,
     spacing: float = 3,
     wrap: bool = True,
+    allow_grow: bool = False,
 ) -> tuple:
     """Reduce font size until *text* fits inside a ``w × h`` box.
 
@@ -172,16 +193,17 @@ def fit_text(
     the emergency minimum size is used and the text is hard-wrapped.
 
     Args:
-        draw:     PIL draw object for measurement.
-        text:     The string to fit.
-        w:        Box width in logical pixels.
-        h:        Box height in logical pixels.
-        size:     Starting (maximum) font size.
-        min_size: Minimum font size before emergency fallback.
-        hand:     Use hand-written font.
-        bold:     Use bold font.
-        spacing:  Inter-line spacing in logical pixels.
-        wrap:     Allow text wrapping.
+        draw:       PIL draw object for measurement.
+        text:       The string to fit.
+        w:          Box width in logical pixels.
+        h:          Box height in logical pixels.
+        size:       Starting (maximum) font size.
+        min_size:   Minimum font size before emergency fallback.
+        hand:       Use hand-written font.
+        bold:       Use bold font.
+        spacing:    Inter-line spacing in logical pixels.
+        wrap:       Allow text wrapping.
+        allow_grow: Allow text box height to exceed h (for auto-growing boxes).
 
     Returns:
         ``(fitted_text, fitted_size, fitted_font)``
@@ -190,8 +212,13 @@ def fit_text(
     has_cjk_text = has_cjk(raw_text)
     max_width = c(w)
     max_height = c(h)
-    start_size = int(size)
-    emergency_min = min(start_size, int(min_size), EMERGENCY_MIN_TEXT_SIZE)
+    
+    # Apply a safety margin to ensure text wraps before hitting edges
+    effective_max_width = max(c(min_size), max_width - 12)
+    effective_max_height = max(c(min_size), max_height - 6)
+    
+    start_size = max(1, int(size))
+    emergency_min = max(1, min(start_size, int(min_size), EMERGENCY_MIN_TEXT_SIZE))
 
     low = emergency_min
     high = start_size
@@ -206,9 +233,9 @@ def fit_text(
             bold=bold,
         )
         fits = False
-        for candidate_text in text_variants(draw, raw_text, candidate_font, max_width, wrap):
+        for candidate_text in text_variants(draw, raw_text, candidate_font, effective_max_width, wrap):
             tw, th = text_size(draw, candidate_text, candidate_font, spacing=spacing)
-            if tw <= max_width and th <= max_height:
+            if tw <= effective_max_width and th <= effective_max_height:
                 best_fit = (candidate_text, mid, candidate_font)
                 fits = True
                 break
@@ -226,19 +253,19 @@ def fit_text(
         cjk=has_cjk_text,
         bold=bold,
     )
-    fallback_text = wrap_text(draw, raw_text, fallback_font, max_width) if wrap else raw_text
+    fallback_text = wrap_text(draw, raw_text, fallback_font, effective_max_width) if wrap else raw_text
     tw, th = text_size(draw, fallback_text, fallback_font, spacing=spacing)
-    if tw <= max_width and th <= max_height:
+    if tw <= effective_max_width and (th <= effective_max_height or allow_grow):
         return fallback_text, emergency_min, fallback_font
 
     for i in range(len(raw_text) - 1, -1, -1):
         truncated = raw_text[:i] + "..."
-        wrapped_truncated = wrap_text(draw, truncated, fallback_font, max_width) if wrap else truncated
+        wrapped_truncated = wrap_text(draw, truncated, fallback_font, effective_max_width) if wrap else truncated
         tw, th = text_size(draw, wrapped_truncated, fallback_font, spacing=spacing)
-        if tw <= max_width and th <= max_height:
+        if tw <= effective_max_width and th <= effective_max_height:
             return wrapped_truncated, emergency_min, fallback_font
 
-    dots = wrap_text(draw, "...", fallback_font, max_width) if wrap else "..."
+    dots = wrap_text(draw, "...", fallback_font, effective_max_width) if wrap else "..."
     return dots, emergency_min, fallback_font
 
 

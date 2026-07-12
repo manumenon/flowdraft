@@ -317,6 +317,71 @@ class TestAdversarialDynamic(unittest.TestCase):
         self.assertTrue(tw <= c(40), f"Fitted text width {tw} exceeds box width {c(40)}")
         self.assertTrue(th <= c(20), f"Fitted text height {th} exceeds box height {c(20)}")
 
+    def test_dynamic_auto_layout_missing_coords(self):
+        """
+        Verify that when node coordinates are missing, topological auto-layout
+        places them in sensible non-overlapping positions.
+        """
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "type": "card", "title": "First Node"},
+                {"id": "node_b", "type": "card", "title": "Second Node"},
+                {"id": "node_c", "type": "card", "title": "Third Node"}
+            ],
+            "connections": [
+                ["node_a", "node_b"],
+                ["node_b", "node_c"]
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            res = self.run_cli(spec, tmp, "auto_layout_missing")
+            self.assertEqual(res.returncode, 0, f"CLI should run successfully: {res.stderr}")
+            excal_path = Path(tmp) / "auto_layout_missing.excalidraw"
+            self.assertTrue(excal_path.exists())
+            excal_data = json.loads(excal_path.read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            # Make sure coordinates were assigned
+            node_a = next(el for el in elements if el.get("id") == "node_a")
+            node_b = next(el for el in elements if el.get("id") == "node_b")
+            node_c = next(el for el in elements if el.get("id") == "node_c")
+            
+            # Since flow is horizontal (LR) by default:
+            self.assertLess(node_a["x"], node_b["x"])
+            self.assertLess(node_b["x"], node_c["x"])
+
+    def test_nested_panel_inside_out_sizing(self):
+        """
+        Verify that nested panels envelope their children and size correctly.
+        """
+        spec = {
+            "canvas": {"width": 1000, "height": 1000, "frames": 1},
+            "nodes": [
+                {"id": "outer_panel", "type": "panel", "title": "Outer Panel"},
+                {"id": "inner_panel", "type": "panel", "title": "Inner Panel", "parent": "outer_panel"},
+                {"id": "child_card", "type": "card", "title": "Child Card", "body": "Nested inside inner panel", "parent": "inner_panel"}
+            ],
+            "connections": []
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            res = self.run_cli(spec, tmp, "nested_panels")
+            self.assertEqual(res.returncode, 0, f"CLI should run successfully: {res.stderr}")
+            excal_path = Path(tmp) / "nested_panels.excalidraw"
+            excal_data = json.loads(excal_path.read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            
+            outer = next(el for el in elements if el.get("id") == "outer_panel")
+            inner = next(el for el in elements if el.get("id") == "inner_panel")
+            child = next(el for el in elements if el.get("id") == "child_card")
+            
+            # Inner panel should be larger than child card
+            self.assertGreater(inner["width"], child["width"])
+            self.assertGreater(inner["height"], child["height"])
+            
+            # Outer panel should be larger than inner panel
+            self.assertGreater(outer["width"], inner["width"])
+            self.assertGreater(outer["height"], inner["height"])
+
 if __name__ == "__main__":
     unittest.main()
 

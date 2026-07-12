@@ -1,123 +1,124 @@
-# E2E Test Infra: FlowDraft Redesign Refinement
+# FlowDraft E2E Test Suite Infrastructure
 
-## Test Philosophy
-- Opaque-box, requirement-driven. No dependency on implementation design.
-- Methodology: Category-Partition + Boundary Value Analysis + Pairwise Combinatorial Testing + Real-World Workload Testing.
+This document describes the End-to-End (E2E) testing infrastructure for the FlowDraft rendering engine and maps the requirements from `ORIGINAL_REQUEST.md` to specific E2E test cases.
 
-## Feature Inventory
-| # | Feature | Source (Requirement) | Tier 1 (Feature Coverage) | Tier 2 (Boundary/Corner) | Tier 3 (Cross-Feature Pairwise) |
-|---|---------|----------------------|:-------------------------:|:------------------------:|:-------------------------------:|
-| 1 | Overlap Check & Bounding Box (R1) | ORIGINAL_REQUEST R1 | 5 | 5 | ✓ |
-| 2 | Orthogonal Routing (R2) | ORIGINAL_REQUEST R2 | 5 | 5 | ✓ |
-| 3 | Typography Wrapping & Scaling (R3) | ORIGINAL_REQUEST R3 | 5 | 5 | ✓ |
-| 4 | Aesthetics & Rebranding (R4) | ORIGINAL_REQUEST R4 | 5 | 5 | ✓ |
-| 5 | Rich Spec Updates (R5) | ORIGINAL_REQUEST R5 | 5 | 5 | ✓ |
+## Test Directory Layout
+The E2E tests are located in `tests/e2e` and structured into four tiers.
 
-## Test Architecture
-- **Test Runner**: Run via `python -m pytest tests/e2e/test_e2e_suite.py` or `python -m unittest discover -s tests`.
-- **Test Target**: `scripts/render_dynamic_diagram.py`.
-- **Test Case Format**: Custom JSON specs written to temporary files, rendering outputs, and executing validations against generated `.excalidraw`, `.svg`, `.png`, and `.gif` files.
-- **Directory Layout**:
-  - `tests/e2e/test_e2e_suite.py`: E2E test suite python file.
-
-## Test Case Detailed Plan
-
-### Tier 1: Feature Coverage (Minimum 5 per Feature = 25 total)
-
-#### Feature 1: Overlap Check & Bounding Box Enforcement (R1)
-1. `test_r1_1_basic_bounding_box_computation`: Validates base bounds are calculated using elements and spacing.
-2. `test_r1_2_overlap_elimination_moves_nodes`: Validates overlapping boxes are pushed apart along minimum penetration axis.
-3. `test_r1_3_fixed_nodes_dont_move`: Validates nodes marked as `fixed` or `style.fixed` do not move during relaxation.
-4. `test_r1_4_hierarchical_panel_resize`: Validates panels expand/envelope child nodes dynamically.
-5. `test_r1_5_global_layout_shift_preserves_min_coords`: Validates alignment remains adjusted to the overall diagram top-left corner.
-
-#### Feature 2: Orthogonal Routing, Node Crossing Avoidance, Port Attachment (R2)
-1. `test_r2_1_orthogonal_connector_routing`: Validates all connector lines are orthogonal (horizontal/vertical lines).
-2. `test_r2_2_port_attachment_boundaries`: Validates connections attach exactly to the node boundary edges.
-3. `test_r2_3_avoid_node_crossings`: Validates connector lines route around/avoid crossing unrelated elements when paths exist.
-4. `test_r2_4_avoid_overlapping_connector_paths`: Validates parallel or overlapping connection paths are offset.
-5. `test_r2_5_port_direction_hints`: Validates routing hints on connections (e.g. force exit/enter top, bottom, left, right).
-
-#### Feature 3: Typography Wrapping and Adaptive Scaling, Alignment (R3)
-1. `test_r3_1_typography_wrapping`: Validates long text wraps to multiple lines rather than clipping.
-2. `test_r3_2_adaptive_font_scaling`: Validates text scaling reduces font size to fit containers when constraints are reached.
-3. `test_r3_3_text_alignment`: Validates center/left/right alignments on card titles, bodies, and standalone text.
-4. `test_r3_4_cjk_wrapping`: Validates CJK characters wrap on characters correctly.
-5. `test_r3_5_font_family_enforcement`: Validates text elements use `fontFamily: 5` (hand-drawn font) in Excalidraw output.
-
-#### Feature 4: Aesthetics: Shadows, Glows, Borders, Rebrand Checks (R4)
-1. `test_r4_1_glow_dot_animations`: Validates presence of animated glow dots pulsating along connection paths.
-2. `test_r4_2_shadows_and_glows`: Validates glow/shadow effects are drawn on elements.
-3. `test_r4_3_custom_borders_and_strokes`: Validates borders with custom colors, widths, styles (e.g. solid/dotted/dashed), and corner radii.
-4. `test_r4_4_rebrand_cleans_branding`: Validates old trademark text matches are entirely replaced with FlowDraft.
-5. `test_r4_5_signature_rendering`: Validates signature/watermark is correctly rendered in the top-right brand slot.
-
-#### Feature 5: Rich Spec Updates (R5)
-1. `test_r5_1_rich_style_properties`: Validates style overrides (fillColor, strokeColor, strokeWidth, strokeStyle) are correctly processed.
-2. `test_r5_2_color_presets`: Validates color presets (cyan, blue, core, green) load and display correct colors.
-3. `test_r5_3_icons_support`: Validates support for different icons (activity, layers, shield-check, database, etc.).
-4. `test_r5_4_default_rich_spec_loading`: Validates that the default rich spec (`assets/default-spec.json`) renders cleanly.
-5. `test_r5_5_legacy_backward_compatibility`: Validates legacy-format diagram specifications are correctly parsed and auto-converted.
+- `tests/e2e/__init__.py` - Package initialization.
+- `tests/e2e/test_e2e_suite.py` - Complete test suite containing Tiers 1-4.
+- `tests/e2e/TEST_INFRA.md` - Legacy E2E test documentation.
+- `tests/e2e/TEST_READY.md` - Legacy E2E test readiness report.
 
 ---
 
-### Tier 2: Boundary & Corner Cases (Minimum 5 per Feature = 25 total)
+## Requirement Mapping
 
-#### Feature 1: Overlap & Bounding Box Boundaries
-1. `test_r1_boundary_1_extremely_dense_nodes`: Extremely dense overlapping nodes to stress-test relaxation loop termination.
-2. `test_r1_boundary_2_large_padding_margins`: Very large custom margins and padding settings.
-3. `test_r1_boundary_3_nested_panels`: Panels inside panels or hierarchy with missing parent panel references.
-4. `test_r1_boundary_4_zero_dimensions`: Nodes specifying zero or negative width/height.
-5. `test_r1_boundary_5_all_fixed_overlap`: Overlapping nodes where all are marked fixed (no movement should happen).
+### R1. Dynamic Overlap-Free Layout Engine
+**Requirement Description:**
+- Completely resolve overlapping bounding boxes (panels, cards, inputs, diamonds).
+- Dynamic layout placement based on connections and text size (adjusting boxes dynamically to encompass text size, padding, and children).
+- Text Wrapping & Fitting (English and CJK auto-wrapping, scaling without box edges/icons/lines overlap).
 
-#### Feature 2: Orthogonal Routing Boundaries
-1. `test_r2_boundary_1_nodes_aligned_exactly`: Nodes aligned exactly on the same coordinate axis (horizontal/vertical lines).
-2. `test_r2_boundary_2_adjacent_touching_nodes`: Connectors between touching or extremely close nodes.
-3. `test_r2_boundary_3_self_referencing_connection`: A node connecting to itself (self-loop routing).
-4. `test_r2_boundary_4_nonexistent_node_references`: Verification of error catching on connections with invalid node IDs.
-5. `test_r2_boundary_5_long_path_many_nodes`: Large chain connection path traversing >5 nodes in sequence.
-
-#### Feature 3: Typography & Text Boundaries
-1. `test_r3_boundary_1_extremely_long_unwrappable_string`: Long strings without any spaces (like URLs or hashes) to test scaling/truncation limits.
-2. `test_r3_boundary_2_empty_text_fields`: Empty title and body parameters.
-3. `test_r3_boundary_3_unicode_special_chars`: Emojis, math notation, and non-latin alphabets.
-4. `test_r3_boundary_4_tiny_font_limit`: Verification that font size doesn't drop below the emergency limit (9pt).
-5. `test_r3_boundary_5_newline_preservation`: Verification that manual newlines (`\n`) in the spec are preserved.
-
-#### Feature 4: Aesthetics Boundaries
-1. `test_r4_boundary_1_missing_signature`: Specification with None/empty signature.
-2. `test_r4_boundary_2_no_motion_in_static_gif`: Verification that frames are identical except for glow dot motion.
-3. `test_r4_boundary_3_theme_colors`: Verify correct theme mappings for "dark", "light", and "white" backgrounds.
-4. `test_r4_boundary_4_unusual_stroke_styles`: Dash/dot stroke style variations on shapes.
-5. `test_r4_boundary_5_gradient_fills`: Element rendering when gradient fills are configured.
-
-#### Feature 5: Rich Spec Boundaries
-1. `test_r5_boundary_1_invalid_style_values`: Check fallbacks for invalid hex colors, negative border widths, or invalid corner radii.
-2. `test_r5_boundary_2_unknown_icons`: Fallback icon selected when specifying an unregistered icon string.
-3. `test_r5_boundary_3_partial_styles`: Custom styles with some properties missing (verify merging with defaults).
-4. `test_r5_boundary_4_extra_unsupported_fields`: Adding unknown fields to check if schema ignores/warns cleanly.
-5. `test_r5_boundary_5_malformed_spec_json`: Spec json with syntax errors to verify graceful exit and error message reporting.
-
----
-
-### Tier 3: Cross-Feature Combinations (Minimum 5 cases)
-1. `test_comb_rebrand_and_scaling`: Pairwise check of rebrand replacements in a scaled-up custom resolution.
-2. `test_comb_rebrand_and_svg`: Verify CJK rebrand replacements inside high-res vector SVG outputs.
-3. `test_comb_scaling_and_svg`: Verify canvas dimension modifications properly align viewport in SVG outputs.
-4. `test_comb_all_features_combined`: Complex spec combining rich custom style presets, rebrand strings, custom dimensions, and orthogonal connections in a single build.
-5. `test_comb_text_fitting_and_scaling`: Pairwise check of wrapped text blocks inside heavily shrunken custom boxes to verify nested layout bounds recalculation.
+| Test Class | Test Case Name | Feature Dimension Covered |
+|---|---|---|
+| `E2ETier1FeatureCoverage` | `test_f1_fc_1_overlap_two_cards` | Resolving overlap of basic cards |
+| `E2ETier1FeatureCoverage` | `test_f1_fc_2_overlap_card_input` | Resolving overlap of mixed element types (card and input) |
+| `E2ETier1FeatureCoverage` | `test_f1_fc_3_overlap_card_diamond` | Resolving overlap of card and diamond elements |
+| `E2ETier1FeatureCoverage` | `test_f1_fc_4_overlap_fixed_does_not_move` | Ensuring elements marked as fixed do not have coordinates shifted |
+| `E2ETier1FeatureCoverage` | `test_f1_fc_5_overlap_within_panel` | Overlap resolution of elements inside a panel boundary |
+| `E2ETier1FeatureCoverage` | `test_f2_fc_1_dynamic_card_width_by_title` | Bounding box width adjustment based on title length |
+| `E2ETier1FeatureCoverage` | `test_f2_fc_2_dynamic_card_height_by_body` | Bounding box height adjustment based on body content |
+| `E2ETier1FeatureCoverage` | `test_f2_fc_3_panel_autosize_by_children` | Panel width/height autosizing based on child cards |
+| `E2ETier1FeatureCoverage` | `test_f2_fc_4_dynamic_diamond_size` | Diamond decision node sizing based on label length |
+| `E2ETier1FeatureCoverage` | `test_f2_fc_5_custom_panel_padding` | Panel sizing incorporating custom padding values |
+| `E2ETier1FeatureCoverage` | `test_f3_fc_1_english_word_wrapping` | Word-based text wrapping for English body text |
+| `E2ETier1FeatureCoverage` | `test_f3_fc_2_cjk_char_wrapping` | Character-based text wrapping for CJK body text |
+| `E2ETier1FeatureCoverage` | `test_f3_fc_3_adaptive_font_scaling_standard` | Automatic scaling down of font size to fit long unwrappable words |
+| `E2ETier1FeatureCoverage` | `test_f3_fc_4_text_alignments` | Verifying different text alignment styles (left, center, right) |
+| `E2ETier1FeatureCoverage` | `test_f3_fc_5_font_family_handwriting` | Application of font family presets (e.g. handwriting style) |
+| `E2ETier2BoundaryCorner` | `test_f1_bc_1_extreme_density_overlap` | Stress test with 15 highly overlapping nodes |
+| `E2ETier2BoundaryCorner` | `test_f1_bc_2_all_fixed_overlap` | Handling overlapping nodes when all nodes are marked fixed |
+| `E2ETier2BoundaryCorner` | `test_f1_bc_3_nested_panels_deep` | Bounding box calculation for nested panels |
+| `E2ETier2BoundaryCorner` | `test_f1_bc_4_negative_zero_dimensions` | Graceful fallback and sizing for negative or zero input dimensions |
+| `E2ETier2BoundaryCorner` | `test_f1_bc_5_extreme_margins` | Sizing under extreme node/panel margin constraints |
+| `E2ETier2BoundaryCorner` | `test_f2_bc_1_empty_title_and_body` | Layout calculation with empty strings for title and body |
+| `E2ETier2BoundaryCorner` | `test_f2_bc_2_single_character_elements` | Sizing for single character strings (edge of minimal bounds) |
+| `E2ETier2BoundaryCorner` | `test_f2_bc_3_huge_unwrappable_title` | Extreme width expansion for very long single-word titles |
+| `E2ETier2BoundaryCorner` | `test_f2_bc_4_deeply_nested_panel_autosizing` | Autosizing calculations propagating through nested panels |
+| `E2ETier2BoundaryCorner` | `test_f2_bc_5_floating_point_precision_dimensions` | Sizing with high-precision float coordinates |
+| `E2ETier2BoundaryCorner` | `test_f3_bc_1_extremely_long_unwrappable_word` | Boundary scaling down for extremely long unwrappable words |
+| `E2ETier2BoundaryCorner` | `test_f3_bc_2_special_characters_emojis` | Font rendering & size calculations with emojis & non-Latin strings |
+| `E2ETier2BoundaryCorner` | `test_f3_bc_3_newline_preservation` | Preservation of explicit newlines in body text |
+| `E2ETier2BoundaryCorner` | `test_f3_bc_4_tiny_container_scaling` | Sizing and scaling limits inside extremely small parent boxes |
+| `E2ETier2BoundaryCorner` | `test_f3_bc_5_cjk_english_mixed` | Sizing calculations for mixed English and CJK texts |
 
 ---
 
-### Tier 4: Real-World Application Scenarios (Minimum 5 Scenarios)
-1. `test_scenario_1_microservices_auth_flow`: Multi-agent OAuth2 verification gateway diagram.
-2. `test_scenario_2_data_ingestion_pipeline`: Real-time Kafka ingestion and Iceberg database storage pipeline.
-3. `test_scenario_3_ml_training_pipeline`: MLOps training/evaluation pipeline with XGBoost, ONNX, and MLflow tracking.
-4. `test_scenario_4_e_commerce_order_processing`: Checkout backend saga orchestrator diagram with payment hooks.
-5. `test_scenario_5_devops_ci_cd_pipeline`: PR build, Trivy scan, Helm deploy, and Grafana monitoring dashboard diagram.
+### R2. Smart Obstacle-Avoiding Line Routing
+**Requirement Description:**
+- Rewrite or enhance connection line routing to cleanly navigate around nodes (panels, cards, diamonds) and exit/entry ports.
+- Implement parallel offset paths for multiple connections between same regions/nodes to prevent overlap.
 
-## Coverage Thresholds
-- Tier 1: ≥5 per feature
-- Tier 2: ≥5 per feature (where boundaries exist)
-- Tier 3: pairwise coverage of major feature interactions
-- Tier 4: ≥5 realistic application scenarios
+| Test Class | Test Case Name | Feature Dimension Covered |
+|---|---|---|
+| `E2ETier1FeatureCoverage` | `test_f4_fc_1_direct_path_no_obstacle` | Routing standard straight connection when path is clear |
+| `E2ETier1FeatureCoverage` | `test_f4_fc_2_obstacle_avoidance_horizontal` | Routing around a blocking obstacle horizontally |
+| `E2ETier1FeatureCoverage` | `test_f4_fc_3_obstacle_avoidance_vertical` | Routing around a blocking obstacle vertically |
+| `E2ETier1FeatureCoverage` | `test_f4_fc_4_routing_inside_panel` | Connection routing contained entirely inside panel boundaries |
+| `E2ETier1FeatureCoverage` | `test_f4_fc_5_port_direction_hints` | Honoring designated entry and exit ports for connection line start/end |
+| `E2ETier1FeatureCoverage` | `test_f5_fc_1_parallel_two_connections` | Offsetting two parallel connections to prevent overlap |
+| `E2ETier1FeatureCoverage` | `test_f5_fc_2_parallel_three_connections` | Offsetting three parallel connections |
+| `E2ETier1FeatureCoverage` | `test_f5_fc_3_parallel_self_loop_offsets` | Offsetting multiple self-loop connections on a single node |
+| `E2ETier1FeatureCoverage` | `test_f5_fc_4_parallel_adjacent_nodes` | Offsetting parallel connections between adjacent nodes |
+| `E2ETier1FeatureCoverage` | `test_f5_fc_5_parallel_offset_spacing_custom` | Custom offset spacing configuration limits |
+| `E2ETier2BoundaryCorner` | `test_f4_bc_1_no_valid_path` | Fallback routing when no non-intersecting path exists |
+| `E2ETier2BoundaryCorner` | `test_f4_bc_2_self_loop_boundaries` | Handling loop-back connections on boundary coordinates |
+| `E2ETier2BoundaryCorner` | `test_f4_bc_3_nonexistent_node_id` | Proper validation and failure on invalid/nonexistent node IDs |
+| `E2ETier2BoundaryCorner` | `test_f4_bc_4_exactly_aligned_axes` | Routing when node axes are perfectly aligned (potential divide-by-zero risk) |
+| `E2ETier2BoundaryCorner` | `test_f4_bc_5_long_path_chain` | Multi-segment connection routing across a chain of nodes |
+| `E2ETier2BoundaryCorner` | `test_f5_bc_1_many_parallel_connections` | Routing 10 parallel connections between a single pair of nodes |
+| `E2ETier2BoundaryCorner` | `test_f5_bc_2_parallel_opposing_directions` | Offsetting parallel lines running in opposite directions |
+| `E2ETier2BoundaryCorner` | `test_f5_bc_3_zero_spacing_offset` | Routing when spacing parameter for offsets is set to zero |
+| `E2ETier2BoundaryCorner` | `test_f5_bc_4_parallel_self_loops_large_count` | Offsetting 5 parallel self-loop connections |
+| `E2ETier2BoundaryCorner` | `test_f5_bc_5_parallel_offset_extreme_coordinates` | Routing parallel lines at extreme canvas coordinates |
+
+---
+
+### R3. Premium Spec Design Update & Themes
+**Requirement Description:**
+- Redesign `assets/default-spec.json` to showcase multi-layered layout, distinct styles, clean groupings, visual aesthetics.
+- Ensure proper theme support (dark, light, white), stroke widths, styles, presets.
+
+| Test Class | Test Case Name | Feature Dimension Covered |
+|---|---|---|
+| `E2ETier1FeatureCoverage` | `test_f6_fc_1_theme_dark_palette` | Applying dark theme palette colors |
+| `E2ETier1FeatureCoverage` | `test_f6_fc_2_theme_light_palette` | Applying light theme palette colors |
+| `E2ETier1FeatureCoverage` | `test_f6_fc_3_theme_white_palette` | Applying white theme palette colors |
+| `E2ETier1FeatureCoverage` | `test_f6_fc_4_custom_stroke_width_and_style` | Verifying custom stroke widths and dash/solid styles |
+| `E2ETier1FeatureCoverage` | `test_f6_fc_5_custom_colors_preset` | Verifying color preset overrides (e.g. cyan preset) |
+| `E2ETier2BoundaryCorner` | `test_f6_bc_1_invalid_hex_colors` | Fallback handling when invalid hex color codes are supplied |
+| `E2ETier2BoundaryCorner` | `test_f6_bc_2_unknown_preset_theme` | Fallback theme handling for unknown theme strings |
+| `E2ETier2BoundaryCorner` | `test_f6_bc_3_missing_style_subkeys` | Sane defaults when style specifications are partially empty |
+| `E2ETier2BoundaryCorner` | `test_f6_bc_4_unsupported_stroke_styles` | Fallback behavior when unsupported stroke styles are requested |
+| `E2ETier2BoundaryCorner` | `test_f6_bc_5_negative_stroke_width` | Fallback behavior for negative stroke widths |
+| `E2ETier3Combinations` | `test_comb_rebrand_and_scaling` | Multi-feature integration: Rebranding + scaling |
+| `E2ETier3Combinations` | `test_comb_rebrand_and_svg` | Multi-feature integration: Rebranding + SVG verification |
+| `E2ETier3Combinations` | `test_comb_scaling_and_svg` | Multi-feature integration: Coordinate scaling + SVG export |
+| `E2ETier3Combinations` | `test_comb_all_features_combined` | Complex integration: Theme + rebrand + obstacle avoidance + parallel lines + multi-frame GIF |
+| `E2ETier3Combinations` | `test_comb_text_fitting_and_scaling` | Complex integration: Text fitting + Auto-scaling CJK text |
+| `E2ETier3Combinations` | `test_comb_obstacle_avoidance_and_parallel_offsets` | Complex integration: Obstacle avoidance + parallel offsets |
+| `E2ETier4Scenarios` | `test_scenario_1_microservices_auth_flow` | Real-world: OAuth2/OIDC microservices flow |
+| `E2ETier4Scenarios` | `test_scenario_2_data_ingestion_pipeline` | Real-world: Kafka ingestion & Iceberg memory buffer |
+| `E2ETier4Scenarios` | `test_scenario_3_ml_training_pipeline` | Real-world: Machine Learning model continuous training |
+| `E2ETier4Scenarios` | `test_scenario_4_e_commerce_order_processing` | Real-world: E-Commerce checkout & order orchestration |
+| `E2ETier4Scenarios` | `test_scenario_5_devops_ci_cd_pipeline` | Real-world: DevOps CI/CD pipeline |
+
+---
+
+## Execution Command
+To execute the E2E test suite, run the following command in the workspace root:
+
+```bash
+python -m unittest tests.e2e.test_e2e_suite
+```

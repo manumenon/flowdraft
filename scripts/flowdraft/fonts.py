@@ -81,6 +81,7 @@ def load_font(size: float, hand: bool = False, cjk: bool = False, bold: bool = F
     Returns:
         A PIL ``ImageFont`` object.
     """
+    size = max(1, int(size))
     for path in font_candidates(hand=hand, cjk=cjk, bold=bold):
         try:
             return ImageFont.truetype(path, c(size))
