@@ -31,6 +31,10 @@ def font_candidates(hand: bool = False, cjk: bool = False, bold: bool = False) -
     Returns:
         A list of font path strings or family name strings.
     """
+    from . import constants as _c
+    if not getattr(_c, "HAND", True):
+        hand = False
+
     if hand:
         return [
             "/System/Library/Fonts/Supplemental/Chalkduster.ttf",

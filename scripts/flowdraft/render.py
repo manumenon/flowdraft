@@ -60,6 +60,7 @@ def render_static(spec: dict) -> tuple:
     global SCALE_X, SCALE_Y
     _constants.SCALE_X = SCALE_X
     _constants.SCALE_Y = SCALE_Y
+    _constants.HAND    = spec.get("hand", True)
 
     # ---- 1×1 dummy canvas for text measurement ---------------------------
     dummy_img  = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
@@ -299,13 +300,17 @@ def render_static(spec: dict) -> tuple:
     }
 
     # ---- Resolved animated paths ----------------------------------------
+    # ---- Resolved animated paths ----------------------------------------
     def scale_path(pts):
         return [(px * SCALE_X, py * SCALE_Y) for px, py in pts]
 
-    # Downward connection: route clear of text overlap by landing right above cards
+    # Orthogonal input-to-core path: straight down, horizontally left (above core panel), then down
+    y_input_mid = input_panel_y + input_panel_h + (core_panel_y - (input_panel_y + input_panel_h)) / 2
     path_input_to_core = [
         (input_panel_x + input_panel_w / 2, input_panel_y + input_panel_h),
-        (core_panel_x  + core_panel_w  / 2, card_y - 12),
+        (input_panel_x + input_panel_w / 2, y_input_mid),
+        (resolved_card_x[0] + core_cards_data[0]["w"] / 2, y_input_mid),
+        (resolved_card_x[0] + core_cards_data[0]["w"] / 2, card_y),
     ]
 
     # Dynamic card-to-card horizontal connectors
@@ -327,20 +332,46 @@ def render_static(spec: dict) -> tuple:
     path_decision_to_output = [(decision_x + dec_w, decision_y + dec_h / 2),
                                 (output_x, output_y + out_h_final / 2)]
 
+    # Orthogonal path from output bottom to right panel top
+    y_out_mid = output_y + out_h_final + (right_panel_y - (output_y + out_h_final)) / 2
+    path_output_to_fabric = [
+        (output_x + out_w_final / 2, output_y + out_h_final),
+        (output_x + out_w_final / 2, y_out_mid),
+        (right_panel_x + right_panel_w / 2, y_out_mid),
+        (right_panel_x + right_panel_w / 2, right_panel_y),
+    ]
+
     p_loop_start = (decision_x, decision_y + dec_h / 2)
     p_loop_end   = (resolved_card_x[0] + core_cards_data[0]["w"] / 2, card_y + core_cards_data[0]["h"])
     path_decision_to_card0   = [p_loop_start, (p_loop_end[0], p_loop_start[1]), p_loop_end]
-    path_core_to_left_down   = [(resolved_card_x[0] + core_cards_data[0]["w"] * 0.23, core_panel_y + core_panel_h),
-                                 (resolved_card_x[0] + core_cards_data[0]["w"] * 0.23, left_panel_y)]
-    path_left_to_core_up     = [(resolved_card_x[0] + core_cards_data[0]["w"] * 0.42, left_panel_y),
-                                 (resolved_card_x[0] + core_cards_data[0]["w"] * 0.42, core_panel_y + core_panel_h)]
-    path_layer_connectors    = []
-    for i in range(len(layer_cards_data) - 1):
-        sx   = layer_card_xs[i] + layer_cards_data[i]["w"]
-        ex_x = layer_card_xs[i + 1]
-        yv   = layer_card_y + layer_cards_data[i]["h"] / 2
-        path_layer_connectors.extend([(sx, yv), (ex_x, yv)])
-    path_center_to_right = [(center_panel_x + center_panel_w, center_panel_y + 156),
+    path_core_to_left_down   = []
+    
+    # Orthogonal upward ingestion path: straight up, horizontally right (clear of label), then up
+    y_ingest_mid = core_panel_y + core_panel_h + 15
+    path_left_to_core_up     = [
+        (left_panel_x + left_panel_w / 2, left_panel_y),
+        (left_panel_x + left_panel_w / 2, y_ingest_mid),
+        (resolved_card_x[0] + core_cards_data[0]["w"] / 2, y_ingest_mid),
+        (resolved_card_x[0] + core_cards_data[0]["w"] / 2, core_panel_y + core_panel_h),
+    ]
+
+    # Parallel orthogonal storage paths: go straight down below core panel, horizontally, then down
+    y_storage_mid = core_panel_y + core_panel_h + (center_panel_y - (core_panel_y + core_panel_h)) / 2
+    path_embeddings_to_db = [
+        (resolved_card_x[2] + core_cards_data[2]["w"] / 2, card_y + core_cards_data[2]["h"]),
+        (resolved_card_x[2] + core_cards_data[2]["w"] / 2, y_storage_mid),
+        (center_panel_x + center_panel_w * 0.35, y_storage_mid),
+        (center_panel_x + center_panel_w * 0.35, center_panel_y),
+    ]
+    path_graph_to_db = [
+        (resolved_card_x[3] + core_cards_data[3]["w"] / 2, card_y + core_cards_data[3]["h"]),
+        (resolved_card_x[3] + core_cards_data[3]["w"] / 2, y_storage_mid),
+        (center_panel_x + center_panel_w * 0.65, y_storage_mid),
+        (center_panel_x + center_panel_w * 0.65, center_panel_y),
+    ]
+
+    path_layer_connectors    = [] # Removed horizontal chain connectors between storage nodes
+    path_center_to_right = [(center_panel_x + center_panel_w, center_panel_y + 155),
                              (right_panel_x, right_panel_y + 155)]
     pr_start = (right_panel_x + 132, right_panel_y)
     pr_end   = (decision_x + dec_w / 2, decision_y + dec_h)
@@ -360,10 +391,11 @@ def render_static(spec: dict) -> tuple:
         + [
             (scale_path(path_last_card_to_decision), THEME["core_stroke"], 0.38),
             (scale_path(path_decision_to_output),    THEME["green"],       0.54),
+            (scale_path(path_output_to_fabric),      THEME["cyan"],        0.62),
             (scale_path(path_decision_to_card0),     THEME["purple"],      0.66),
-            (scale_path(path_core_to_left_down),     THEME["green"],       0.18),
-            (scale_path(path_left_to_core_up),       THEME["green"],       0.58),
-            (scale_path(path_layer_connectors),      THEME["purple"],      0.32),
+            (scale_path(path_left_to_core_up),       THEME["green"],       0.18),
+            (scale_path(path_embeddings_to_db),      THEME["cyan"],        0.28),
+            (scale_path(path_graph_to_db),           THEME["purple"],      0.34),
             (scale_path(path_center_to_right),       THEME["white"],       0.46),
             (scale_path(path_right_to_decision),     THEME["amber"],       0.72),
         ]
@@ -430,11 +462,11 @@ def render_static(spec: dict) -> tuple:
               input_panel_x + 109, input_panel_y + 16, 210, 31, 22, THEME["white"], "center", hand=True, bold=True)
     for i, inp in enumerate(inputs_data):
         small_input(ex_doc, draw, resolved_input_centers[i] * SCALE_X, (input_panel_y + 62) * SCALE_Y, inp)
-    draw_line(ex_doc, draw, path_input_to_core, THEME["white"], 2, "solid", True)
 
     # Core panel
     draw_rect(ex_doc, draw, core_panel_x, core_panel_y, core_panel_w, core_panel_h,
               THEME["core_stroke"], THEME["core_fill"], 2, 20)
+    draw_line(ex_doc, draw, path_input_to_core, THEME["white"], 2, "solid", arrow=True)
     draw_text(ex_doc, draw, core.get("title", "Archive Core"),
               core_panel_x + 390, core_panel_y + 6, 280, 26, 18, THEME["white"], "center", hand=True, bold=True, fit=True, min_size=12)
     draw_text(ex_doc, draw, core.get("subtitle", "(local read-only pipeline)"),
@@ -443,8 +475,8 @@ def render_static(spec: dict) -> tuple:
         core_card(ex_doc, draw, resolved_card_x[i] * SCALE_X, card_y * SCALE_Y, card_data)
 
     for path in card_connector_paths:
-        draw_line(ex_doc, draw, path, THEME["white"], 2, "solid", True)
-    draw_line(ex_doc, draw, path_last_card_to_decision, THEME["core_stroke"], 2, "solid", True)
+        draw_line(ex_doc, draw, path, THEME["white"], 2, "solid", arrow=True)
+    draw_line(ex_doc, draw, path_last_card_to_decision, THEME["core_stroke"], 2, "solid", arrow=True)
 
     # Decision diamond
     draw_diamond(ex_doc, draw, decision_x, decision_y, dec_w, dec_h, THEME["green"], "#052515", 2)
@@ -456,13 +488,13 @@ def render_static(spec: dict) -> tuple:
     icon(ex_doc, draw, out_spec.get("icon", "file"), output_x + 13, output_y + 10, THEME["cyan"])
     draw_text(ex_doc, draw, out_txt, output_x + 15, output_y + 51, out_w_final - 30, out_h, out_sz, THEME["white"], "center", bold=True, fit=False)
 
-    draw_line(ex_doc, draw, path_decision_to_output, THEME["white"], 2, "solid", True)
+    draw_line(ex_doc, draw, path_decision_to_output, THEME["white"], 2, "solid", arrow=True)
 
     yes_x = decision_x + dec_w + (output_x - (decision_x + dec_w) - 45) / 2
     yes_y = decision_y + dec_h / 2 - 25
     draw_text(ex_doc, draw, "Yes", yes_x, yes_y, 45, 25, 15, THEME["white"], "center")
 
-    draw_line(ex_doc, draw, path_decision_to_card0, THEME["muted"], 2, "dashed", True)
+    draw_line(ex_doc, draw, path_decision_to_card0, THEME["muted"], 2, "dashed", arrow=True)
 
     loop_lbl_x = p_loop_end[0] + (p_loop_start[0] - p_loop_end[0] - 540) / 2
     loop_lbl_y = p_loop_start[1] - 64
@@ -471,13 +503,12 @@ def render_static(spec: dict) -> tuple:
     retry_lbl_x = p_loop_end[0] + (p_loop_start[0] - p_loop_end[0] - 250) / 2
     retry_lbl_y = p_loop_start[1] + 12
     draw_text(ex_doc, draw, spec.get("retry_label", "No / missing source or conflict"), retry_lbl_x, retry_lbl_y, 250, 24, 14, THEME["white"], "center")
+    draw_line(ex_doc, draw, path_left_to_core_up,   THEME["white"], 2, "solid", arrow=True)
 
-    draw_line(ex_doc, draw, path_core_to_left_down, THEME["white"], 2, "solid", True)
-    draw_line(ex_doc, draw, path_left_to_core_up,   THEME["white"], 2, "solid", True)
+    # Output to fabric context dispatcher connection
+    draw_line(ex_doc, draw, path_output_to_fabric, THEME["white"], 2, "solid", arrow=True)
 
-    read_lbl_y = core_panel_y + core_panel_h + (left_panel_y - (core_panel_y + core_panel_h) - 22) / 2
-    draw_text(ex_doc, draw, "Read",    (resolved_card_x[0] + core_cards_data[0]["w"] * 0.23) - 47, read_lbl_y, 45, 22, 16, THEME["white"], "center")
-    draw_text(ex_doc, draw, "Context", (resolved_card_x[0] + core_cards_data[0]["w"] * 0.42) + 6,  read_lbl_y, 70, 22, 16, THEME["white"], "center")
+    draw_text(ex_doc, draw, "Ingest Events", (left_panel_x + left_panel_w / 2) - 80, left_panel_y - 25, 160, 22, 14, THEME["white"], "center")
 
     # Left panel
     draw_rect(ex_doc, draw, left_panel_x, left_panel_y, left_panel_w, left_panel_h, THEME["green"], THEME["source_fill"], 2, 14)
@@ -489,6 +520,12 @@ def render_static(spec: dict) -> tuple:
         mini_card(ex_doc, draw, left_card_x * SCALE_X, left_card_ys[i] * SCALE_Y,
                   c_data["w"] * SCALE_X, c_data["h"] * SCALE_Y,
                   c_data, THEME["green"], "#04200f")
+        # Internal sequential flow: connect stacked buffers to parsers to aggregators
+        if i < len(left_cards_data) - 1:
+            sy = left_card_ys[i] + c_data["h"]
+            ey = left_card_ys[i + 1]
+            cx = left_card_x + c_data["w"] / 2
+            draw_line(ex_doc, draw, [(cx, sy), (cx, ey)], THEME["white"], 1.5, "solid", arrow=True)
 
     # Center panel
     draw_rect(ex_doc, draw, center_panel_x, center_panel_y, center_panel_w, center_panel_h, THEME["purple"], THEME["archive_fill"], 2, 14)
@@ -501,11 +538,11 @@ def render_static(spec: dict) -> tuple:
         icon(ex_doc, draw, c_data["icon"], lx + 24, ly + 13, c_data.get("color", THEME["cyan"]), 0.8)
         draw_text(ex_doc, draw, c_data["title_txt"], lx + 10, ly + 83, c_data["title_w"], c_data["title_h"], c_data["title_sz"], THEME["white"], "center", bold=True, fit=False)
         draw_text(ex_doc, draw, c_data["body_txt"],  lx + 8,  ly + 83 + c_data["title_h"] + 1, c_data["body_w"], c_data["body_h"], c_data["body_sz"], THEME["white"], "center", spacing=2, fit=False)
-    for i in range(len(layer_cards_data) - 1):
-        sx   = layer_card_xs[i] + layer_cards_data[i]["w"]
-        ex_x = layer_card_xs[i + 1]
-        yv   = layer_card_y + layer_cards_data[i]["h"] / 2
-        draw_line(ex_doc, draw, [(sx, yv), (ex_x, yv)], THEME["white"], 2, "solid", True)
+
+    # Parallel storage paths from embedding/stitching nodes to database panels below
+    draw_line(ex_doc, draw, path_embeddings_to_db, THEME["white"], 2, "solid", arrow=True)
+    draw_line(ex_doc, draw, path_graph_to_db, THEME["white"], 2, "solid", arrow=True)
+
     draw_rect(ex_doc, draw, footer_x, footer_y, footer_w, footer_h, THEME["purple"], THEME["archive_fill"], 2, 8)
     draw_text(ex_doc, draw, ft_txt, footer_x + 37, footer_y + 7, footer_w - 74, footer_h - 17, ft_sz, THEME["white"], "center", hand=True, bold=True, fit=False)
     draw_line(ex_doc, draw,
@@ -514,7 +551,7 @@ def render_static(spec: dict) -> tuple:
               THEME["muted"], 2, "dashed", True)
 
     # Right panel
-    draw_line(ex_doc, draw, path_center_to_right, THEME["white"], 2, "solid", True)
+    draw_line(ex_doc, draw, path_center_to_right, THEME["white"], 2, "solid", arrow=True)
     # Incoming-label: sized to fit within the actual inter-panel gap
     _lbl_gap = right_panel_x - (center_panel_x + center_panel_w)
     _lbl_w   = max(40, _lbl_gap - 8)   # 4 px margin each side
@@ -524,7 +561,13 @@ def render_static(spec: dict) -> tuple:
     draw_text(ex_doc, draw, right.get("title", "Memory Pack"), right_panel_x + 44, right_panel_y + 15, 170, 34, 22, THEME["white"], "center", hand=True, bold=True)
     for i, c_data in enumerate(right_cards_data):
         pack_row(ex_doc, draw, right_card_x * SCALE_X, right_card_ys[i] * SCALE_Y, c_data)
-    draw_line(ex_doc, draw, path_right_to_decision, THEME["white"], 2, "solid", True)
+        # Internal sequential flow: connect planner to tools to registry
+        if i < len(right_cards_data) - 1:
+            sy = right_card_ys[i] + c_data["h"]
+            ey = right_card_ys[i + 1]
+            cx = right_card_x + c_data["w"] / 2
+            draw_line(ex_doc, draw, [(cx, sy), (cx, ey)], THEME["white"], 1.5, "solid", arrow=True)
+    draw_line(ex_doc, draw, path_right_to_decision, THEME["white"], 2, "solid", arrow=True)
 
     reusable_x = pr_end[0] + (pr_start[0] - pr_end[0] - 75) / 2
     draw_text(ex_doc, draw, right.get("return_label", "Reusable"), reusable_x, pr_ymid - 22, 75, 23, 16, THEME["white"], "center")

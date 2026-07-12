@@ -19,22 +19,17 @@ from .geometry import point_at_fraction
 # Particle effects
 # ---------------------------------------------------------------------------
 def draw_glow_dot(draw: ImageDraw.ImageDraw, x: float, y: float, color: str, strength: float = 1.0) -> None:
-    """Draw a 5-layer concentric glow dot at ``(x, y)``.
+    """Draw a 4-layer concentric glow dot at ``(x, y)``.
 
     The layers radiate outward from a bright white centre spark, creating a
-    rich particle effect suitable for animation trails.
-
-    Args:
-        draw:     PIL ImageDraw object.
-        x, y:     Centre of the dot in physical pixels.
-        color:    Hex colour for the glow layers.
-        strength: Overall opacity multiplier in [0, 1].
+    subtle, clean moving indicator suitable for professional workflows.
     """
-    for radius, alpha in [(28, 18), (20, 35), (13, 65), (7, 160), (3, 230)]:
+    # Subtle compact layers to prevent oversized lens flares
+    for radius, alpha in [(12, 15), (8, 40), (5, 95), (2, 200)]:
         a = int(alpha * strength)
         draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=hex_rgba(color, a))
-    # Bright white centre sparkle
-    draw.ellipse((x - 2, y - 2, x + 2, y + 2), fill=hex_rgba(THEME["white"], min(255, int(245 * strength))))
+    # Tiny bright white centre sparkle
+    draw.ellipse((x - 1, y - 1, x + 1, y + 1), fill=hex_rgba(THEME["white"], min(255, int(245 * strength))))
 
 
 def pulse_rect(

@@ -220,10 +220,11 @@ def check_outputs(result: dict, spec: dict) -> dict:
     elements        = excalidraw.get("elements", [])
     ids             = [el.get("id") for el in elements]
     text_elements   = [el for el in elements if el.get("type") == "text"]
+    expected_family = 5 if spec.get("hand", True) else 1
     checks.extend([
         {"name": "excalidraw_exists",       "ok": excalidraw_path.is_file()},
         {"name": "excalidraw_unique_ids",   "ok": len(ids) == len(set(ids))},
-        {"name": "excalidraw_text_font_family", "ok": all(el.get("fontFamily") == 5 for el in text_elements)},
+        {"name": "excalidraw_text_font_family", "ok": all(el.get("fontFamily") == expected_family for el in text_elements)},
         {"name": "excalidraw_files_empty",  "ok": excalidraw.get("files") == {}},
     ])
 

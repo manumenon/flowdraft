@@ -17,6 +17,7 @@ UPDATED        = 1782475200000  # Excalidraw element timestamp
 # Dynamic scale factors (set by render_static based on canvas size in spec)
 SCALE_X = 1.0
 SCALE_Y = 1.0
+HAND    = True
 
 # ---------------------------------------------------------------------------
 # Dark (default) theme

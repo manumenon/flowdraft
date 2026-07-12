@@ -136,7 +136,19 @@ def draw_line(
     fill = adjust_color(fill)
     ex.line(points, stroke, width, style, arrow, fill=fill, opacity=opacity)
 
-    scaled_pts = [(c(px), c(py)) for px, py in points]
+    # Shorten the last segment of the line for PIL drawing to prevent the line cap from poking through the arrowhead tip
+    line_points = list(points)
+    if arrow and len(points) >= 2:
+        import math
+        a, b = points[-2], points[-1]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        dist = math.hypot(dx, dy)
+        if dist > 0:
+            shorten_len = 10 * min(SCALE_X, SCALE_Y)
+            if dist > shorten_len:
+                line_points[-1] = (b[0] - (dx / dist) * shorten_len, b[1] - (dy / dist) * shorten_len)
+
+    scaled_pts = [(c(px), c(py)) for px, py in line_points]
     alpha = int(opacity * 255) if opacity is not None else 255
 
     if fill:
@@ -145,13 +157,13 @@ def draw_line(
     if style == "solid":
         draw.line(scaled_pts, fill=hex_rgba(stroke, alpha), width=max(1, c(width)), joint="curve")
     else:
-        total = path_len(points)
+        total = path_len(line_points)
         dist = 0.0
         dash = 8 * min(SCALE_X, SCALE_Y) if style == "dashed" else 2 * min(SCALE_X, SCALE_Y)
         gap  = 8 * min(SCALE_X, SCALE_Y) if style == "dashed" else 7 * min(SCALE_X, SCALE_Y)
         while dist < total:
-            start = point_at_distance(points, dist)
-            end   = point_at_distance(points, min(total, dist + dash))
+            start = point_at_distance(line_points, dist)
+            end   = point_at_distance(line_points, min(total, dist + dash))
             draw.line(
                 [(c(start[0]), c(start[1])), (c(end[0]), c(end[1]))],
                 fill=hex_rgba(stroke, alpha),

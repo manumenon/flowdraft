@@ -165,6 +165,10 @@ class Excal:
         opacity=None,
     ) -> dict:
         """Append a text element."""
+        from . import constants as _c
+        if not getattr(_c, "HAND", True):
+            hand = False
+
         element = self.base(
             "text", "text", x, y, w, h, color, "transparent", 1, "solid",
             None, opacity=opacity,
@@ -172,7 +176,7 @@ class Excal:
         element.update({
             "text": text,
             "fontSize": int(round(size)),
-            "fontFamily": 5,
+            "fontFamily": 5 if hand else 1,
             "textAlign": align,
             "verticalAlign": "top",
             "baseline": int(round(size * 1.25)),

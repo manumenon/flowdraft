@@ -5,6 +5,7 @@
     "fps": 30,
     "frames": 90
   },
+  "hand": false,
   "signature": "@FlowDraft",
   "title": {
     "prefix": "Architecture of the",
@@ -80,11 +81,11 @@
     "body": "Zero PII detected\nSchema matched\nMerge conflict clear"
   },
   "output": {
-    "label": "Hydrated Context Payload",
+    "label": "Dispatched Context to Fabric",
     "icon": "zap"
   },
-  "loop_label": "Loop until vector drift under 2%, graph cyclic validation passes, and WAL is flushed to disk",
-  "retry_label": "State drift out of bounds / Raft consensus timeout",
+  "loop_label": "Iterate state sync until vector drift < 2% and WAL entries commit to storage blocks",
+  "retry_label": "Timeout / Consensus recovery path",
   "left_panel": {
     "title": "Distributed Ingestion Layer",
     "badge": "event driven",
@@ -100,7 +101,7 @@
         "icon": "code"
       },
       {
-        "title": "Telemetry Sniffers",
+        "title": "Stream Aggregators",
         "body": "Agent token usage logs\nException trace states\nTool execution histories",
         "icon": "terminal"
       }
@@ -111,6 +112,11 @@
     "subtitle": "(Distributed, encrypted, multi-model storage tier)",
     "footer": "Hybrid Search Engine (HNSW Index + BM25 Lexical + Cypher Traversal)",
     "cards": [
+      {
+        "title": "System WAL",
+        "body": "Write-Ahead Log\nSQLite manifest\nRollback transaction journal",
+        "icon": "database"
+      },
       {
         "title": "Blob Engine",
         "body": "Immutable cold backups\nRaw system snap dumps\nLZ4 compression",
@@ -125,11 +131,6 @@
         "title": "Knowledge Graph",
         "body": "Neo4j / Memgraph\nSemantic connections\nTransitive paths",
         "icon": "share-2"
-      },
-      {
-        "title": "System WAL",
-        "body": "Write-Ahead Log\nSQLite manifest\nRollback transaction journal",
-        "icon": "database"
       }
     ]
   },
