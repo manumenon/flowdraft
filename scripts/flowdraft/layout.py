@@ -172,10 +172,10 @@ def layout_mini_card(draw: ImageDraw.ImageDraw, card: dict, base_w: float, base_
     """
     title = card.get("title", "")
     body  = card.get("body", "")
-    title_txt, title_sz, title_w, title_h = layout_text_fit(draw, title, 115, 24, 17, 12, bold=True)
+    title_txt, title_sz, title_w, title_h = layout_text_fit(draw, title, 115, 24, 17, 13, bold=True)
     body_w_base = base_w - 92
     body_h_base = base_h - 43
-    body_txt, body_sz, body_w, body_h = layout_text_fit(draw, body, body_w_base, body_h_base, 12, 10)
+    body_txt, body_sz, body_w, body_h = layout_text_fit(draw, body, body_w_base, body_h_base, 12, 11)
     extra_w = max(0, title_w - 115, body_w - body_w_base)
     extra_h = max(0, (title_h - 24) + (body_h - body_h_base))
     return {
@@ -201,12 +201,12 @@ def layout_pack_row(draw: ImageDraw.ImageDraw, card: dict) -> dict:
     """
     title = card.get("title", "")
     body  = card.get("body", "")
-    title_txt, title_sz, title_w, title_h = layout_text_fit(draw, title, 120, 25, 17, 12, bold=True)
-    body_txt,  body_sz,  body_w,  body_h  = layout_text_fit(draw, body,  135, 30, 12, 10)
+    title_txt, title_sz, title_w, title_h = layout_text_fit(draw, title, 120, 25, 17, 13, bold=True)
+    body_txt,  body_sz,  body_w,  body_h  = layout_text_fit(dummy_draw, body,  135, 40, 12, 11) if hasattr(dummy_draw, 'im') or 'dummy_draw' in locals() else layout_text_fit(draw, body, 135, 40, 12, 11)
     extra_w = max(0, title_w - 120, body_w - 135)
-    extra_h = max(0, (title_h - 25) + (body_h - 30))
+    extra_h = max(0, (title_h - 25) + (body_h - 40))
     return {
-        "w": 228 + extra_w, "h": 84 + extra_h,
+        "w": 228 + extra_w, "h": 92 + extra_h,
         "title_txt": title_txt, "title_sz": title_sz,
         "title_w": 120 + extra_w, "title_h": title_h,
         "body_txt":  body_txt,  "body_sz":  body_sz,
@@ -228,12 +228,12 @@ def layout_layer_card(draw: ImageDraw.ImageDraw, card: dict) -> dict:
     """
     title = card.get("title", "")
     body  = card.get("body", "")
-    title_txt, title_sz, title_w, title_h = layout_text_fit(draw, title, 92, 25, 18, 12, bold=True)
-    body_txt,  body_sz,  body_w,  body_h  = layout_text_fit(draw, body,  96, 28, 11, 8)
+    title_txt, title_sz, title_w, title_h = layout_text_fit(draw, title, 92, 25, 18, 13, bold=True)
+    body_txt,  body_sz,  body_w,  body_h  = layout_text_fit(dummy_draw, body,  96, 36, 11, 10) if hasattr(dummy_draw, 'im') or 'dummy_draw' in locals() else layout_text_fit(draw, body, 96, 36, 11, 10)
     extra_w = max(0, title_w - 92, body_w - 96)
-    extra_h = max(0, (title_h - 25) + (body_h - 28))
+    extra_h = max(0, (title_h - 25) + (body_h - 36))
     return {
-        "w": 112 + extra_w, "h": 142 + extra_h,
+        "w": 112 + extra_w, "h": 150 + extra_h,
         "title_txt": title_txt, "title_sz": title_sz,
         "title_w": 92 + extra_w, "title_h": title_h,
         "body_txt":  body_txt,  "body_sz":  body_sz,

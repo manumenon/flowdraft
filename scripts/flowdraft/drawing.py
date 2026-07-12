@@ -281,8 +281,182 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
         ], THEME["amber"], 3, scaled=True)
         draw_line(ex, draw, [(x + 38 * scale, y + 38 * scale), (x + 38 * scale, y + 68 * scale)], THEME["amber"], 3, scaled=True)
 
+    elif kind == "activity":
+        # Waveform / heartbeat line
+        pts = [
+            (x + 4  * scale, y + 36 * scale),
+            (x + 18 * scale, y + 36 * scale),
+            (x + 26 * scale, y + 14 * scale),
+            (x + 35 * scale, y + 57 * scale),
+            (x + 43 * scale, y + 22 * scale),
+            (x + 51 * scale, y + 36 * scale),
+            (x + 68 * scale, y + 36 * scale),
+        ]
+        draw_line(ex, draw, pts, color, 3, scaled=True)
+
+    elif kind == "lock":
+        draw_rect(ex, draw, x + 12 * scale, y + 28 * scale, 44 * scale, 34 * scale,
+                  THEME["white"], color, 2, 4, scaled=True)
+        draw_line(ex, draw, [
+            (x + 18 * scale, y + 28 * scale),
+            (x + 18 * scale, y + 13 * scale),
+            (x + 50 * scale, y + 13 * scale),
+            (x + 50 * scale, y + 28 * scale),
+        ], THEME["white"], 3, scaled=True)
+        draw_ellipse(ex, draw, x + 29 * scale, y + 37 * scale, 10 * scale, 10 * scale,
+                     THEME["bg"], THEME["bg"], 1, scaled=True)
+
+    elif kind == "layers":
+        for idx, dy in enumerate([0, 14, 28]):
+            margin = idx * 6
+            draw_rect(ex, draw,
+                      x + (6 + margin) * scale, y + dy * scale,
+                      (56 - margin * 2) * scale, 10 * scale,
+                      THEME["white"], color, 1.5, 3, scaled=True)
+
+    elif kind == "git-commit":
+        draw_line(ex, draw,
+                  [(x + 4 * scale, y + 36 * scale), (x + 24 * scale, y + 36 * scale)],
+                  THEME["white"], 3, scaled=True)
+        draw_ellipse(ex, draw, x + 21 * scale, y + 24 * scale, 26 * scale, 24 * scale,
+                     THEME["white"], color, 3, scaled=True)
+        draw_line(ex, draw,
+                  [(x + 47 * scale, y + 36 * scale), (x + 68 * scale, y + 36 * scale)],
+                  THEME["white"], 3, scaled=True)
+
+    elif kind == "database":
+        draw_ellipse(ex, draw, x + 15 * scale, y +  9 * scale, 50 * scale, 17 * scale,
+                     THEME["white"], color, 2, scaled=True)
+        draw_rect(  ex, draw, x + 15 * scale, y + 17 * scale, 50 * scale, 37 * scale,
+                     THEME["white"], color, 2, 0, scaled=True)
+        draw_ellipse(ex, draw, x + 15 * scale, y + 45 * scale, 50 * scale, 17 * scale,
+                     THEME["white"], color, 2, scaled=True)
+
+    elif kind == "cpu":
+        draw_rect(ex, draw, x + 17 * scale, y + 17 * scale, 34 * scale, 34 * scale,
+                  THEME["white"], color, 2, 3, scaled=True)
+        for i in range(3):
+            dy = (22 + i * 10) * scale
+            draw_line(ex, draw,
+                      [(x + 7 * scale, y + dy), (x + 17 * scale, y + dy)],
+                      THEME["white"], 2, scaled=True)
+            draw_line(ex, draw,
+                      [(x + 51 * scale, y + dy), (x + 61 * scale, y + dy)],
+                      THEME["white"], 2, scaled=True)
+
+    elif kind == "git-branch":
+        draw_ellipse(ex, draw, x + 10 * scale, y +  8 * scale, 14 * scale, 14 * scale,
+                     THEME["white"], color, 2, scaled=True)
+        draw_ellipse(ex, draw, x + 10 * scale, y + 44 * scale, 14 * scale, 14 * scale,
+                     THEME["white"], color, 2, scaled=True)
+        draw_ellipse(ex, draw, x + 44 * scale, y +  8 * scale, 14 * scale, 14 * scale,
+                     THEME["white"], color, 2, scaled=True)
+        draw_line(ex, draw,
+                  [(x + 17 * scale, y + 22 * scale), (x + 17 * scale, y + 44 * scale)],
+                  THEME["white"], 3, scaled=True)
+        draw_line(ex, draw,
+                  [(x + 17 * scale, y + 15 * scale), (x + 44 * scale, y + 15 * scale)],
+                  THEME["white"], 3, scaled=True)
+
+    elif kind == "users":
+        for ox in (0, 22):
+            draw_ellipse(ex, draw, x + (8 + ox) * scale, y + 5 * scale,
+                         18 * scale, 18 * scale, THEME["white"], color, 2, scaled=True)
+            draw_line(ex, draw, [
+                (x + (5 + ox) * scale, y + 28 * scale),
+                (x + (5 + ox) * scale, y + 50 * scale),
+                (x + (27 + ox) * scale, y + 50 * scale),
+                (x + (27 + ox) * scale, y + 28 * scale),
+            ], THEME["white"], 2, scaled=True)
+
+    elif kind == "share-2":
+        for dot_x, dot_y in [(14, 36), (52, 8), (52, 64)]:
+            draw_ellipse(ex, draw,
+                         x + dot_x * scale - 7 * scale, y + dot_y * scale - 7 * scale,
+                         14 * scale, 14 * scale, THEME["white"], color, 2, scaled=True)
+        draw_line(ex, draw,
+                  [(x + 21 * scale, y + 36 * scale), (x + 45 * scale, y + 15 * scale)],
+                  THEME["white"], 2, scaled=True)
+        draw_line(ex, draw,
+                  [(x + 21 * scale, y + 36 * scale), (x + 45 * scale, y + 57 * scale)],
+                  THEME["white"], 2, scaled=True)
+
+    elif kind == "zap":
+        # Lightning bolt
+        pts = [
+            (x + 38 * scale, y + 5 * scale),
+            (x + 18 * scale, y + 37 * scale),
+            (x + 34 * scale, y + 37 * scale),
+            (x + 30 * scale, y + 67 * scale),
+            (x + 50 * scale, y + 31 * scale),
+            (x + 34 * scale, y + 31 * scale),
+        ]
+        draw_line(ex, draw, pts + [pts[0]], color, 2, scaled=True, fill=color)
+
+    elif kind == "code":
+        # < > brackets
+        draw_line(ex, draw, [(x + 22 * scale, y + 18 * scale), (x + 8 * scale, y + 34 * scale), (x + 22 * scale, y + 50 * scale)], THEME["white"], 3, scaled=True)
+        draw_line(ex, draw, [(x + 46 * scale, y + 18 * scale), (x + 60 * scale, y + 34 * scale), (x + 46 * scale, y + 50 * scale)], THEME["white"], 3, scaled=True)
+        draw_line(ex, draw, [(x + 38 * scale, y + 12 * scale), (x + 30 * scale, y + 56 * scale)], color, 3, scaled=True)
+
+    elif kind == "terminal":
+        # >_ console
+        draw_rect(ex, draw, x + 8 * scale, y + 8 * scale, 52 * scale, 52 * scale, THEME["white"], color, 2, 4, scaled=True)
+        draw_line(ex, draw, [(x + 18 * scale, y + 22 * scale), (x + 28 * scale, y + 30 * scale), (x + 18 * scale, y + 38 * scale)], THEME["white"], 3, scaled=True)
+        draw_line(ex, draw, [(x + 34 * scale, y + 38 * scale), (x + 48 * scale, y + 38 * scale)], THEME["white"], 3, scaled=True)
+
+    elif kind == "archive":
+        # Box with lid
+        draw_rect(ex, draw, x + 10 * scale, y + 24 * scale, 48 * scale, 38 * scale, THEME["white"], color, 2, 2, scaled=True)
+        draw_rect(ex, draw, x + 6 * scale, y + 10 * scale, 56 * scale, 14 * scale, THEME["white"], THEME["white"], 2, 1, scaled=True)
+        draw_line(ex, draw, [(x + 26 * scale, y + 36 * scale), (x + 42 * scale, y + 36 * scale)], THEME["white"], 3, scaled=True)
+
+    elif kind == "disc":
+        # Concentric rings
+        draw_ellipse(ex, draw, x + 8 * scale, y + 8 * scale, 52 * scale, 52 * scale, THEME["white"], color, 2, scaled=True)
+        draw_ellipse(ex, draw, x + 24 * scale, y + 24 * scale, 20 * scale, 20 * scale, THEME["white"], THEME["white"], 2, scaled=True)
+
+    elif kind == "sliders":
+        # Sliders tracks + knobs
+        for i in range(3):
+            dy = (18 + i * 16) * scale
+            draw_line(ex, draw, [(x + 10 * scale, y + dy), (x + 58 * scale, y + dy)], THEME["white"], 2, scaled=True)
+            knob_x = (20 + i * 14) * scale
+            draw_rect(ex, draw, x + knob_x, y + dy - 6 * scale, 10 * scale, 12 * scale, THEME["white"], color, 1.5, 2, scaled=True)
+
+    elif kind == "box":
+        # Box frame
+        pts = [
+            (x + 34 * scale, y + 8 * scale),
+            (x + 60 * scale, y + 22 * scale),
+            (x + 60 * scale, y + 50 * scale),
+            (x + 34 * scale, y + 64 * scale),
+            (x + 8 * scale, y + 50 * scale),
+            (x + 8 * scale, y + 22 * scale),
+        ]
+        draw_line(ex, draw, pts + [pts[0]], THEME["white"], 2, scaled=True)
+        draw_line(ex, draw, [(x + 8 * scale, y + 22 * scale), (x + 34 * scale, y + 36 * scale), (x + 60 * scale, y + 22 * scale)], THEME["white"], 2, scaled=True)
+        draw_line(ex, draw, [(x + 34 * scale, y + 36 * scale), (x + 34 * scale, y + 64 * scale)], THEME["white"], 2, scaled=True)
+
+    elif kind == "user-check":
+        # Person + Checkmark
+        draw_ellipse(ex, draw, x + 18 * scale, y + 10 * scale, 24 * scale, 24 * scale, THEME["white"], color, 2, scaled=True)
+        draw_line(ex, draw, [
+            (x + 8 * scale, y + 54 * scale),
+            (x + 8 * scale, y + 44 * scale),
+            (x + 18 * scale, y + 38 * scale),
+            (x + 42 * scale, y + 38 * scale),
+            (x + 52 * scale, y + 44 * scale),
+            (x + 52 * scale, y + 54 * scale),
+        ], THEME["white"], 2, scaled=True)
+        draw_line(ex, draw, [
+            (x + 46 * scale, y + 22 * scale),
+            (x + 51 * scale, y + 28 * scale),
+            (x + 62 * scale, y + 14 * scale),
+        ], THEME["green"], 3, scaled=True)
+
     else:
-        # Default: filled circle
+        # Default: filled circle (unknown icon kind)
         draw_ellipse(ex, draw, x + 18 * scale, y + 18 * scale, 36 * scale, 36 * scale, color, color, 2, scaled=True)
 
 
@@ -318,14 +492,8 @@ def draw_signature(ex, draw: ImageDraw.ImageDraw, text: str, x: float, y: float)
             align="left", bold=True, scaled=True, opacity=alpha / 255.0,
         )
 
-    # Decorative underline squiggle
+    # Clean underline (replaces the old squiggle)
     draw_line(ex, draw, [
-        (x + 6  * SCALE_X, y + 56 * SCALE_Y),
-        (x + 28 * SCALE_X, y + 61 * SCALE_Y),
-        (x + 62 * SCALE_X, y + 58 * SCALE_Y),
-        (x + 86 * SCALE_X, y + 63 * SCALE_Y),
-    ], THEME["purple"], width=3, scaled=True, opacity=170 / 255.0)
-    draw_line(ex, draw, [
-        (x + 8  * SCALE_X, y + 54 * SCALE_Y),
-        (x + 84 * SCALE_X, y + 60 * SCALE_Y),
-    ], THEME["white"], width=1, scaled=True, opacity=125 / 255.0)
+        (x + 4  * SCALE_X, y + 44 * SCALE_Y),
+        (x + 90 * SCALE_X, y + 44 * SCALE_Y),
+    ], THEME["frame"], width=1, scaled=True, opacity=100 / 255.0)
