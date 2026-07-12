@@ -1,0 +1,158 @@
+{
+  "canvas": {
+    "width": 1920,
+    "height": 1440,
+    "fps": 30,
+    "frames": 90
+  },
+  "signature": "@FlowDraft",
+  "title": {
+    "prefix": "Architecture of the",
+    "highlight": "Cognitive Memory Mesh",
+    "subtitle": "Multi-Agent State Synchronization & Graph RAG"
+  },
+  "input_title": "Telemetry & Knowledge Ingest",
+  "inputs": [
+    {
+      "label": "Vector Streams",
+      "icon": "database",
+      "color": "#3b82f6"
+    },
+    {
+      "label": "LLM Context Caches",
+      "icon": "cpu",
+      "color": "#a855f7"
+    },
+    {
+      "label": "GitOps State",
+      "icon": "git-branch",
+      "color": "#10b981"
+    },
+    {
+      "label": "User Sessions",
+      "icon": "users",
+      "color": "#f59e0b"
+    },
+    {
+      "label": "Graph DB Nodes",
+      "icon": "share-2",
+      "color": "#ec4899"
+    }
+  ],
+  "core": {
+    "title": "Orchestration & Synchronization Core",
+    "subtitle": "(Asynchronous distributed pipeline)",
+    "cards": [
+      {
+        "title": "Ingest & Decouple",
+        "thought": "Buffer incoming hot state updates using an ephemeral event bus.",
+        "body": "Poll memory queues\nParse raw markdown\nResolve sequence IDs",
+        "icon": "activity"
+      },
+      {
+        "title": "Privacy Guardrail",
+        "thought": "Intercept PII and secrets before writing to storage layers.",
+        "body": "Regex & NER scrubbing\nToken redactor\nHash system secrets",
+        "icon": "shield-check"
+      },
+      {
+        "title": "Vector Embedding",
+        "thought": "Generate semantic vectors to calculate state drift over time.",
+        "body": "Chunk long forms\nGenerate embeddings\nCompute cosine similarity",
+        "icon": "layers"
+      },
+      {
+        "title": "Graph Stitching",
+        "thought": "Link dynamic agent memories to the central knowledge graph topology.",
+        "body": "Extract entities\nMap dependencies\nUpdate entity relations",
+        "icon": "git-commit"
+      },
+      {
+        "title": "Consensus Lock",
+        "thought": "Prevent race conditions when multiple agent clusters write to the same memory space.",
+        "body": "Raft protocol tick\nResolve delta drift\nCommit state update",
+        "icon": "lock"
+      }
+    ]
+  },
+  "decision": {
+    "title": "State Validated?",
+    "body": "Zero PII detected\nSchema matched\nMerge conflict clear"
+  },
+  "output": {
+    "label": "Hydrated Context Payload",
+    "icon": "zap"
+  },
+  "loop_label": "Loop until vector drift under 2%, graph cyclic validation passes, and WAL is flushed to disk",
+  "retry_label": "State drift out of bounds / Raft consensus timeout",
+  "left_panel": {
+    "title": "Distributed Ingestion Layer",
+    "badge": "event driven",
+    "cards": [
+      {
+        "title": "Ephemeral Buffers",
+        "body": "Redis Stream queues\nKafka transaction logs\nIn-memory hot keys",
+        "icon": "zap"
+      },
+      {
+        "title": "Model-Agnostic Parsers",
+        "body": "Claude XML tags\nOpenAI JSON schemas\nMarkdown execution blocks",
+        "icon": "code"
+      },
+      {
+        "title": "Telemetry Sniffers",
+        "body": "Agent token usage logs\nException trace states\nTool execution histories",
+        "icon": "terminal"
+      }
+    ]
+  },
+  "center_panel": {
+    "title": "Persistent State Mesh",
+    "subtitle": "(Distributed, encrypted, multi-model storage tier)",
+    "footer": "Hybrid Search Engine (HNSW Index + BM25 Lexical + Cypher Traversal)",
+    "cards": [
+      {
+        "title": "Blob Engine",
+        "body": "Immutable cold backups\nRaw system snap dumps\nLZ4 compression",
+        "icon": "archive"
+      },
+      {
+        "title": "Vector Database",
+        "body": "pgvector storage\nDynamic HNSW index\nQuantized float weights",
+        "icon": "disc"
+      },
+      {
+        "title": "Knowledge Graph",
+        "body": "Neo4j / Memgraph\nSemantic connections\nTransitive paths",
+        "icon": "share-2"
+      },
+      {
+        "title": "System WAL",
+        "body": "Write-Ahead Log\nSQLite manifest\nRollback transaction journal",
+        "icon": "database"
+      }
+    ]
+  },
+  "right_panel": {
+    "title": "Agent Execution Fabric",
+    "incoming_label": "Dynamic Compile",
+    "return_label": "Feedback Loop",
+    "cards": [
+      {
+        "title": "Dynamic Planner",
+        "body": "Injects real-time context\nAdapts runbook goals\nCalculates token budget",
+        "icon": "sliders"
+      },
+      {
+        "title": "Ephemeral Tools",
+        "body": "Sandboxed runtimes\nShort-lived API configurations\nLocal file operations",
+        "icon": "box"
+      },
+      {
+        "title": "Persona Registry",
+        "body": "Cross-agent alignment\nHistorical user biases\nGlobal system behaviors",
+        "icon": "user-check"
+      }
+    ]
+  }
+}
