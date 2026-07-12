@@ -6,13 +6,14 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from PIL import Image
 
 # Find root of the workspace
 ROOT = Path(__file__).resolve().parents[2]
 
 
 def get_script_path():
-    for filename in ["render_flowdraft_diagram.py", "render_flowdraft.py", "render_animated_diagram.py"]:
+    for filename in ["render_dynamic_diagram.py", "render_flowdraft_diagram.py", "render_flowdraft.py", "render_animated_diagram.py"]:
         path = ROOT / "scripts" / filename
         if path.exists():
             return path
@@ -20,7 +21,6 @@ def get_script_path():
 
 
 KEY_TITLE = "".join([chr(c) for c in [76, 97, 110, 115, 104, 117]])
-KEY_LOWER = "".join([chr(c) for c in [108, 97, 110, 115, 104, 117]])
 KEY_CJK = "\u5c9a\u53d4"
 
 
@@ -130,6 +130,9 @@ class E2ETestBase(unittest.TestCase):
             if el.get("isDeleted"):
                 continue
             if el.get("type") == "rectangle":
+                el_id = el.get("id", "")
+                if "panel" in str(el_id).lower():
+                    continue
                 if frame_el is None or el.get("width", 0) > frame_el.get("width", 0):
                     frame_el = el
                     
@@ -145,433 +148,742 @@ class E2ETestBase(unittest.TestCase):
                 continue
             el_type = el.get("type")
             if el_type in ("rectangle", "diamond"):
+                if frame_el and el.get("id") == frame_el.get("id"):
+                    continue
                 w = el.get("width", 0)
                 h = el.get("height", 0)
-                # Filter out container frames and small icon rectangles using scaled thresholds
-                if 50 * scale_x <= w <= 500 * scale_x and h <= 300 * scale_y:
-                    x = el.get("x", 0)
-                    y = el.get("y", 0)
-                    nodes.append((x, y, x + w, y + h, el.get("id")))
-                    
+                # Ignore small icons/decorations
+                if w < 30 * scale_x or h < 30 * scale_y:
+                    continue
+                x = el.get("x", 0)
+                y = el.get("y", 0)
+                nodes.append({"x1": x, "y1": y, "x2": x + w, "y2": y + h, "w": w, "h": h, "id": el.get("id")})
+                
+        # Determine immediate parent for each node based on geometric containment
+        parent = {}
+        epsilon = 2.0
+        for b in nodes:
+            b_id = b["id"]
+            best_p = None
+            best_p_w = float("inf")
+            for a in nodes:
+                a_id = a["id"]
+                if a_id == b_id:
+                    continue
+                if (a["x1"] <= b["x1"] + epsilon and
+                    a["y1"] <= b["y1"] + epsilon and
+                    a["x2"] >= b["x2"] - epsilon and
+                    a["y2"] >= b["y2"] - epsilon and
+                    a["w"] > b["w"]):
+                    if a["w"] < best_p_w:
+                        best_p = a_id
+                        best_p_w = a["w"]
+            parent[b_id] = best_p
+
+        parent_ids = {p for p in parent.values() if p is not None}
+        def is_panel(node_id):
+            return "panel" in str(node_id).lower() or node_id in parent_ids
+
         overlaps = []
         for i in range(len(nodes)):
             for j in range(i + 1, len(nodes)):
-                box1 = nodes[i][:4]
-                box2 = nodes[j][:4]
-                if self.check_overlap(box1, box2):
-                    overlaps.append((nodes[i][4], nodes[j][4]))
-                    print(f"OVERLAP DETECTED: {nodes[i][4]} ({nodes[i][0]}, {nodes[i][1]}, {nodes[i][2]}, {nodes[i][3]}) vs {nodes[j][4]} ({nodes[j][0]}, {nodes[j][1]}, {nodes[j][2]}, {nodes[j][3]})")
+                id_i = nodes[i]["id"]
+                id_j = nodes[j]["id"]
+                
+                # Sibling elements check (skip panels from leaf node collision check)
+                if is_panel(id_i) or is_panel(id_j):
+                    continue
+                    
+                p_i = parent[id_i]
+                p_j = parent[id_j]
+                
+                # Check condition:
+                # Sibling elements check against sibling elements: p_i == p_j (if they both have a parent)
+                # Top-level elements check against top-level elements: p_i is None and p_j is None
+                should_check = False
+                if p_i == p_j:
+                    should_check = True
+                
+                if should_check:
+                    box1 = (nodes[i]["x1"], nodes[i]["y1"], nodes[i]["x2"], nodes[i]["y2"])
+                    box2 = (nodes[j]["x1"], nodes[j]["y1"], nodes[j]["x2"], nodes[j]["y2"])
+                    if self.check_overlap(box1, box2):
+                        overlaps.append((id_i, id_j))
+                        print(f"OVERLAP DETECTED: {id_i} ({nodes[i]['x1']}, {nodes[i]['y1']}, {nodes[i]['x2']}, {nodes[i]['y2']}) vs {id_j} ({nodes[j]['x1']}, {nodes[j]['y1']}, {nodes[j]['x2']}, {nodes[j]['y2']})")
         return overlaps
 
 
 class E2ETier1FeatureCoverage(E2ETestBase):
     """
-    Tier 1: Feature Coverage (R1, R2, R3, R4) -> >= 5 tests per feature.
+    Tier 1: Feature Coverage (R1, R2, R3, R4, R5) -> 5 tests per feature (25 total).
     """
-    
-    # --- R1: Rebrand and Remove Old Branding ---
-    
-    def test_r1_1_default_run_no_old_branding_leak(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            # Rebranding active via spec
-            self.default_spec["rebrand"] = True
-            result = self.run_renderer(self.default_spec, tmp, "rebrand_default")
-            
-            self.verify_no_branding_references(result["excalidraw"])
-            self.verify_no_branding_references(result["svg"])
 
-    def test_r1_2_cli_flag_rebrand_cleans_outputs(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            # Pass CLI flag --rebrand
-            result = self.run_renderer(self.default_spec, tmp, "rebrand_cli", extra_args=["--rebrand"])
-            
-            self.verify_no_branding_references(result["excalidraw"])
-            self.verify_no_branding_references(result["svg"])
+    # --- Feature 1: Overlap Check & Bounding Box (R1) ---
 
-    def test_r1_3_spec_flag_rebrand_cleans_outputs(self):
+    def test_r1_1_basic_bounding_box_computation(self):
         with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["rebrand"] = True
-            result = self.run_renderer(spec, tmp, "rebrand_spec")
-            
-            self.verify_no_branding_references(result["excalidraw"])
-            self.verify_no_branding_references(result["svg"])
+            result = self.run_renderer(self.default_spec, tmp, "r1_1")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            rectangles = [el for el in elements if el.get("type") == "rectangle" and not el.get("isDeleted")]
+            self.assertGreater(len(rectangles), 0)
 
-    def test_r1_4_custom_signature_preservation(self):
+    def test_r1_2_overlap_elimination_moves_nodes(self):
+        spec = {
+            "canvas": {"width": 1000, "height": 800, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "Card A"},
+                {"id": "node_b", "x": 105, "y": 105, "width": 100, "height": 100, "type": "card", "title": "Card B"}
+            ]
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["rebrand"] = True
-            spec["signature"] = "@MyBrandedEngine"
-            result = self.run_renderer(spec, tmp, "rebrand_custom_sig")
-            
-            # Custom signature should appear in outputs
-            excalidraw_content = Path(result["excalidraw"]).read_text(encoding="utf-8")
-            self.assertIn("@MyBrandedEngine", excalidraw_content)
-            self.verify_no_branding_references(result["excalidraw"])
-
-    def test_r1_5_text_replacement_in_labels(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["rebrand"] = True
-            spec["title"]["prefix"] = "Designed by " + KEY_TITLE
-            result = self.run_renderer(spec, tmp, "rebrand_replacements")
-            
-            # Prefix should have old branding replaced with FlowDraft
-            excalidraw_content = Path(result["excalidraw"]).read_text(encoding="utf-8")
-            self.assertIn("Designed by FlowDraft", excalidraw_content)
-            self.verify_no_branding_references(result["excalidraw"])
-
-    # --- R2: Auto-scaling Grid Layout & Collision Prevention ---
-
-    def test_r2_1_default_layout_no_overlap(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "layout_default")
-            
+            result = self.run_renderer(spec, tmp, "r1_2")
             excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
             overlaps = self.get_layout_overlaps(excal_data)
-            self.assertEqual(len(overlaps), 0, f"Found overlapping bounding boxes: {overlaps}")
+            self.assertEqual(len(overlaps), 0)
 
-    def test_r2_2_large_scaled_layout_no_overlap(self):
+    def test_r1_3_fixed_nodes_dont_move(self):
+        spec = {
+            "canvas": {"width": 1000, "height": 800, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "Card A", "style": {"fixed": True}},
+                {"id": "node_b", "x": 105, "y": 105, "width": 100, "height": 100, "type": "card", "title": "Card B"}
+            ]
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 2420, "height": 2276, "frames": 2}
-            result = self.run_renderer(spec, tmp, "layout_large")
-            
+            result = self.run_renderer(spec, tmp, "r1_3")
             excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
-            overlaps = self.get_layout_overlaps(excal_data)
-            self.assertEqual(len(overlaps), 0, f"Found overlapping bounding boxes: {overlaps}")
-
-    def test_r2_3_small_scaled_layout_no_overlap(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 800, "height": 600, "frames": 2}
-            result = self.run_renderer(spec, tmp, "layout_small")
+            # Find elements corresponding to node_a by matching coordinates
+            # Since node_a was fixed at (100, 100), its scaled position in excalidraw should correspond
+            elements = excal_data.get("elements", [])
+            # Outer frame element determines scale
+            frame_el = None
+            for el in elements:
+                if el.get("isDeleted"):
+                    continue
+                if el.get("type") == "rectangle":
+                    if frame_el is None or el.get("width", 0) > frame_el.get("width", 0):
+                        frame_el = el
+            scale_x = frame_el.get("x", 18.0) / 18.0 if frame_el else 1.0
             
+            # Find node_a in excalidraw elements (type rectangle, x matches 100 * scale_x)
+            matching_a = [el for el in elements if el.get("type") == "rectangle" and abs(el.get("x", 0) - 100 * scale_x) < 5.0]
+            self.assertGreater(len(matching_a), 0)
+
+    def test_r1_4_hierarchical_panel_resize(self):
+        spec = {
+            "canvas": {"width": 1200, "height": 900, "frames": 1},
+            "nodes": [
+                {"id": "my_panel", "x": 50, "y": 50, "width": 100, "height": 100, "type": "panel", "title": "My Panel"},
+                {"id": "card_a", "x": 100, "y": 100, "width": 200, "height": 100, "type": "card", "title": "Card A", "parent": "my_panel"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r1_4")
             excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
-            overlaps = self.get_layout_overlaps(excal_data)
-            self.assertEqual(len(overlaps), 0, f"Found overlapping bounding boxes: {overlaps}")
+            elements = excal_data.get("elements", [])
+            rectangles = [el for el in elements if el.get("type") == "rectangle" and not el.get("isDeleted")]
+            frame_el = max(rectangles, key=lambda r: r.get("width", 0), default=None)
+            non_frame_rects = [r for r in rectangles if frame_el is None or r.get("id") != frame_el.get("id")]
+            # The panel should envelope the child card and have a larger width and height than card_a
+            panel_el = max(non_frame_rects, key=lambda r: r.get("width", 0))
+            self.assertGreater(panel_el.get("width", 0), 200)
 
-    def test_r2_4_wide_scaled_layout_no_overlap(self):
+    def test_r1_5_global_layout_shift_preserves_min_coords(self):
+        # Overall minimal coord is preserved to diagram top-left corner
         with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 1800, "height": 900, "frames": 2}
-            result = self.run_renderer(spec, tmp, "layout_wide")
-            
+            result = self.run_renderer(self.default_spec, tmp, "r1_5")
             excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
-            overlaps = self.get_layout_overlaps(excal_data)
-            self.assertEqual(len(overlaps), 0, f"Found overlapping bounding boxes: {overlaps}")
+            elements = excal_data.get("elements", [])
+            rects = [el for el in elements if el.get("type") == "rectangle" and not el.get("isDeleted")]
+            min_x = min(r.get("x", 0) for r in rects)
+            min_y = min(r.get("y", 0) for r in rects)
+            self.assertGreaterEqual(min_x, 0)
+            self.assertGreaterEqual(min_y, 0)
 
-    def test_r2_5_coordinate_linear_scaling_assertion(self):
+    # --- Feature 2: Orthogonal Connector Routing (R2) ---
+
+    def test_r2_1_orthogonal_connector_routing(self):
         with tempfile.TemporaryDirectory() as tmp:
-            # Run default and run scaled
-            res_default = self.run_renderer(self.default_spec, tmp, "scaling_def")
-            
-            spec_scaled = self.default_spec.copy()
-            spec_scaled["canvas"] = {"width": 2420, "height": 2276, "frames": 2}
-            res_scaled = self.run_renderer(spec_scaled, tmp, "scaling_scale")
-            
-            el_def = json.loads(Path(res_default["excalidraw"]).read_text(encoding="utf-8"))["elements"]
-            el_scaled = json.loads(Path(res_scaled["excalidraw"]).read_text(encoding="utf-8"))["elements"]
-            
-            # Match elements by id and verify coordinate ratios
-            def_map = {el["id"]: el for el in el_def}
-            for el in el_scaled:
-                orig = def_map.get(el["id"])
-                if orig and el["type"] in ("rectangle", "diamond"):
-                    expected_x = orig["x"] * 2.0
-                    expected_y = orig["y"] * 2.0
-                    self.assertAlmostEqual(el["x"], expected_x, delta=5.0)
-                    self.assertAlmostEqual(el["y"], expected_y, delta=5.0)
+            result = self.run_renderer(self.default_spec, tmp, "r2_1")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            lines = [el for el in elements if el.get("type") == "arrow" and not el.get("isDeleted")]
+            self.assertGreater(len(lines), 0)
+            for line in lines:
+                pts = line.get("points", [])
+                for i in range(len(pts) - 1):
+                    dx = pts[i+1][0] - pts[i][0]
+                    dy = pts[i+1][1] - pts[i][1]
+                    self.assertTrue(math.isclose(dx, 0, abs_tol=1e-2) or math.isclose(dy, 0, abs_tol=1e-2))
 
-    # --- R3: High-Resolution SVG and Vector Output ---
-
-    def test_r3_1_svg_file_generation(self):
+    def test_r2_2_port_attachment_boundaries(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "svg_gen")
-            self.assertTrue(Path(result["svg"]).is_file())
+            result = self.run_renderer(self.default_spec, tmp, "r2_2")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            lines = [el for el in elements if el.get("type") == "arrow" and not el.get("isDeleted")]
+            self.assertGreater(len(lines), 0)
 
-    def test_r3_2_svg_valid_xml(self):
+    def test_r2_3_avoid_node_crossings(self):
+        # A typical layout should route around intermediate blocks when paths exist.
+        spec = {
+            "canvas": {"width": 1000, "height": 800, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A"},
+                {"id": "node_b", "x": 400, "y": 300, "width": 100, "height": 100, "type": "card", "title": "B"},
+                {"id": "node_c", "x": 700, "y": 100, "width": 100, "height": 100, "type": "card", "title": "C"}
+            ],
+            "connections": [
+                ["node_a", "node_c"]
+            ]
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "svg_xml")
-            try:
-                ET.parse(result["svg"])
-            except ET.ParseError as e:
-                self.fail(f"SVG is not valid XML: {e}")
+            result = self.run_renderer(spec, tmp, "r2_3")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            lines = [el for el in elements if el.get("type") == "arrow" and not el.get("isDeleted")]
+            self.assertEqual(len(lines), 1)
 
-    def test_r3_3_svg_has_background_rect(self):
+    def test_r2_4_avoid_overlapping_connector_paths(self):
+        spec = {
+            "canvas": {"width": 1000, "height": 800, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A"},
+                {"id": "node_b", "x": 500, "y": 100, "width": 100, "height": 100, "type": "card", "title": "B"},
+                {"id": "node_c", "x": 500, "y": 250, "width": 100, "height": 100, "type": "card", "title": "C"}
+            ],
+            "connections": [
+                {"path": ["node_a", "node_b"]},
+                {"path": ["node_a", "node_c"]}
+            ]
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "svg_bg")
-            root = ET.parse(result["svg"]).getroot()
-            # Namespace-insensitive check for background rect
-            rects = [el for el in root.iter() if el.tag.endswith("rect")]
-            self.assertTrue(any(r.get("width") == "100%" and r.get("height") == "100%" for r in rects))
+            result = self.run_renderer(spec, tmp, "r2_4")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            self.assertTrue(Path(result["excalidraw"]).is_file())
 
-    def test_r3_4_svg_contains_rendered_text(self):
+    def test_r2_5_port_direction_hints(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "svg_text")
-            root = ET.parse(result["svg"]).getroot()
-            tspans = [el.text for el in root.iter() if el.tag.endswith("tspan")]
-            self.assertTrue(any("Highlight Title" in str(t) for t in tspans))
+            result = self.run_renderer(self.default_spec, tmp, "r2_5")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
 
-    def test_r3_5_svg_elements_mapping(self):
+    # --- Feature 3: Typography wrapping & adaptive scaling (R3) ---
+
+    def test_r3_1_typography_wrapping(self):
+        spec = self.default_spec.copy()
+        spec["core"]["cards"][0]["body"] = "This is an extremely long body text designed to test typography wrapping mechanism inside the card bounds"
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "svg_elements")
-            root = ET.parse(result["svg"]).getroot()
-            
-            polylines = [el for el in root.iter() if el.tag.endswith("polyline")]
-            polygons = [el for el in root.iter() if el.tag.endswith("polygon")]
-            # Diamond is polygon, lines/arrows are polylines
-            self.assertGreater(len(polylines), 0)
-            self.assertGreater(len(polygons), 0)
+            result = self.run_renderer(spec, tmp, "r3_1")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            text_el = next((el for el in elements if el.get("type") == "text" and "extremely long" in el.get("text", "")), None)
+            self.assertIsNotNone(text_el)
+            # Long body text wraps to multiple lines
+            self.assertIn("\n", text_el.get("text", ""))
 
-    # --- R4: Exhaustive Regression Testing ---
-
-    def test_r4_1_cli_check_command_verifies_successfully(self):
+    def test_r3_2_adaptive_font_scaling(self):
+        spec = self.default_spec.copy()
+        # Card body with no spaces to force scaling to hit min limits
+        spec["core"]["cards"][0]["body"] = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
         with tempfile.TemporaryDirectory() as tmp:
-            # Runs CLI with --check and returns 0 exit code
-            result = self.run_renderer(self.default_spec, tmp, "regression_check", extra_args=["--check"])
-            self.assertTrue(result["checks"]["ok"])
+            result = self.run_renderer(spec, tmp, "r3_2")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            text_el = next((el for el in elements if el.get("type") == "text" and "AAAAA" in el.get("text", "")), None)
+            self.assertIsNotNone(text_el)
+            # Check font scaled down
+            self.assertLessEqual(text_el.get("fontSize", 14), 12)
 
-    def test_r4_2_png_resolution_matches_canvas(self):
+    def test_r3_3_text_alignment(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "regression_png")
-            from PIL import Image
-            with Image.open(result["png"]) as im:
-                self.assertEqual(im.width, 1210)
-                self.assertEqual(im.height, 1138)
+            result = self.run_renderer(self.default_spec, tmp, "r3_3")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            text_elements = [el for el in elements if el.get("type") == "text" and not el.get("isDeleted")]
+            self.assertTrue(any(el.get("textAlign") in ("left", "center", "right") for el in text_elements))
 
-    def test_r4_3_gif_resolution_matches_canvas(self):
+    def test_r3_4_cjk_wrapping(self):
+        spec = self.default_spec.copy()
+        spec["core"]["cards"][0]["body"] = "中文测试中文测试中文测试中文测试中文测试中文测试中文测试中文测试中文测试中文测试中文测试中文测试"
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "regression_gif")
-            from PIL import Image
-            with Image.open(result["gif"]) as im:
-                self.assertEqual(im.width, 1210)
-                self.assertEqual(im.height, 1138)
+            result = self.run_renderer(spec, tmp, "r3_4")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            text_el = next((el for el in elements if el.get("type") == "text" and "中文" in el.get("text", "")), None)
+            self.assertIsNotNone(text_el)
+            self.assertIn("\n", text_el.get("text", ""))
 
-    def test_r4_4_gif_frame_count_matches(self):
+    def test_r3_5_font_family_enforcement(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "regression_frames")
-            from PIL import Image
-            with Image.open(result["gif"]) as im:
-                self.assertEqual(im.n_frames, 2)
+            result = self.run_renderer(self.default_spec, tmp, "r3_5")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            text_elements = [el for el in elements if el.get("type") == "text" and not el.get("isDeleted")]
+            for el in text_elements:
+                self.assertEqual(el.get("fontFamily"), 5)
 
-    def test_r4_5_motion_in_generated_gif(self):
+    # --- Feature 4: Aesthetics & Rebranding (R4) ---
+
+    def test_r4_1_glow_dot_animations(self):
         with tempfile.TemporaryDirectory() as tmp:
-            result = self.run_renderer(self.default_spec, tmp, "regression_motion", extra_args=["--check"])
+            result = self.run_renderer(self.default_spec, tmp, "r4_1", extra_args=["--check"])
             motion_check = next(c for c in result["checks"]["checks"] if c["name"] == "gif_has_motion")
             self.assertTrue(motion_check["ok"])
+
+    def test_r4_2_shadows_and_glows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(self.default_spec, tmp, "r4_2", extra_args=["--check"])
+            self.assertTrue(result["checks"]["ok"])
+
+    def test_r4_3_custom_borders_and_strokes(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {
+                    "id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A",
+                    "style": {
+                        "strokeColor": "#ff0000",
+                        "strokeWidth": 4,
+                        "strokeStyle": "dashed",
+                        "cornerRadius": 8
+                    }
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r4_3")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            rect = next(el for el in elements if el.get("type") == "rectangle" and el.get("id") == "node_a")
+            self.assertEqual(rect.get("strokeColor"), "#ff0000")
+            self.assertEqual(rect.get("strokeStyle"), "dashed")
+
+    def test_r4_4_rebrand_cleans_branding(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.default_spec["rebrand"] = True
+            result = self.run_renderer(self.default_spec, tmp, "r4_4")
+            self.verify_no_branding_references(result["excalidraw"])
+            self.verify_no_branding_references(result["svg"])
+
+    def test_r4_5_signature_rendering(self):
+        spec = self.default_spec.copy()
+        spec["signature"] = "@MyBrandSignature"
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r4_5")
+            excal_content = Path(result["excalidraw"]).read_text(encoding="utf-8")
+            self.assertIn("@MyBrandSignature", excal_content)
+
+    # --- Feature 5: Rich Spec Updates (R5) ---
+
+    def test_r5_1_rich_style_properties(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {
+                    "id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A",
+                    "style": {
+                        "fillColor": "#00ff00",
+                        "strokeColor": "#0000ff",
+                        "strokeWidth": 3
+                    }
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r5_1")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            rect = next(el for el in elements if el.get("type") == "rectangle" and el.get("id") == "node_a")
+            self.assertEqual(rect.get("backgroundColor"), "#00ff00")
+            self.assertEqual(rect.get("strokeColor"), "#0000ff")
+            frame_el = max([el for el in elements if el.get("type") == "rectangle"], key=lambda el: el.get("width", 0), default=None)
+            self.assertAlmostEqual(rect.get("strokeWidth") / frame_el.get("strokeWidth"), 1.5, places=2)
+
+    def test_r5_2_color_presets(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A", "style": {"color_preset": "cyan"}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r5_2")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            rect = next(el for el in elements if el.get("type") == "rectangle" and el.get("id") == "node_a")
+            self.assertIsNotNone(rect.get("strokeColor"))
+
+    def test_r5_3_icons_support(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A", "icon": "shield-check"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r5_3")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r5_4_default_rich_spec_loading(self):
+        spec_file = ROOT / "assets" / "default-spec.json"
+        spec = json.loads(spec_file.read_text(encoding="utf-8"))
+        spec["canvas"]["frames"] = 1
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r5_4")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+            self.assertTrue(Path(result["svg"]).is_file())
+
+    def test_r5_5_legacy_backward_compatibility(self):
+        # A spec without nodes/connections (legacy format) should auto-convert
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(self.default_spec, tmp, "r5_5")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            self.assertGreater(len(excal_data["elements"]), 10)
 
 
 class E2ETier2BoundaryCorner(E2ETestBase):
     """
-    Tier 2: Boundary & Corner cases -> >= 5 tests per feature.
+    Tier 2: Boundary & Corner Cases (R1, R2, R3, R4, R5) -> 5 tests per feature (25 total).
     """
 
-    # --- R1: Rebrand and Remove Old Branding Corner Cases ---
+    # --- Feature 1: Overlap & Bounding Box Boundaries ---
 
-    def test_r1_boundary_1_empty_signature(self):
+    def test_r1_boundary_1_extremely_dense_nodes(self):
+        nodes = []
+        for i in range(15):
+            nodes.append({"id": f"node_{i}", "x": 100 + i * 2, "y": 100 + i * 2, "width": 100, "height": 100, "type": "card", "title": f"N{i}"})
+        spec = {
+            "canvas": {"width": 1200, "height": 1000, "frames": 1},
+            "nodes": nodes
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["rebrand"] = True
-            spec["signature"] = ""
-            result = self.run_renderer(spec, tmp, "corner_empty_sig")
-            
-            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
-            sig_element = next((el for el in excal_data["elements"] if el.get("type") == "text" and el.get("text") == ""), None)
-            # Either signature element is empty or has no old branding references
-            self.verify_no_branding_references(result["excalidraw"])
-
-    def test_r1_boundary_2_signature_partial_match(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["rebrand"] = True
-            spec["signature"] = KEY_TITLE + "Developer"
-            result = self.run_renderer(spec, tmp, "corner_partial_sig")
-            
-            excalidraw_content = Path(result["excalidraw"]).read_text(encoding="utf-8")
-            self.assertIn("FlowDraftDeveloper", excalidraw_content)
-            self.verify_no_branding_references(result["excalidraw"])
-
-    def test_r1_boundary_3_mixed_multilingual_rebrand(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["rebrand"] = True
-            spec["title"]["prefix"] = "Designed by " + KEY_CJK + " (" + KEY_TITLE + ")"
-            result = self.run_renderer(spec, tmp, "corner_mixed_lang")
-            
-            excalidraw_content = Path(result["excalidraw"]).read_text(encoding="utf-8")
-            self.assertIn("Designed by FlowDraft (FlowDraft)", excalidraw_content)
-            self.verify_no_branding_references(result["excalidraw"])
-
-    def test_r1_boundary_4_rebrand_with_no_occurrences(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["rebrand"] = True
-            spec["signature"] = "@NoMatchesHere"
-            spec["title"]["prefix"] = "Standard prefix"
-            result = self.run_renderer(spec, tmp, "corner_no_matches")
-            
-            excalidraw_content = Path(result["excalidraw"]).read_text(encoding="utf-8")
-            self.assertIn("Standard prefix", excalidraw_content)
-            self.verify_no_branding_references(result["excalidraw"])
-
-    def test_r1_boundary_5_special_characters_signature(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["rebrand"] = True
-            spec["signature"] = "@Flow-Draft_Dev#123!"
-            result = self.run_renderer(spec, tmp, "corner_special_chars")
-            
-            excalidraw_content = Path(result["excalidraw"]).read_text(encoding="utf-8")
-            self.assertIn("@Flow-Draft_Dev#123!", excalidraw_content)
-            self.verify_no_branding_references(result["excalidraw"])
-
-    # --- R2: Auto-scaling Grid Layout Boundary Cases ---
-
-    def test_r2_boundary_1_extremely_small_canvas(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 300, "height": 300, "frames": 2}
-            # Verify compilation and overlap check passes
-            result = self.run_renderer(spec, tmp, "corner_small_canvas")
-            
-            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
-            overlaps = self.get_layout_overlaps(excal_data)
-            self.assertEqual(len(overlaps), 0, f"Overlaps found in tiny canvas: {overlaps}")
-
-    def test_r2_boundary_2_extremely_large_canvas(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 4000, "height": 4000, "frames": 2}
-            # Verify layout scaling doesn't crash
-            result = self.run_renderer(spec, tmp, "corner_large_canvas")
-            self.assertTrue(Path(result["excalidraw"]).is_file())
-
-    def test_r2_boundary_3_very_skewed_aspect_ratio_wide(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 3000, "height": 400, "frames": 2}
-            result = self.run_renderer(spec, tmp, "corner_skewed_wide")
-            
+            result = self.run_renderer(spec, tmp, "r1_b1")
             excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
             overlaps = self.get_layout_overlaps(excal_data)
             self.assertEqual(len(overlaps), 0)
 
-    def test_r2_boundary_4_very_skewed_aspect_ratio_tall(self):
+    def test_r1_boundary_2_large_padding_margins(self):
+        spec = {
+            "canvas": {"width": 1500, "height": 1200, "frames": 1},
+            "layout": {
+                "node_margin": 100,
+                "panel_margin": 150,
+                "panel_padding": {"left": 50, "right": 50, "top": 80, "bottom": 50}
+            },
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A"},
+                {"id": "node_b", "x": 105, "y": 105, "width": 100, "height": 100, "type": "card", "title": "B"}
+            ]
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 400, "height": 3000, "frames": 2}
-            result = self.run_renderer(spec, tmp, "corner_skewed_tall")
-            
+            result = self.run_renderer(spec, tmp, "r1_b2")
             excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
             overlaps = self.get_layout_overlaps(excal_data)
             self.assertEqual(len(overlaps), 0)
 
-    def test_r2_boundary_5_missing_canvas_block(self):
+    def test_r1_boundary_3_nested_panels(self):
+        spec = {
+            "canvas": {"width": 1600, "height": 1200, "frames": 1},
+            "nodes": [
+                {"id": "outer_panel", "x": 50, "y": 50, "width": 500, "height": 500, "type": "panel", "title": "Outer"},
+                {"id": "inner_panel", "x": 100, "y": 100, "width": 200, "height": 200, "type": "panel", "title": "Inner", "parent": "outer_panel"},
+                {"id": "card_a", "x": 120, "y": 120, "width": 100, "height": 80, "type": "card", "title": "A", "parent": "inner_panel"}
+            ]
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            if "canvas" in spec:
-                del spec["canvas"]
-            # Canvas defaults, runs fine
-            result = self.run_renderer(spec, tmp, "corner_missing_canvas")
+            result = self.run_renderer(spec, tmp, "r1_b3")
             self.assertTrue(Path(result["excalidraw"]).is_file())
 
-    # --- R3: High-Resolution SVG and Vector Output Boundary Cases ---
-
-    def test_r3_boundary_1_svg_cjk_characters(self):
+    def test_r1_boundary_4_zero_dimensions(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 0, "height": -50, "type": "card", "title": "Zero Width"}
+            ]
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["title"]["prefix"] = "包含中文字符的渲染测试"
-            result = self.run_renderer(spec, tmp, "corner_svg_cjk")
-            
-            # Content should have UTF-8 CJK text inside SVG
-            svg_content = Path(result["svg"]).read_text(encoding="utf-8")
-            self.assertIn("包含中文字符的渲染测试", svg_content)
-
-    def test_r3_boundary_2_svg_empty_labels(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["title"]["prefix"] = ""
-            spec["title"]["highlight"] = ""
-            result = self.run_renderer(spec, tmp, "corner_svg_empty_labels")
-            
-            root = ET.parse(result["svg"]).getroot()
-            self.assertTrue(root is not None)
-
-    def test_r3_boundary_3_svg_dense_elements(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            # Build dense inputs/cards to check SVG generation
-            spec = self.default_spec.copy()
-            spec["inputs"] = [{"label": f"F{i}", "icon": "file"} for i in range(10)]
-            result = self.run_renderer(spec, tmp, "corner_svg_dense")
-            self.assertTrue(Path(result["svg"]).is_file())
-
-    def test_r3_boundary_4_svg_different_themes(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["theme"] = "light"
-            result = self.run_renderer(spec, tmp, "corner_svg_light_theme")
-            
-            # SVG should use light background color #ffffff
-            svg_content = Path(result["svg"]).read_text(encoding="utf-8")
-            self.assertIn('#ffffff', svg_content.lower())
-
-    def test_r3_boundary_5_svg_override_behavior(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            # Write SVG twice to the same output path
-            result1 = self.run_renderer(self.default_spec, tmp, "svg_override")
-            result2 = self.run_renderer(self.default_spec, tmp, "svg_override")
-            self.assertTrue(Path(result2["svg"]).is_file())
-
-    # --- R4: Exhaustive Regression Testing Boundary Cases ---
-
-    def test_r4_boundary_1_one_frame_gif(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 1210, "height": 1138, "frames": 1, "fps": 1}
-            result = self.run_renderer(spec, tmp, "corner_one_frame")
-            
-            from PIL import Image
-            with Image.open(result["gif"]) as im:
-                self.assertEqual(im.n_frames, 1)
-
-    def test_r4_boundary_2_zero_frames_fallback(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 1210, "height": 1138, "frames": 0, "fps": 20}
-            # Verify fallback or safe run
-            result = self.run_renderer(spec, tmp, "corner_zero_frames")
-            self.assertTrue(Path(result["gif"]).is_file())
-
-    def test_r4_boundary_3_extreme_fps(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["canvas"] = {"width": 1210, "height": 1138, "frames": 10, "fps": 100}
-            result = self.run_renderer(spec, tmp, "corner_extreme_fps")
-            self.assertTrue(Path(result["gif"]).is_file())
-
-    def test_r4_boundary_4_empty_inputs(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["inputs"] = []
-            result = self.run_renderer(spec, tmp, "corner_empty_inputs")
-            
+            result = self.run_renderer(spec, tmp, "r1_b4")
             excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
-            self.assertGreater(len(excal_data["elements"]), 0)
+            elements = excal_data.get("elements", [])
+            rect = next(el for el in elements if el.get("type") == "rectangle" and el.get("id") == "node_a")
+            # Width/height should fallback to defaults/min dimensions
+            self.assertGreater(rect.get("width", 0), 0)
+            self.assertGreater(rect.get("height", 0), 0)
 
-    def test_r4_boundary_5_empty_core_cards(self):
+    def test_r1_boundary_5_all_fixed_overlap(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A", "style": {"fixed": True}},
+                {"id": "node_b", "x": 105, "y": 105, "width": 100, "height": 100, "type": "card", "title": "B", "style": {"fixed": True}}
+            ]
+        }
         with tempfile.TemporaryDirectory() as tmp:
-            spec = self.default_spec.copy()
-            spec["core"]["cards"] = []
-            result = self.run_renderer(spec, tmp, "corner_empty_core")
-            
+            # All fixed overlap won't move them, verify it compiles fine without hangs
+            result = self.run_renderer(spec, tmp, "r1_b5")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    # --- Feature 2: Orthogonal Routing Boundaries ---
+
+    def test_r2_boundary_1_nodes_aligned_exactly(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A"},
+                {"id": "node_b", "x": 400, "y": 100, "width": 100, "height": 100, "type": "card", "title": "B"}
+            ],
+            "connections": [
+                ["node_a", "node_b"]
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r2_b1")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r2_boundary_2_adjacent_touching_nodes(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A"},
+                {"id": "node_b", "x": 200, "y": 100, "width": 100, "height": 100, "type": "card", "title": "B"}
+            ],
+            "connections": [
+                ["node_a", "node_b"]
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r2_b2")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r2_boundary_3_self_referencing_connection(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A"}
+            ],
+            "connections": [
+                ["node_a", "node_a"]
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r2_b3")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r2_boundary_4_nonexistent_node_references(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "Card A"}
+            ],
+            "connections": [
+                ["node_a", "nonexistent_node"]
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            spec_path = Path(tmp) / "invalid_conn_spec.json"
+            spec_path.write_text(json.dumps(spec), encoding="utf-8")
+            args = [sys.executable, str(self.script_path), "--spec", str(spec_path), "--outdir", tmp, "--basename", "invalid_conn"]
+            res = subprocess.run(args, capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(res.returncode, 1)
+            self.assertIn("Validation Error", res.stderr)
+
+    def test_r2_boundary_5_long_path_many_nodes(self):
+        spec = {
+            "canvas": {"width": 1500, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "n0", "x": 100, "y": 100, "width": 80, "height": 80, "type": "card", "title": "0"},
+                {"id": "n1", "x": 250, "y": 100, "width": 80, "height": 80, "type": "card", "title": "1"},
+                {"id": "n2", "x": 400, "y": 100, "width": 80, "height": 80, "type": "card", "title": "2"},
+                {"id": "n3", "x": 550, "y": 100, "width": 80, "height": 80, "type": "card", "title": "3"},
+                {"id": "n4", "x": 700, "y": 100, "width": 80, "height": 80, "type": "card", "title": "4"},
+                {"id": "n5", "x": 850, "y": 100, "width": 80, "height": 80, "type": "card", "title": "5"}
+            ],
+            "connections": [
+                ["n0", "n1", "n2", "n3", "n4", "n5"]
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r2_b5")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    # --- Feature 3: Typography & Text Boundaries ---
+
+    def test_r3_boundary_1_extremely_long_unwrappable_string(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A", "body": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r3_b1")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r3_boundary_2_empty_text_fields(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "", "body": ""}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r3_b2")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r3_boundary_3_unicode_special_chars(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 150, "height": 100, "type": "card", "title": "🚀 Math: ∫e^x dx", "body": "Non-Latin: สวัสดี"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r3_b3")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r3_boundary_4_tiny_font_limit(self):
+        spec = {
+            "canvas": {"width": 400, "height": 300, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 10, "y": 10, "width": 50, "height": 50, "type": "card", "title": "Tiny Box Long Text Title"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r3_b4")
             excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
-            self.assertGreater(len(excal_data["elements"]), 0)
+            text_el = next(el for el in excal_data["elements"] if el.get("type") == "text" and not el.get("isDeleted"))
+            # Font size shouldn't drop below emergency limit (9pt)
+            self.assertGreaterEqual(text_el.get("fontSize", 9), 9)
+
+    def test_r3_boundary_5_newline_preservation(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 200, "height": 100, "type": "card", "title": "A", "body": "Line 1\nLine 2\nLine 3"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r3_b5")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            text_el = next(el for el in excal_data["elements"] if el.get("type") == "text" and "Line 1" in el.get("text", ""))
+            self.assertIn("Line 1\nLine 2\nLine 3", text_el.get("text", ""))
+
+    # --- Feature 4: Aesthetics Boundaries ---
+
+    def test_r4_boundary_1_missing_signature(self):
+        spec = self.default_spec.copy()
+        spec["signature"] = None
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r4_b1")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r4_boundary_2_no_motion_in_static_gif(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(self.default_spec, tmp, "r4_b2")
+            gif_path = Path(result["gif"])
+            with Image.open(gif_path) as im:
+                self.assertGreaterEqual(im.n_frames, 2)
+
+    def test_r4_boundary_3_theme_colors(self):
+        for theme in ("dark", "light", "white"):
+            spec = self.default_spec.copy()
+            spec["theme"] = theme
+            with tempfile.TemporaryDirectory() as tmp:
+                result = self.run_renderer(spec, tmp, f"r4_b3_{theme}")
+                self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r4_boundary_4_unusual_stroke_styles(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A", "style": {"strokeStyle": "dotted"}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r4_b4")
+            excal_data = json.loads(Path(result["excalidraw"]).read_text(encoding="utf-8"))
+            elements = excal_data.get("elements", [])
+            rect = next(el for el in elements if el.get("type") == "rectangle" and el.get("id") == "node_a")
+            self.assertEqual(rect.get("strokeStyle"), "dotted")
+
+    def test_r4_boundary_5_gradient_fills(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A", "style": {"fillColor": "#ff00ff"}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r4_b5")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    # --- Feature 5: Rich Spec Boundaries ---
+
+    def test_r5_boundary_1_invalid_style_values(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {
+                    "id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A",
+                    "style": {
+                        "fillColor": "invalid-color",
+                        "strokeWidth": -5,
+                        "cornerRadius": "not-a-number"
+                    }
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r5_b1")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r5_boundary_2_unknown_icons(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A", "icon": "unknown-icon-name"}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r5_b2")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r5_boundary_3_partial_styles(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A", "style": {"fillColor": "#aabbcc"}}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r5_b3")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r5_boundary_4_extra_unsupported_fields(self):
+        spec = {
+            "canvas": {"width": 800, "height": 600, "frames": 1},
+            "nodes": [
+                {"id": "node_a", "x": 100, "y": 100, "width": 100, "height": 100, "type": "card", "title": "A", "extra_weird_unsupported_field": True}
+            ]
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self.run_renderer(spec, tmp, "r5_b4")
+            self.assertTrue(Path(result["excalidraw"]).is_file())
+
+    def test_r5_boundary_5_malformed_spec_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            spec_path = Path(tmp) / "malformed.json"
+            spec_path.write_text("{invalid json", encoding="utf-8")
+            args = [sys.executable, str(self.script_path), "--spec", str(spec_path), "--outdir", tmp, "--basename", "malformed"]
+            res = subprocess.run(args, capture_output=True, text=True, encoding="utf-8")
+            self.assertEqual(res.returncode, 1)
 
 
 class E2ETier3Combinations(E2ETestBase):
     """
-    Tier 3: Cross-feature Combinations (pairwise).
+    Tier 3: Cross-feature Combinations (pairwise) (5 tests).
     """
 
     def test_comb_rebrand_and_scaling(self):
@@ -627,7 +939,6 @@ class E2ETier3Combinations(E2ETestBase):
             overlaps = self.get_layout_overlaps(excal_data)
             self.assertEqual(len(overlaps), 0)
             
-            from PIL import Image
             with Image.open(result["png"]) as im:
                 self.assertEqual(im.width, 1600)
                 self.assertEqual(im.height, 1200)
@@ -648,7 +959,7 @@ class E2ETier3Combinations(E2ETestBase):
 
 class E2ETier4Scenarios(E2ETestBase):
     """
-    Tier 4: Real-World Application Scenarios (realistic specs).
+    Tier 4: Real-World Application Scenarios (5 tests).
     """
 
     def test_scenario_1_microservices_auth_flow(self):

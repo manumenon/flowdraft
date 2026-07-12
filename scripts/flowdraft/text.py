@@ -7,7 +7,7 @@ writes to both the PIL canvas and the Excalidraw JSON model simultaneously.
 
 from PIL import ImageDraw
 
-from .constants import THEME, SCALE_X, SCALE_Y
+from .constants import THEME
 from .color import hex_rgba, c, adjust_color
 from .fonts import (
     EMERGENCY_MIN_TEXT_SIZE,
@@ -71,7 +71,7 @@ def wrap_line(draw: ImageDraw.ImageDraw, line: str, font, max_width: float) -> l
                     tokens.append(current_group)
                     current_group = ""
                 tokens.append(" ")
-            elif "\u3400" <= char <= "\u9fff":
+            elif ("\u3400" <= char <= "\u9fff") or ("\u3040" <= char <= "\u30ff") or ("\uac00" <= char <= "\ud7a3"):
                 if current_group:
                     tokens.append(current_group)
                     current_group = ""
@@ -186,24 +186,39 @@ def fit_text(
     Returns:
         ``(fitted_text, fitted_size, fitted_font)``
     """
-    raw_text = str(text)
+    raw_text = str(text)[:1000]
     has_cjk_text = has_cjk(raw_text)
     max_width = c(w)
     max_height = c(h)
     start_size = int(size)
     emergency_min = min(start_size, int(min_size), EMERGENCY_MIN_TEXT_SIZE)
 
-    for candidate_size in range(start_size, emergency_min - 1, -1):
+    low = emergency_min
+    high = start_size
+    best_fit = None
+
+    while low <= high:
+        mid = (low + high) // 2
         candidate_font = load_font(
-            candidate_size,
+            mid,
             hand=hand and not has_cjk_text,
             cjk=has_cjk_text,
             bold=bold,
         )
+        fits = False
         for candidate_text in text_variants(draw, raw_text, candidate_font, max_width, wrap):
             tw, th = text_size(draw, candidate_text, candidate_font, spacing=spacing)
             if tw <= max_width and th <= max_height:
-                return candidate_text, candidate_size, candidate_font
+                best_fit = (candidate_text, mid, candidate_font)
+                fits = True
+                break
+        if fits:
+            low = mid + 1
+        else:
+            high = mid - 1
+
+    if best_fit is not None:
+        return best_fit
 
     fallback_font = load_font(
         emergency_min,
@@ -212,7 +227,19 @@ def fit_text(
         bold=bold,
     )
     fallback_text = wrap_text(draw, raw_text, fallback_font, max_width) if wrap else raw_text
-    return fallback_text, emergency_min, fallback_font
+    tw, th = text_size(draw, fallback_text, fallback_font, spacing=spacing)
+    if tw <= max_width and th <= max_height:
+        return fallback_text, emergency_min, fallback_font
+
+    for i in range(len(raw_text) - 1, -1, -1):
+        truncated = raw_text[:i] + "..."
+        wrapped_truncated = wrap_text(draw, truncated, fallback_font, max_width) if wrap else truncated
+        tw, th = text_size(draw, wrapped_truncated, fallback_font, spacing=spacing)
+        if tw <= max_width and th <= max_height:
+            return wrapped_truncated, emergency_min, fallback_font
+
+    dots = wrap_text(draw, "...", fallback_font, max_width) if wrap else "..."
+    return dots, emergency_min, fallback_font
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +290,12 @@ def draw_text(
         opacity: Optional 0-1 float for transparency.
     """
     # Import here to avoid circular dependency with drawing → text
-    from .constants import SCALE_X, SCALE_Y
+    from . import constants as _c
+    SCALE_X = _c.SCALE_X
+    SCALE_Y = _c.SCALE_Y
+
+    if text is None:
+        text = ""
 
     if not scaled:
         x = x * SCALE_X

@@ -12,8 +12,16 @@ from .constants import THEME, SCALE
 # ---------------------------------------------------------------------------
 def hex_rgba(value: str, alpha: int = 255) -> tuple:
     """Convert a ``#RRGGBB`` hex string to an (R, G, B, A) tuple."""
-    value = value.lstrip("#")
-    return tuple(int(value[i: i + 2], 16) for i in (0, 2, 4)) + (alpha,)
+    if not value or not isinstance(value, str):
+        return (0, 0, 0, alpha)
+    val = value.lstrip("#")
+    if len(val) == 6 and all(c in "0123456789abcdefABCDEF" for c in val):
+        try:
+            return tuple(int(val[i: i + 2], 16) for i in (0, 2, 4)) + (alpha,)
+        except ValueError:
+            pass
+    # Default fallback
+    return (0, 0, 0, alpha)
 
 
 def c(v: float) -> int:

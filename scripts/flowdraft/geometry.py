@@ -38,6 +38,8 @@ def point_at_distance(points: list, distance: float) -> tuple:
     Returns:
         An ``(x, y)`` tuple.
     """
+    if not points:
+        return (0, 0)
     left = distance
     for a, b in zip(points, points[1:]):
         seg = math.dist(a, b)
@@ -91,7 +93,9 @@ def arrow_head(
         width:   Line width (used to scale the arrowhead length).
         opacity: Optional 0-1 float for transparency.
     """
-    from .constants import SCALE_X, SCALE_Y
+    from . import constants as _c
+    SCALE_X = _c.SCALE_X
+    SCALE_Y = _c.SCALE_Y
 
     angle = math.atan2(b[1] - a[1], b[0] - a[0])
     length = 20 * min(SCALE_X, SCALE_Y) + width  # 1.5× vs original 14 px

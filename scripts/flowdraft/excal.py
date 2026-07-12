@@ -166,8 +166,7 @@ class Excal:
     ) -> dict:
         """Append a text element."""
         from . import constants as _c
-        if not getattr(_c, "HAND", True):
-            hand = False
+        hand = getattr(_c, "HAND", True)
 
         element = self.base(
             "text", "text", x, y, w, h, color, "transparent", 1, "solid",

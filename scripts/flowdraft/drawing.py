@@ -11,7 +11,7 @@ unless ``scaled=True`` is passed (meaning the caller already did the scaling).
 
 from PIL import ImageDraw
 
-from .constants import THEME, SCALE_X, SCALE_Y
+from .constants import THEME
 from .color import hex_rgba, c, scaled_box, adjust_color
 from .fonts import has_cjk, load_font
 from .geometry import path_len, point_at_distance, arrow_head
@@ -47,7 +47,9 @@ def draw_rect(
         scaled:  Coordinates are already scaled to physical pixels.
         opacity: 0-1 transparency.
     """
-    from .constants import SCALE_X, SCALE_Y
+    from . import constants as _c
+    SCALE_X = _c.SCALE_X
+    SCALE_Y = _c.SCALE_Y
     if not scaled:
         x = x * SCALE_X
         y = y * SCALE_Y
@@ -79,7 +81,9 @@ def draw_ellipse(
     opacity: float = None,
 ) -> None:
     """Draw an ellipse on the PIL canvas and add it to the Excal model."""
-    from .constants import SCALE_X, SCALE_Y
+    from . import constants as _c
+    SCALE_X = _c.SCALE_X
+    SCALE_Y = _c.SCALE_Y
     if not scaled:
         x = x * SCALE_X
         y = y * SCALE_Y
@@ -128,7 +132,9 @@ def draw_line(
         opacity: 0-1 transparency.
         fill:    Fill colour for closed paths.
     """
-    from .constants import SCALE_X, SCALE_Y
+    from . import constants as _c
+    SCALE_X = _c.SCALE_X
+    SCALE_Y = _c.SCALE_Y
     if not scaled:
         points = [(px * SCALE_X, py * SCALE_Y) for px, py in points]
         width = width * min(SCALE_X, SCALE_Y)
@@ -186,7 +192,9 @@ def draw_diamond(
     opacity: float = None,
 ) -> None:
     """Draw a diamond (rotated square) on PIL and in the Excal model."""
-    from .constants import SCALE_X, SCALE_Y
+    from . import constants as _c
+    SCALE_X = _c.SCALE_X
+    SCALE_Y = _c.SCALE_Y
     if not scaled:
         x = x * SCALE_X
         y = y * SCALE_Y
@@ -224,7 +232,9 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
         scale:  Uniform scale factor applied to all icon coordinates.
         scaled: Coordinates are already in physical pixels.
     """
-    from .constants import SCALE_X, SCALE_Y
+    from . import constants as _c
+    SCALE_X = _c.SCALE_X
+    SCALE_Y = _c.SCALE_Y
     if not scaled:
         x = x * SCALE_X
         y = y * SCALE_Y
@@ -484,7 +494,9 @@ def draw_signature(ex, draw: ImageDraw.ImageDraw, text: str, x: float, y: float)
         text: Signature string (e.g. "@FlowDraft").
         x, y: Position in physical pixels.
     """
-    from .constants import SCALE_X, SCALE_Y
+    from . import constants as _c
+    SCALE_X = _c.SCALE_X
+    SCALE_Y = _c.SCALE_Y
     from .text import draw_text
 
     sw = 120 * SCALE_X

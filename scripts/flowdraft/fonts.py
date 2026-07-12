@@ -5,6 +5,7 @@ Font discovery, loading, CJK detection, and text measurement.
 """
 
 from PIL import ImageFont, ImageDraw
+import functools
 
 from .color import c
 
@@ -67,6 +68,7 @@ def font_candidates(hand: bool = False, cjk: bool = False, bold: bool = False) -
     ]
 
 
+@functools.lru_cache(maxsize=128)
 def load_font(size: float, hand: bool = False, cjk: bool = False, bold: bool = False):
     """Load the best available font for the given style at *size* logical px.
 
@@ -91,8 +93,15 @@ def load_font(size: float, hand: bool = False, cjk: bool = False, bold: bool = F
 # Text helpers
 # ---------------------------------------------------------------------------
 def has_cjk(text: str) -> bool:
-    """Return True if *text* contains any CJK Unified Ideograph characters."""
-    return any("\u3400" <= ch <= "\u9fff" for ch in text)
+    """Return True if *text* contains any CJK Unified Ideograph, Japanese or Korean characters."""
+    if text is None:
+        text = ""
+    return any(
+        ("\u3400" <= ch <= "\u9fff") or
+        ("\u3040" <= ch <= "\u30ff") or
+        ("\uac00" <= ch <= "\ud7a3")
+        for ch in text
+    )
 
 
 def text_size(draw: ImageDraw.ImageDraw, text: str, font, spacing: float = 3) -> tuple:

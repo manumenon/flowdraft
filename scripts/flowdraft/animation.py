@@ -89,33 +89,15 @@ def animate_frame(base: Image.Image, idx: int, total: int, spec: dict = None) ->
     frame   = base.convert("RGBA")
     overlay = Image.new("RGBA", frame.size, (0, 0, 0, 0))
     draw    = ImageDraw.Draw(overlay)
-    progress = idx / total
+    progress = idx / total if total > 0 else 0.0
 
     # Refresh SCALE_X/Y from the live constants (updated by render_static)
     SCALE_X = _c.SCALE_X
     SCALE_Y = _c.SCALE_Y
 
-    if spec and "_resolved_paths" in spec:
-        paths = spec["_resolved_paths"]
-    else:
-        paths = [
-            ([(605 * SCALE_X, 239 * SCALE_Y), (605 * SCALE_X, 316 * SCALE_Y)],  THEME["green"],       0.00),
-            ([(355 * SCALE_X, 411 * SCALE_Y), (472 * SCALE_X, 411 * SCALE_Y)],  THEME["cyan"],        0.10),
-            ([(732 * SCALE_X, 411 * SCALE_Y), (850 * SCALE_X, 411 * SCALE_Y)],  THEME["cyan"],        0.24),
-            ([(982 * SCALE_X, 456 * SCALE_Y), (982 * SCALE_X, 481 * SCALE_Y),
-              (768 * SCALE_X, 481 * SCALE_Y), (768 * SCALE_X, 508 * SCALE_Y)],  THEME["core_stroke"], 0.38),
-            ([(826 * SCALE_X, 568 * SCALE_Y), (1022 * SCALE_X, 568 * SCALE_Y)], THEME["green"],       0.54),
-            ([(707 * SCALE_X, 568 * SCALE_Y), (510 * SCALE_X, 568 * SCALE_Y),
-              (222 * SCALE_X, 568 * SCALE_Y), (222 * SCALE_X, 456 * SCALE_Y)],  THEME["purple"],      0.66),
-            ([(156 * SCALE_X, 637 * SCALE_Y), (156 * SCALE_X, 736 * SCALE_Y)],  THEME["green"],       0.18),
-            ([(205 * SCALE_X, 736 * SCALE_Y), (205 * SCALE_X, 637 * SCALE_Y)],  THEME["green"],       0.58),
-            ([(458 * SCALE_X, 890 * SCALE_Y), (486 * SCALE_X, 890 * SCALE_Y),
-              (598 * SCALE_X, 890 * SCALE_Y), (626 * SCALE_X, 890 * SCALE_Y),
-              (738 * SCALE_X, 890 * SCALE_Y), (766 * SCALE_X, 890 * SCALE_Y)],  THEME["purple"],      0.32),
-            ([(855 * SCALE_X, 890 * SCALE_Y), (904 * SCALE_X, 890 * SCALE_Y)],  THEME["white"],       0.46),
-            ([(1036 * SCALE_X, 735 * SCALE_Y), (1036 * SCALE_X, 691 * SCALE_Y),
-              (766  * SCALE_X, 691 * SCALE_Y), (766  * SCALE_X, 628 * SCALE_Y)], THEME["amber"],      0.72),
-        ]
+    if spec is None:
+        spec = {}
+    paths = spec.get("_resolved_paths", [])
 
     # Remap colours for white/light theme so dots pop on bright backgrounds
     _anim_remap = {
@@ -134,23 +116,13 @@ def animate_frame(base: Image.Image, idx: int, total: int, spec: dict = None) ->
             x, y = point_at_fraction(points, progress + offset + trail)
             draw_glow_dot(draw, x, y, dot_color, strength)
 
-    if spec and "_resolved_pulse_targets" in spec:
-        pulse_targets = spec["_resolved_pulse_targets"]
-    else:
-        pulse_targets = [
-            ((389 * SCALE_X, 138 * SCALE_Y, 819 * SCALE_X,  239 * SCALE_Y), THEME["green"]),
-            ((95  * SCALE_X, 366 * SCALE_Y, 355 * SCALE_X,  456 * SCALE_Y), THEME["core_stroke"]),
-            ((472 * SCALE_X, 366 * SCALE_Y, 732 * SCALE_X,  456 * SCALE_Y), THEME["green"]),
-            ((850 * SCALE_X, 366 * SCALE_Y, 1110 * SCALE_X, 456 * SCALE_Y), THEME["core_stroke"]),
-            ((706 * SCALE_X, 508 * SCALE_Y, 826 * SCALE_X,  628 * SCALE_Y), THEME["green"]),
-            ((333 * SCALE_X, 734 * SCALE_Y, 855 * SCALE_X,  1080 * SCALE_Y), THEME["purple"]),
-            ((904 * SCALE_X, 735 * SCALE_Y, 1162 * SCALE_X, 1079 * SCALE_Y), THEME["green"]),
-        ]
+    pulse_targets = spec.get("_resolved_pulse_targets", [])
 
-    active = (idx // 6) % len(pulse_targets)
-    for pos, (rect, color) in enumerate(pulse_targets):
-        if pos == active:
-            pulse_rect(draw, rect, color, progress * math.tau * 2, int(round(12 * min(SCALE_X, SCALE_Y))))
+    if len(pulse_targets) > 0:
+        active = (idx // 6) % len(pulse_targets)
+        for pos, (rect, color) in enumerate(pulse_targets):
+            if pos == active:
+                pulse_rect(draw, rect, color, progress * math.tau * 2, int(round(12 * min(SCALE_X, SCALE_Y))))
 
     frame.alpha_composite(overlay)
     return frame.convert("RGB")
