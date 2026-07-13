@@ -251,9 +251,22 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
         draw_rect(ex, draw, x + 5 * scale, y + 15 * scale, 38 * scale, 15 * scale, color, color, 1, 3, scaled=True)
 
     elif kind == "file":
-        draw_rect(ex, draw, x + 7 * scale, y, 33 * scale, 36 * scale, THEME["white"], color, 2, 4, scaled=True)
-        draw_line(ex, draw, [(x + 15 * scale, y + 14 * scale), (x + 31 * scale, y + 14 * scale)], THEME["bg"], 2, scaled=True)
-        draw_line(ex, draw, [(x + 15 * scale, y + 24 * scale), (x + 31 * scale, y + 24 * scale)], THEME["bg"], 2, scaled=True)
+        # Document sheet with modern folded corner
+        draw_line(ex, draw, [
+            (x + 7 * scale, y),
+            (x + 28 * scale, y),
+            (x + 38 * scale, y + 10 * scale),
+            (x + 38 * scale, y + 38 * scale),
+            (x + 7 * scale, y + 38 * scale),
+            (x + 7 * scale, y),
+        ], THEME["white"], 2, scaled=True)
+        draw_line(ex, draw, [
+            (x + 28 * scale, y),
+            (x + 28 * scale, y + 10 * scale),
+            (x + 38 * scale, y + 10 * scale)
+        ], THEME["white"], 2, scaled=True)
+        draw_line(ex, draw, [(x + 13 * scale, y + 18 * scale), (x + 31 * scale, y + 18 * scale)], THEME["white"], 2, scaled=True)
+        draw_line(ex, draw, [(x + 13 * scale, y + 28 * scale), (x + 31 * scale, y + 28 * scale)], THEME["white"], 2, scaled=True)
 
     elif kind == "scan":
         draw_ellipse(ex, draw, x + 14 * scale, y + 11 * scale, 38 * scale, 38 * scale, THEME["white"], None, 4, scaled=True)
@@ -276,9 +289,12 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
         ], THEME["white"], 4, scaled=True)
 
     elif kind == "db":
-        draw_ellipse(ex, draw, x + 15 * scale, y + 9 * scale,  50 * scale, 17 * scale, THEME["white"], color, 2, scaled=True)
-        draw_rect(  ex, draw, x + 15 * scale, y + 17 * scale, 50 * scale, 37 * scale, THEME["white"], color, 2, 0, scaled=True)
-        draw_ellipse(ex, draw, x + 15 * scale, y + 45 * scale, 50 * scale, 17 * scale, THEME["white"], color, 2, scaled=True)
+        # Stacked modern database discs
+        for dy in [9, 25, 41]:
+            draw_ellipse(ex, draw, x + 12 * scale, y + dy * scale, 52 * scale, 15 * scale, THEME["white"], color, 2, scaled=True)
+            if dy < 41:
+                draw_line(ex, draw, [(x + 12 * scale, y + (dy + 7.5) * scale), (x + 12 * scale, y + (dy + 23.5) * scale)], THEME["white"], 2, scaled=True)
+                draw_line(ex, draw, [(x + 64 * scale, y + (dy + 7.5) * scale), (x + 64 * scale, y + (dy + 23.5) * scale)], THEME["white"], 2, scaled=True)
 
     elif kind == "hash":
         draw_line(ex, draw, [(x + 27 * scale, y + 14 * scale), (x + 22 * scale, y + 58 * scale)], THEME["amber"], 4, scaled=True)
@@ -317,16 +333,17 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
         draw_line(ex, draw, pts, color, 3, scaled=True)
 
     elif kind == "lock":
-        draw_rect(ex, draw, x + 12 * scale, y + 28 * scale, 44 * scale, 34 * scale,
-                  THEME["white"], color, 2, 4, scaled=True)
+        # Sleek padlock with compact dimensions
+        draw_rect(ex, draw, x + 18 * scale, y + 30 * scale, 40 * scale, 30 * scale,
+                  THEME["white"], color, 2, 6, scaled=True)
         draw_line(ex, draw, [
-            (x + 18 * scale, y + 28 * scale),
-            (x + 18 * scale, y + 13 * scale),
-            (x + 50 * scale, y + 13 * scale),
-            (x + 50 * scale, y + 28 * scale),
+            (x + 26 * scale, y + 30 * scale),
+            (x + 26 * scale, y + 14 * scale),
+            (x + 50 * scale, y + 14 * scale),
+            (x + 50 * scale, y + 30 * scale),
         ], THEME["white"], 3, scaled=True)
-        draw_ellipse(ex, draw, x + 29 * scale, y + 37 * scale, 10 * scale, 10 * scale,
-                     THEME["bg"], THEME["bg"], 1, scaled=True)
+        draw_ellipse(ex, draw, x + 34 * scale, y + 40 * scale, 8 * scale, 8 * scale,
+                     THEME["white"], THEME["white"], 1, scaled=True)
 
     elif kind == "layers":
         for idx, dy in enumerate([0, 14, 28]):
@@ -347,24 +364,23 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
                   THEME["white"], 3, scaled=True)
 
     elif kind == "database":
-        draw_ellipse(ex, draw, x + 15 * scale, y +  9 * scale, 50 * scale, 17 * scale,
-                     THEME["white"], color, 2, scaled=True)
-        draw_rect(  ex, draw, x + 15 * scale, y + 17 * scale, 50 * scale, 37 * scale,
-                     THEME["white"], color, 2, 0, scaled=True)
-        draw_ellipse(ex, draw, x + 15 * scale, y + 45 * scale, 50 * scale, 17 * scale,
-                     THEME["white"], color, 2, scaled=True)
+        # Stacked modern database discs
+        for dy in [9, 25, 41]:
+            draw_ellipse(ex, draw, x + 12 * scale, y + dy * scale, 52 * scale, 15 * scale, THEME["white"], color, 2, scaled=True)
+            if dy < 41:
+                draw_line(ex, draw, [(x + 12 * scale, y + (dy + 7.5) * scale), (x + 12 * scale, y + (dy + 23.5) * scale)], THEME["white"], 2, scaled=True)
+                draw_line(ex, draw, [(x + 64 * scale, y + (dy + 7.5) * scale), (x + 64 * scale, y + (dy + 23.5) * scale)], THEME["white"], 2, scaled=True)
 
     elif kind == "cpu":
-        draw_rect(ex, draw, x + 17 * scale, y + 17 * scale, 34 * scale, 34 * scale,
-                  THEME["white"], color, 2, 3, scaled=True)
+        # Borderless processor die with extending pins
+        draw_rect(ex, draw, x + 24 * scale, y + 24 * scale, 28 * scale, 28 * scale,
+                  THEME["white"], color, 2, 4, scaled=True)
         for i in range(3):
-            dy = (22 + i * 10) * scale
-            draw_line(ex, draw,
-                      [(x + 7 * scale, y + dy), (x + 17 * scale, y + dy)],
-                      THEME["white"], 2, scaled=True)
-            draw_line(ex, draw,
-                      [(x + 51 * scale, y + dy), (x + 61 * scale, y + dy)],
-                      THEME["white"], 2, scaled=True)
+            offset = (28 + i * 10) * scale
+            draw_line(ex, draw, [(x + 12 * scale, y + offset), (x + 24 * scale, y + offset)], THEME["white"], 2, scaled=True)
+            draw_line(ex, draw, [(x + 52 * scale, y + offset), (x + 64 * scale, y + offset)], THEME["white"], 2, scaled=True)
+            draw_line(ex, draw, [(x + offset, y + 12 * scale), (x + offset, y + 24 * scale)], THEME["white"], 2, scaled=True)
+            draw_line(ex, draw, [(x + offset, y + 52 * scale), (x + offset, y + 64 * scale)], THEME["white"], 2, scaled=True)
 
     elif kind == "git-branch":
         draw_ellipse(ex, draw, x + 10 * scale, y +  8 * scale, 14 * scale, 14 * scale,
@@ -422,16 +438,23 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
         draw_line(ex, draw, [(x + 38 * scale, y + 12 * scale), (x + 30 * scale, y + 56 * scale)], color, 3, scaled=True)
 
     elif kind == "terminal":
-        # >_ console
-        draw_rect(ex, draw, x + 8 * scale, y + 8 * scale, 52 * scale, 52 * scale, THEME["white"], color, 2, 4, scaled=True)
-        draw_line(ex, draw, [(x + 18 * scale, y + 22 * scale), (x + 28 * scale, y + 30 * scale), (x + 18 * scale, y + 38 * scale)], THEME["white"], 3, scaled=True)
-        draw_line(ex, draw, [(x + 34 * scale, y + 38 * scale), (x + 48 * scale, y + 38 * scale)], THEME["white"], 3, scaled=True)
+        # Large prompt '>' and underline cursor '_' without the outer window border
+        draw_line(ex, draw, [
+            (x + 15 * scale, y + 15 * scale),
+            (x + 35 * scale, y + 35 * scale),
+            (x + 15 * scale, y + 55 * scale)
+        ], THEME["white"], 4, scaled=True)
+        draw_line(ex, draw, [
+            (x + 42 * scale, y + 55 * scale),
+            (x + 62 * scale, y + 55 * scale)
+        ], color, 4, scaled=True)
 
     elif kind == "archive":
-        # Box with lid
-        draw_rect(ex, draw, x + 10 * scale, y + 24 * scale, 48 * scale, 38 * scale, THEME["white"], color, 2, 2, scaled=True)
-        draw_rect(ex, draw, x + 6 * scale, y + 10 * scale, 56 * scale, 14 * scale, THEME["white"], THEME["white"], 2, 1, scaled=True)
-        draw_line(ex, draw, [(x + 26 * scale, y + 36 * scale), (x + 42 * scale, y + 36 * scale)], THEME["white"], 3, scaled=True)
+        # Clean folder stack: two overlapping folders with tab offsets
+        draw_rect(ex, draw, x + 18 * scale, y + 10 * scale, 42 * scale, 34 * scale, THEME["white"], color, 2, 4, scaled=True)
+        draw_rect(ex, draw, x + 10 * scale, y + 22 * scale, 42 * scale, 34 * scale, THEME["white"], color, 2, 4, scaled=True)
+        draw_line(ex, draw, [(x + 18 * scale, y + 34 * scale), (x + 36 * scale, y + 34 * scale)], THEME["white"], 2, scaled=True)
+        draw_line(ex, draw, [(x + 18 * scale, y + 44 * scale), (x + 44 * scale, y + 44 * scale)], THEME["white"], 2, scaled=True)
 
     elif kind == "disc":
         # Concentric rings
