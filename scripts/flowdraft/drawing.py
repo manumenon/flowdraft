@@ -57,16 +57,20 @@ def draw_rect(
         h = h * SCALE_Y
         width = width * min(SCALE_X, SCALE_Y)
         radius = radius * min(SCALE_X, SCALE_Y)
-    stroke = adjust_color(stroke)
-    fill = adjust_color(fill)
-    ex.rect(x, y, w, h, stroke, fill or "transparent", width, style, radius=radius, opacity=opacity)
+    stroke_color = adjust_color(stroke) if stroke else None
+    fill_color = adjust_color(fill) if fill else None
+    ex.rect(x, y, w, h, stroke_color or "transparent", fill_color or "transparent", width, style, radius=radius, opacity=opacity)
     alpha = int(opacity * 255) if opacity is not None else 255
+    
+    outline_val = hex_rgba(stroke_color, alpha) if (stroke_color and width > 0) else None
+    fill_val = hex_rgba(fill_color, alpha) if fill_color else None
+    
     draw.rounded_rectangle(
         scaled_box(x, y, w, h),
         radius=c(radius),
-        outline=hex_rgba(stroke, alpha),
-        fill=hex_rgba(fill, alpha) if fill else None,
-        width=max(1, c(width)),
+        outline=outline_val,
+        fill=fill_val,
+        width=int(round(max(0, c(width)))) if outline_val else 0,
     )
 
 

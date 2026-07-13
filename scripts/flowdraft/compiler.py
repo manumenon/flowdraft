@@ -196,7 +196,7 @@ def resolve_style(
     # 4. Apply element-level style overrides
     for key in (
         "fillColor", "strokeColor", "strokeWidth", "strokeStyle",
-        "cornerRadius", "bold", "hand",
+        "cornerRadius", "bold", "hand", "borderless", "transparent",
     ):
         if key in elem_style:
             style[key] = elem_style[key]

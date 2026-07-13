@@ -203,14 +203,19 @@ def render_card(
     nw, nh = node["width"], node["height"]
     offsets = node.get("layout_offsets", {})
 
-    stroke = _stroke_color(node)
-    fill = _fill_color(node, default=THEME["blue_fill"])
+    style = _get_style(node)
+    borderless = style.get("borderless", False)
+    transparent = style.get("transparent", False)
+
+    stroke = None if borderless else _stroke_color(node)
+    fill = None if transparent else _fill_color(node, default=THEME["blue_fill"])
     sw = _stroke_width(node, default=2)
     cr = _corner_radius(node, default=12)
     ss = _stroke_style(node)
 
     # 1. Background rectangle
-    draw_rect(ex, draw, nx, ny, nw, nh, stroke, fill, sw, cr, style=ss, scaled=False)
+    if stroke or fill:
+        draw_rect(ex, draw, nx, ny, nw, nh, stroke, fill, sw, cr, style=ss, scaled=False)
 
     # 2. Icon
     icon_opt = offsets.get("icon")
@@ -339,14 +344,19 @@ def render_panel(
     nw, nh = node["width"], node["height"]
     offsets = node.get("layout_offsets", {})
 
-    stroke = _stroke_color(node, default=THEME["frame"])
-    fill = _fill_color(node, default=None)
+    style = _get_style(node)
+    borderless = style.get("borderless", False)
+    transparent = style.get("transparent", False)
+
+    stroke = None if borderless else _stroke_color(node, default=THEME["frame"])
+    fill = None if transparent else _fill_color(node, default=None)
     sw = _stroke_width(node, default=2)
     cr = _corner_radius(node, default=20)
     ss = _stroke_style(node)
 
     # 1. Panel border
-    draw_rect(ex, draw, nx, ny, nw, nh, stroke, fill, sw, cr, style=ss, scaled=False)
+    if stroke or fill:
+        draw_rect(ex, draw, nx, ny, nw, nh, stroke, fill, sw, cr, style=ss, scaled=False)
 
     # 2. Title
     title_opt = offsets.get("title")
