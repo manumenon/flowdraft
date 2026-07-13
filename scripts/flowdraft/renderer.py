@@ -253,7 +253,7 @@ def render_card(
             bold=body_opt.get("bold", False),
             spacing=3,
             fit=True,
-            min_size=body_opt.get("min_size", 9),
+            min_size=body_opt.get("min_size", 11),
             scaled=False,
         )
 
@@ -295,7 +295,7 @@ def render_diamond(
             hand=title_opt.get("hand", _hand_font(node)),
             bold=title_opt.get("bold", True),
             fit=True,
-            min_size=title_opt.get("min_size", 10),
+            min_size=title_opt.get("min_size", 12),
             scaled=False,
         )
 
@@ -313,7 +313,7 @@ def render_diamond(
             hand=body_opt.get("hand", _hand_font(node)),
             bold=body_opt.get("bold", False),
             fit=True,
-            min_size=body_opt.get("min_size", 6),
+            min_size=body_opt.get("min_size", 10),
             scaled=False,
         )
 
@@ -508,6 +508,33 @@ def render_label(
         )
 
 
+def render_decor_brand(
+    ex: Excal,
+    draw: ImageDraw.ImageDraw,
+    node: dict,
+) -> None:
+    """Render the brand watermark signature decoration."""
+    bx = node["x"]
+    by = node["y"]
+    signature = node.get("signature", "@FlowDraft")
+    
+    dots = [
+        (0,  0,  THEME["cyan"]),
+        (10, 8,  THEME["white"]),
+        (0,  16, THEME["purple"]),
+        (10, 24, THEME["white"]),
+        (20, 0,  THEME["white"]),
+        (30, 8,  THEME["pink"]),
+        (20, 16, THEME["white"]),
+        (30, 24, THEME["green"]),
+    ]
+    for dx, dy, color in dots:
+        draw_ellipse(ex, draw, bx + dx, by + dy, 5, 5, color, color, 1, scaled=False)
+        
+    from .drawing import draw_signature
+    draw_signature(ex, draw, signature, bx + 43, by - 8)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Node dispatcher — type-based dispatch, never ID-based
 # ═══════════════════════════════════════════════════════════════════════════
@@ -516,11 +543,12 @@ def render_label(
 # ``render_panel`` has a different signature (needs ``nodes_map``), so it
 # is handled separately in ``render_node``.
 _NODE_RENDERERS: dict[str, Any] = {
-    "card":    render_card,
-    "diamond": render_diamond,
-    "input":   render_input,
-    "label":   render_label,
-    "text":    render_label,     # "text" is an alias for "label"
+    "card":        render_card,
+    "diamond":     render_diamond,
+    "input":       render_input,
+    "label":       render_label,
+    "text":        render_label,     # "text" is an alias for "label"
+    "decor_brand": render_decor_brand,
 }
 
 
@@ -568,59 +596,10 @@ def render_connection(
 ) -> None:
     """Render a single connection (arrow between two nodes).
 
-    The connection dict is expected to have:
-
-    * ``from`` — source node ID
-    * ``to``   — target node ID
-    * ``fromPort`` / ``toPort`` — port names (default ``"bottom"`` / ``"top"``)
-    * ``color`` — optional colour override
-    * ``label`` — optional midpoint label
-    * ``style`` — ``"solid"`` | ``"dashed"`` | ``"dotted"``
-    * ``points`` — optional list of explicit waypoints ``[(x, y), ...]``
-
-    If ``points`` is provided, those exact coordinates are used.  Otherwise
-    the renderer auto-routes a straight segment between the two port
-    coordinates.
-
-    Args:
-        ex:        Excal JSON builder.
-        draw:      PIL ImageDraw.
-        conn:      Connection dict from ``ir["connections"]``.
-        nodes_map: ``{id: node}`` lookup.
+    Uses pre-routed waypoints from `conn["points"]` and label coordinates.
     """
-    # Resolve source and target nodes
-    src_id = conn.get("from")
-    tgt_id = conn.get("to")
-
-    src_node = nodes_map.get(src_id) if src_id else None
-    tgt_node = nodes_map.get(tgt_id) if tgt_id else None
-
-    # Determine path points
-    explicit_points = conn.get("points")
-    if explicit_points:
-        # Use pre-routed waypoints
-        path_points = [tuple(p) for p in explicit_points]
-    elif src_node and tgt_node:
-        # Auto-route between ports
-        from_port = conn.get("fromPort", conn.get("exitPort", "bottom"))
-        to_port = conn.get("toPort", conn.get("entryPort", "top"))
-        p_start = get_port_coords(src_node, from_port)
-        p_end = get_port_coords(tgt_node, to_port)
-
-        # Simple L-shaped routing for non-aligned ports
-        if abs(p_start[0] - p_end[0]) > 1 and abs(p_start[1] - p_end[1]) > 1:
-            # Route via a midpoint for cleaner connections
-            mid_y = (p_start[1] + p_end[1]) / 2
-            path_points = [
-                p_start,
-                (p_start[0], mid_y),
-                (p_end[0], mid_y),
-                p_end,
-            ]
-        else:
-            path_points = [p_start, p_end]
-    else:
-        # Cannot resolve nodes — skip
+    path_points = [tuple(p) for p in conn.get("points", [])]
+    if not path_points:
         return
 
     # Determine style
@@ -636,27 +615,20 @@ def render_connection(
         arrow=True, scaled=False,
     )
 
-    # Optional label at the midpoint of the first segment
+    # Optional label
     conn_label = conn.get("label")
-    if conn_label and len(path_points) >= 2:
-        p0 = path_points[0]
-        p1 = path_points[1]
-        lbl_x = (p0[0] + p1[0]) / 2
-        lbl_y = (p0[1] + p1[1]) / 2
-
-        # Offset label away from a vertical segment
-        if abs(p0[0] - p1[0]) < 1:
-            lbl_x += 12
-        else:
-            lbl_y -= 12
-
-        draw_text(
-            ex, draw, conn_label,
-            lbl_x - 50, lbl_y - 10,
-            100, 20, 12,
-            THEME["white"], "center",
-            scaled=False,
-        )
+    if conn_label:
+        lbl_opt = conn.get("layout_offsets", {}).get("label")
+        if lbl_opt and "x" in lbl_opt and "y" in lbl_opt:
+            lbl_x = lbl_opt["x"]
+            lbl_y = lbl_opt["y"]
+            draw_text(
+                ex, draw, conn_label,
+                lbl_x - 50, lbl_y - 10,
+                100, 20, 12,
+                THEME["white"], "center",
+                scaled=False,
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -671,47 +643,18 @@ def render_annotation(
 ) -> None:
     """Render a single annotation (text label attached to an element or connection).
 
-    The annotation dict may contain:
-
-    * ``text``    — the label string
-    * ``target``  — ID of the element or connection it's attached to
-    * ``x``, ``y`` — explicit absolute position (if provided, overrides target)
-    * ``w``, ``h`` — width/height of the text box (defaults: 200, 24)
-    * ``size``    — font size (default: 14)
-    * ``color``   — text colour (default: ``THEME["white"]``)
-    * ``align``   — text alignment (default: ``"center"``)
-    * ``offset``  — ``{"dx": …, "dy": …}`` offset from the target's centre
-
-    Args:
-        ex:        Excal JSON builder.
-        draw:      PIL ImageDraw.
-        ann:       Annotation dict from ``ir["annotations"]``.
-        nodes_map: ``{id: node}`` lookup.
+    Uses pre-calculated frozen coordinates in the IR.
     """
     text = ann.get("text", "")
     if not text:
         return
 
-    # Resolve position
+    # Resolve position (already frozen)
     ax: float | None = ann.get("x")
     ay: float | None = ann.get("y")
 
     if ax is None or ay is None:
-        # Position relative to a target element
-        target_id = ann.get("target")
-        target = nodes_map.get(target_id) if target_id else None
-        if target:
-            # Centre of the target element
-            ax = target["x"] + target["width"] / 2
-            ay = target["y"] + target["height"] / 2
-        else:
-            # No resolvable position — skip
-            return
-
-    # Apply offset
-    offset = ann.get("offset", {})
-    ax += offset.get("dx", 0)
-    ay += offset.get("dy", 0)
+        return
 
     # Text box dimensions
     aw = ann.get("w", 200)
@@ -719,6 +662,29 @@ def render_annotation(
     a_size = ann.get("size", 14)
     a_color = ann.get("color", THEME["white"])
     a_align = ann.get("align", "center")
+
+    # Draw a background rectangle to clear any connection lines behind the text
+    from .fonts import load_font, text_size
+    from .compiler import _scratch_draw
+    from .constants import SCALE
+
+    font_val = load_font(a_size, hand=False, bold=False)
+    draw_scratch = _scratch_draw()
+    txt_pw, txt_ph = text_size(draw_scratch, text, font_val)
+    txt_w = txt_pw / SCALE
+    txt_h = txt_ph / SCALE
+
+    mask_w = min(aw, txt_w + 16.0)
+    mask_h = min(ah, txt_h + 8.0)
+
+    draw_rect(
+        ex, draw,
+        ax - mask_w / 2, ay - mask_h / 2,
+        mask_w, mask_h,
+        THEME["bg"], THEME["bg"],
+        0, 0,
+        scaled=False,
+    )
 
     draw_text(
         ex, draw, text,
@@ -740,23 +706,7 @@ def render_all(
     draw: ImageDraw.ImageDraw,
     ir: dict,
 ) -> None:
-    """Render the entire compiled IR to both PIL and Excalidraw outputs.
-
-    Rendering order:
-
-        1. **Top-level panels** — background rectangles first, then their
-           children are rendered recursively inside ``render_panel``.
-        2. **Free elements** — cards, diamonds, inputs, labels that have no
-           parent (not inside a panel).
-        3. **Connections** — arrows drawn on top of all shapes.
-        4. **Annotations** — text labels drawn last (always on top).
-
-    Args:
-        ex:  Excal JSON builder.
-        draw: PIL ImageDraw.
-        ir:  The compiled IR dict, containing ``nodes``, ``connections``,
-             and ``annotations`` lists.
-    """
+    """Render the entire compiled IR to both PIL and Excalidraw outputs."""
     nodes = ir.get("nodes", [])
     connections = ir.get("connections", [])
     annotations = ir.get("annotations", [])
@@ -782,3 +732,4 @@ def render_all(
     # 4. Render annotations (text labels on top of everything).
     for ann in annotations:
         render_annotation(ex, draw, ann, nodes_map)
+

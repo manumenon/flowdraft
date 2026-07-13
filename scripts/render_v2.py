@@ -317,36 +317,12 @@ def run_pipeline(
     hl_rect_y = 27
     hl_rect_h = 72
 
-    if title_spec:
-        draw_line(ex_doc, draw, [(29, 31), (29, 78)], THEME["purple"], 11, scaled=False)
-        if prefix_text:
-            draw_text(ex_doc, draw, prefix_text, 45, 14, 535, 66, 47, THEME["white"], "left", hand=fc.HAND, bold=True, scaled=False)
-        if highlight_text:
-            _hl_font = load_font(44, hand=fc.HAND, bold=True)
-            _hl_tw, _ = text_size(draw, highlight_text, _hl_font)
-            _hl_tw    = max(int(_hl_tw / SCALE), 200)
-            _hl_pad_x = 22
-            
-            # Position highlight box dynamically after prefix if prefix exists
-            if prefix_text:
-                _pref_font = load_font(47, hand=fc.HAND, bold=True)
-                _pref_tw, _ = text_size(draw, prefix_text, _pref_font)
-                _pref_tw_scaled = _pref_tw / SCALE
-                hl_rect_x = max(600, int(45 + _pref_tw_scaled + 20))
-            else:
-                hl_rect_x = 45
-
-            hl_rect_w = _hl_tw + _hl_pad_x * 2
-            draw_rect(ex_doc, draw, hl_rect_x, hl_rect_y, hl_rect_w, hl_rect_h, THEME["highlight"], THEME["highlight"], 2, 16, scaled=False)
-            draw_text(ex_doc, draw, highlight_text, hl_rect_x + _hl_pad_x, 19, hl_rect_w - _hl_pad_x * 2, 76, 44, THEME["green"], "center", hand=fc.HAND, bold=True, scaled=False)
-        if subtitle_text:
-            draw_text(ex_doc, draw, subtitle_text, 104, 90, 420, 25, 15, THEME["muted"], "left", scaled=False)
-
-    # 5. Compute dynamic outer border enclosing all nodes
-    xs = [n["x"] for n in ir["nodes"]]
-    ys = [n["y"] for n in ir["nodes"]]
-    rights = [n["x"] + n["width"] for n in ir["nodes"]]
-    bottoms = [n["y"] + n["height"] for n in ir["nodes"]]
+    # 5. Compute dynamic outer border enclosing all nodes (for layout_spec)
+    diagram_nodes = [n for n in ir["nodes"] if not n["id"].startswith("decor_")]
+    xs = [n["x"] for n in diagram_nodes]
+    ys = [n["y"] for n in diagram_nodes]
+    rights = [n["x"] + n["width"] for n in diagram_nodes]
+    bottoms = [n["y"] + n["height"] for n in diagram_nodes]
     
     min_x = min(xs) if xs else 50
     min_y = min(ys) if ys else 117
@@ -358,50 +334,38 @@ def run_pipeline(
     outer_border_w = min(canvas_w - 10, max_x + 30) - outer_border_x
     outer_border_h = min(canvas_h - 10, max_y + 30) - outer_border_y
 
-    draw_rect(ex_doc, draw, outer_border_x, outer_border_y, outer_border_w, outer_border_h, THEME["frame"], None, 2, 29, scaled=False)
+    # Calculate highlight box position dynamically for layout_spec
+    if title_spec and highlight_text:
+        _hl_font = load_font(44, hand=fc.HAND, bold=True)
+        _hl_tw, _ = text_size(draw, highlight_text, _hl_font)
+        _hl_tw    = max(int(_hl_tw / SCALE), 200)
+        _hl_pad_x = 22
+        
+        if prefix_text:
+            _pref_font = load_font(47, hand=fc.HAND, bold=True)
+            _pref_tw, _ = text_size(draw, prefix_text, _pref_font)
+            _pref_tw_scaled = _pref_tw / SCALE
+            hl_rect_x = max(600, int(45 + _pref_tw_scaled + 20))
+        else:
+            hl_rect_x = 45
+        hl_rect_w = _hl_tw + _hl_pad_x * 2
 
-    # 6. Render nodes, connections, and annotations using v2 renderer
+    # 6. Render nodes, connections, annotations, and injected page layout decorations
     render_all(ex_doc, draw, ir)
 
-    # 7. Render signature/brand watermark
-    signature = validated.get("signature", "@FlowDraft")
-    bx = (outer_border_x + outer_border_w) - 255
-    by = 143
-    if bx < 600:
-        bx = canvas_w - 270
-    draw_brand(ex_doc, draw, signature, bx, by)
-
     # 8. Pre-resolve paths and pulse targets for GIF animation and premium finish
-    nodes_map = {n["id"]: n for n in ir["nodes"]}
     resolved_paths = []
     total_paths = len(ir["connections"])
     for p, conn in enumerate(ir["connections"]):
-        src_id = conn.get("from")
-        tgt_id = conn.get("to")
-        src_node = nodes_map.get(src_id)
-        tgt_node = nodes_map.get(tgt_id)
-        if not src_node or not tgt_node:
-            continue
-            
-        from_port = conn.get("fromPort", conn.get("exitPort", "bottom"))
-        to_port = conn.get("toPort", conn.get("entryPort", "top"))
-        p_start = get_port_coords(src_node, from_port)
-        p_end = get_port_coords(tgt_node, to_port)
-        
-        # Simple L-shaped routing
-        if abs(p_start[0] - p_end[0]) > 1 and abs(p_start[1] - p_end[1]) > 1:
-            mid_y = (p_start[1] + p_end[1]) / 2
-            path_points = [p_start, (p_start[0], mid_y), (p_end[0], mid_y), p_end]
-        else:
-            path_points = [p_start, p_end]
-            
-        resolved_paths.append((path_points, conn.get("color") or THEME["core_stroke"], p / max(1, total_paths)))
+        path_points = [tuple(pts) for pts in conn.get("points", [])]
+        if path_points:
+            resolved_paths.append((path_points, conn.get("color") or THEME["core_stroke"], p / max(1, total_paths)))
         
     validated["_resolved_paths"] = resolved_paths
 
     pulse_targets = []
     for node in ir["nodes"]:
-        if node.get("type") == "panel":
+        if node.get("type") == "panel" and not node["id"].startswith("decor_"):
             x1 = node["x"]
             y1 = node["y"]
             x2 = node["x"] + node["width"]
@@ -412,13 +376,14 @@ def run_pipeline(
     validated["_resolved_pulse_targets"] = pulse_targets
 
     layout_spec = {
-        "highlight_panel": (hl_rect_x, hl_rect_y, hl_rect_x + hl_rect_w, hl_rect_y + hl_rect_h) if highlight_text else None,
+        "highlight_panel": (hl_rect_x, hl_rect_y, hl_rect_x + hl_rect_w, hl_rect_y + hl_rect_h) if (title_spec and highlight_text) else None,
         "outer_border": (outer_border_x, outer_border_y, outer_border_x + outer_border_w, outer_border_y + outer_border_h)
     }
     for node in ir["nodes"]:
-        if node.get("type") == "panel":
+        if node.get("type") == "panel" and not node["id"].startswith("decor_"):
             layout_spec[node["id"]] = (node["x"], node["y"], node["x"] + node["width"], node["y"] + node["height"])
     validated["_resolved_layout"] = layout_spec
+
 
     # 9. Post-process static image
     static_img = img.resize((canvas_w, canvas_h), Image.Resampling.LANCZOS).convert("RGB")

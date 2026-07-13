@@ -105,7 +105,7 @@ _MIN_SIZES: dict[str, tuple[float, float]] = {
 # Icon dimensions in logical pixels (pre-scale)
 _ICON_W = 32
 _ICON_H = 32
-_ICON_SCALE = 0.8          # draw-time icon scale multiplier
+_ICON_SCALE = 0.4          # draw-time icon scale multiplier
 _ICON_TITLE_GAP = 8        # horizontal gap between icon and title
 
 
@@ -135,7 +135,7 @@ def resolve_style(
     Returns:
         A fully resolved style dict with keys: ``fillColor``, ``strokeColor``,
         ``strokeWidth``, ``strokeStyle``, ``cornerRadius``, ``bold``, ``hand``,
-        ``padding``.
+        ``padding``, and ``color_preset``.
     """
     th = theme or THEME
     etype = element.get("type", "card")
@@ -146,27 +146,54 @@ def resolve_style(
         _DEFAULT_PADDING.get(etype, _DEFAULT_PADDING["card"])
     )
 
-    # 2. Resolve color_preset from theme
-    preset = (
-        element.get("color_preset")
-        or element.get("style", {}).get("color_preset")
+    # Track what is explicitly overridden in the element
+    elem_style = element.get("style", {})
+    elem_padding = elem_style.get("padding") or element.get("padding")
+    elem_preset = element.get("color_preset") or elem_style.get("color_preset")
+    elem_color = element.get("color")
+
+    # Determine if child specifies any color overrides
+    has_elem_color = (
+        elem_preset is not None
+        or elem_color is not None
+        or "fillColor" in elem_style
+        or "strokeColor" in elem_style
     )
-    if preset:
-        preset_lower = preset.lower()
-        _apply_color_preset(style, preset_lower, th)
 
-    # Fallback: use element-level "color" for strokeColor
-    if not style["strokeColor"] and element.get("color"):
-        style["strokeColor"] = element["color"]
-
-    # 3. Inherit from parent style (selective keys only)
+    # 2. Inherit styles from parent_style if parent_style exists
     if parent_style:
-        for key in ("hand",):
-            if key in parent_style and style.get(key) is None:
+        # Inherit simple properties if not explicitly overridden by child
+        for key in ("hand", "bold", "strokeWidth", "strokeStyle", "cornerRadius"):
+            if key in parent_style and key not in elem_style:
                 style[key] = parent_style[key]
 
-    # 4. Apply element-level overrides
-    elem_style = element.get("style", {})
+        # Inherit padding if not explicitly overridden by child
+        if elem_padding is None and "padding" in parent_style:
+            style["padding"] = copy.deepcopy(parent_style["padding"])
+
+        # Inherit color preset if not explicitly overridden by child
+        if not has_elem_color and "color_preset" in parent_style:
+            style["color_preset"] = parent_style["color_preset"]
+            if parent_style["color_preset"]:
+                _apply_color_preset(style, parent_style["color_preset"].lower(), th)
+
+        # If parent has resolved colors and we didn't inherit/override them:
+        if not has_elem_color and not style.get("color_preset"):
+            if "fillColor" in parent_style:
+                style["fillColor"] = parent_style["fillColor"]
+            if "strokeColor" in parent_style:
+                style["strokeColor"] = parent_style["strokeColor"]
+
+    # 3. Apply element's own color_preset
+    if elem_preset:
+        style["color_preset"] = elem_preset
+        _apply_color_preset(style, elem_preset.lower(), th)
+
+    # Fallback: use element-level "color" for strokeColor
+    if not style.get("strokeColor") and elem_color:
+        style["strokeColor"] = elem_color
+
+    # 4. Apply element-level style overrides
     for key in (
         "fillColor", "strokeColor", "strokeWidth", "strokeStyle",
         "cornerRadius", "bold", "hand",
@@ -175,14 +202,18 @@ def resolve_style(
             style[key] = elem_style[key]
 
     # Padding merge (element overrides per-side)
-    elem_padding = elem_style.get("padding") or element.get("padding")
-    if isinstance(elem_padding, dict):
-        for side in ("left", "right", "top", "bottom"):
-            if side in elem_padding:
-                style["padding"][side] = elem_padding[side]
-    elif isinstance(elem_padding, (int, float)):
-        for side in ("left", "right", "top", "bottom"):
-            style["padding"][side] = elem_padding
+    if elem_padding is not None:
+        if isinstance(elem_padding, dict):
+            for side in ("left", "right", "top", "bottom"):
+                if side in elem_padding:
+                    style["padding"][side] = elem_padding[side]
+        elif isinstance(elem_padding, (int, float)):
+            for side in ("left", "right", "top", "bottom"):
+                style["padding"][side] = elem_padding
+
+    # Ensure color_preset is stored in resolved style dict
+    if "color_preset" not in style:
+        style["color_preset"] = elem_preset or (parent_style.get("color_preset") if parent_style else None)
 
     # Validate hex colours
     for ckey in ("fillColor", "strokeColor"):
@@ -337,7 +368,7 @@ def _measure_card(
     body_max_w = base_w - pad_l - pad_r
     body_max_h = max(20.0, base_h - body_y - pad_b)
     body_start_size = 14
-    body_min_size = 9
+    body_min_size = 11
 
     _, body_fitted_size, b_w, b_h = _measure_text(
         draw, body, body_max_w, body_max_h, body_start_size,
@@ -426,11 +457,11 @@ def _measure_diamond(
 
     _, t_size, t_w, t_h = _measure_text(
         draw, title, inner_w, title_max_h, 18,
-        min_size=10, hand=style.get("hand", True), bold=True,
+        min_size=12, hand=style.get("hand", True), bold=True,
     )
     _, b_size, b_w, b_h = _measure_text(
         draw, body, inner_w, body_max_h, 13,
-        min_size=6, hand=style.get("hand", True), bold=style.get("bold", False),
+        min_size=10, hand=style.get("hand", True), bold=style.get("bold", False),
     )
 
     # Grow inner area if content overflows, then map back to outer
@@ -452,7 +483,7 @@ def _measure_diamond(
             "w": usable_w,
             "h": t_h if title else 0,
             "size": t_size,
-            "min_size": 10,
+            "min_size": 12,
             "bold": True,
             "hand": style.get("hand", True),
             "align": "center",
@@ -465,7 +496,7 @@ def _measure_diamond(
             "w": usable_w,
             "h": b_h,
             "size": b_size,
-            "min_size": 6,
+            "min_size": 10,
             "bold": style.get("bold", False),
             "hand": style.get("hand", True),
             "align": "center",
@@ -581,11 +612,12 @@ def _measure_panel(
     draw: ImageDraw.ImageDraw,
     style: dict,
 ) -> dict:
-    """Return placeholder measurements for a ``panel``.
+    """Return measurements for a ``panel``.
 
     Panels are containers whose final size is computed from their children
-    during the layout phase.  Here we only set up the title / subtitle /
-    badge offsets that live in the panel's header area.
+    during the layout phase.  Here we compute the minimum inner bounds
+    required for their header text (title, subtitle, badge) instead of
+    using hardcoded 100x100 placeholders.
     """
     pad = style["padding"]
     title = element.get("title", "")
@@ -593,7 +625,6 @@ def _measure_panel(
     badge = element.get("badge", "")
 
     # Title region (always at top-left inside padding)
-    # We use a generous width budget; the panel will grow to fit children.
     title_w_budget = 400.0
     title_h_budget = 34.0
 
@@ -607,7 +638,7 @@ def _measure_panel(
             "x": pad["left"],
             "y": 15,
             "w": title_w_budget,
-            "h": title_h_budget,
+            "h": max(title_h_budget, t_h),
             "size": t_size,
             "min_size": 12,
             "bold": True,
@@ -617,8 +648,9 @@ def _measure_panel(
     }
 
     # Subtitle (below title in header area)
+    s_w, s_h = 0.0, 0.0
     if subtitle:
-        sub_y = 15 + t_h + 2
+        sub_y = offsets["title"]["y"] + offsets["title"]["h"] + 6.0
         _, s_size, s_w, s_h = _measure_text(
             draw, subtitle, title_w_budget, 24, 14,
             min_size=10, hand=style.get("hand", True), bold=False,
@@ -636,6 +668,7 @@ def _measure_panel(
         }
 
     # Badge (top-right corner chip)
+    bg_w, bg_h = 0.0, 0.0
     if badge:
         _, bg_size, bg_w, bg_h = _measure_text(
             draw, badge, 120, 20, 11,
@@ -653,10 +686,29 @@ def _measure_panel(
             "align": "center",
         }
 
-    # Placeholder size — layout phase will overwrite
+    t_w = t_w or 0.0
+    t_h = t_h or 0.0
+
+    # Compute minimum inner bounds required for header text
+    if badge:
+        min_w = pad["left"] + max(t_w, s_w) + 20.0 + (bg_w + 16.0) + pad["right"]
+    else:
+        min_w = pad["left"] + max(t_w, s_w) + pad["right"]
+
+    header_content_h = 15.0 + t_h
+    if subtitle:
+        header_content_h += 2.0 + s_h
+    if badge:
+        header_content_h = max(header_content_h, 15.0 + bg_h + 8.0)
+
+    min_h = header_content_h + 20.0 # add bottom buffer for header area
+
+    panel_w = max(element.get("width", 0) or 0.0, min_w, 100.0)
+    panel_h = max(element.get("height", 0) or 0.0, min_h, 100.0)
+
     return {
-        "width": element.get("width", 100),
-        "height": element.get("height", 100),
+        "width": panel_w,
+        "height": panel_h,
         "layout_offsets": offsets,
     }
 
@@ -694,8 +746,10 @@ def measure_element(
         ``layout_offsets``, and ``_resolved_style``.
     """
     etype = element.get("type", "card")
-    style = resolve_style(element, parent_style)
-    element["_resolved_style"] = style
+    style = element.get("_resolved_style")
+    if style is None:
+        style = resolve_style(element, parent_style)
+        element["_resolved_style"] = style
 
     measurer = _MEASURERS.get(etype, _measure_card)
     result = measurer(element, draw, style)
@@ -714,34 +768,27 @@ def measure_element(
 def _flatten_elements(
     elements: list[dict],
     parent_id: Optional[str] = None,
-    parent_style: Optional[dict] = None,
-    draw: Optional[ImageDraw.ImageDraw] = None,
     id_prefix: str = "",
     id_counters: Optional[dict[str, int]] = None,
 ) -> list[dict]:
-    """Recursively walk an element tree, producing a flat node list.
+    """Recursively walk an element tree, producing a flat node list without measuring.
 
     Each element is assigned:
     - ``id``       (auto-generated if missing)
     - ``parent``   (parent element ID, or ``None`` for top-level)
     - ``children`` (list of child IDs, populated for panels)
-    - ``width``, ``height``, ``layout_offsets`` (from ``measure_element``)
 
     Args:
         elements:     List of raw element dicts.
         parent_id:    ID of the enclosing parent, or None.
-        parent_style: Resolved style of the parent for cascade.
-        draw:         PIL ImageDraw for measurement.
         id_prefix:    Prefix for auto-generated IDs (e.g. ``"core_"``).
         id_counters:  Mutable dict tracking auto-ID indices per type.
 
     Returns:
-        A flat list of fully-measured node dicts.
+        A flat list of node dicts.
     """
     if id_counters is None:
         id_counters = {}
-    if draw is None:
-        draw = _scratch_draw()
 
     nodes: list[dict] = []
 
@@ -777,13 +824,10 @@ def _flatten_elements(
         # Copy through auxiliary fields the renderer may need
         for aux_key in (
             "thought", "badge", "subtitle", "label",
-            "size", "align", "opacity", "fixed",
+            "size", "align", "opacity", "fixed", "out_of_flow",
         ):
             if aux_key in elem:
                 node[aux_key] = elem[aux_key]
-
-        # ── Measure the node ─────────────────────────────────────────
-        measure_element(node, draw, parent_style)
 
         # ── Recurse into children (panels have "cards" or "children") ─
         child_elements = (
@@ -798,8 +842,6 @@ def _flatten_elements(
             child_nodes = _flatten_elements(
                 child_elements,
                 parent_id=node_id,
-                parent_style=node.get("_resolved_style"),
-                draw=draw,
                 id_prefix=f"{node_id}_",
                 id_counters=id_counters,
             )
@@ -813,8 +855,6 @@ def _flatten_elements(
             footer_nodes = _flatten_elements(
                 [footer],
                 parent_id=node_id,
-                parent_style=node.get("_resolved_style"),
-                draw=draw,
                 id_prefix=f"{node_id}_",
                 id_counters=id_counters,
             )
@@ -825,150 +865,6 @@ def _flatten_elements(
         nodes.extend(child_nodes)
 
     return nodes
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Spec → IR: legacy spec shape adapter
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _adapt_legacy_spec(spec: dict) -> tuple[list[dict], list[dict], list[dict]]:
-    """Convert the current (v1-ish) spec shape into a flat elements + connections list.
-
-    The default-spec.json uses top-level keys like ``inputs``, ``core``,
-    ``decision``, ``output``, ``left_panel``, ``center_panel``, ``right_panel``.
-    This function normalises those into a list of elements and connections that
-    ``_flatten_elements`` can walk.
-
-    Returns:
-        ``(elements, connections, annotations)``
-    """
-    elements: list[dict] = []
-    connections: list[dict] = []
-    annotations: list[dict] = []
-
-    # ── Input panel ──────────────────────────────────────────────────
-    if "inputs" in spec:
-        input_panel: dict[str, Any] = {
-            "id": "input_panel",
-            "type": "panel",
-            "title": spec.get("input_title", "Inputs"),
-            "style": spec.get("input_panel_style", {}),
-            "children": [],
-        }
-        for i, inp in enumerate(spec["inputs"]):
-            child = inp.copy()
-            child.setdefault("type", "input")
-            child.setdefault("id", f"input_{i}")
-            # Input chips use "label" as display text
-            if "label" in child and "title" not in child:
-                child["title"] = child["label"]
-            input_panel["children"].append(child)
-        elements.append(input_panel)
-
-    # ── Core panel ───────────────────────────────────────────────────
-    if "core" in spec:
-        core_spec = spec["core"]
-        core_panel: dict[str, Any] = {
-            "id": "core_panel",
-            "type": "panel",
-            "title": core_spec.get("title", "Core"),
-            "subtitle": core_spec.get("subtitle", ""),
-            "color_preset": core_spec.get("color_preset"),
-            "style": core_spec.get("style", {}),
-            "children": [],
-        }
-        for i, card in enumerate(core_spec.get("cards", [])):
-            child = card.copy()
-            child.setdefault("type", "card")
-            child.setdefault("id", f"core_card_{i}")
-            core_panel["children"].append(child)
-        elements.append(core_panel)
-
-        # Build a linear chain connection through core cards
-        core_ids = [c["id"] for c in core_panel["children"]]
-        if core_ids:
-            connections.append({"path": core_ids, "style": "solid"})
-
-    # ── Decision diamond ─────────────────────────────────────────────
-    if "decision" in spec:
-        dec = spec["decision"].copy()
-        dec.setdefault("type", "diamond")
-        dec.setdefault("id", "decision")
-        elements.append(dec)
-
-    # ── Output chip ──────────────────────────────────────────────────
-    if "output" in spec:
-        out = spec["output"].copy()
-        out.setdefault("type", "card")
-        out.setdefault("id", "output")
-        if "label" in out and "title" not in out:
-            out["title"] = out["label"]
-        elements.append(out)
-
-    # ── Side panels (left, center, right) ────────────────────────────
-    for panel_key in ("left_panel", "center_panel", "right_panel"):
-        if panel_key not in spec:
-            continue
-        panel_spec = spec[panel_key]
-        panel: dict[str, Any] = {
-            "id": panel_key,
-            "type": "panel",
-            "title": panel_spec.get("title", ""),
-            "subtitle": panel_spec.get("subtitle", ""),
-            "badge": panel_spec.get("badge", ""),
-            "color_preset": panel_spec.get("color_preset"),
-            "style": panel_spec.get("style", {}),
-            "children": [],
-        }
-        for i, card in enumerate(panel_spec.get("cards", [])):
-            child = card.copy()
-            child.setdefault("type", "card")
-            child.setdefault("id", f"{panel_key.replace('_panel', '')}_card_{i}")
-            panel["children"].append(child)
-
-        # Footer sub-card
-        if "footer" in panel_spec:
-            panel["footer"] = panel_spec["footer"]
-
-        elements.append(panel)
-
-    # ── Free-standing labels ─────────────────────────────────────────
-    if spec.get("loop_label"):
-        annotations.append({
-            "id": "loop_label",
-            "type": "label",
-            "title": spec["loop_label"],
-        })
-    if spec.get("retry_label"):
-        annotations.append({
-            "id": "retry_label",
-            "type": "label",
-            "title": spec["retry_label"],
-        })
-
-    # ── Core → decision → output connections ─────────────────────────
-    core_card_ids = [
-        el["id"] for el in elements
-        if el.get("type") == "panel" and el["id"] == "core_panel"
-        for child in el.get("children", [])
-        for el in [child]  # flatten
-    ]
-    if "decision" in spec and "core" in spec:
-        core_cards = spec["core"].get("cards", [])
-        if core_cards:
-            last_core = f"core_card_{len(core_cards) - 1}"
-            connections.append({"path": [last_core, "decision"], "style": "solid"})
-    if "decision" in spec and "output" in spec:
-        connections.append({"path": ["decision", "output"], "style": "solid"})
-
-    # ── Explicit connections from spec ───────────────────────────────
-    for conn in spec.get("connections", []):
-        if isinstance(conn, dict):
-            connections.append(conn)
-        elif isinstance(conn, list):
-            connections.append({"path": conn, "style": "solid"})
-
-    return elements, connections, annotations
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -986,7 +882,7 @@ def _scratch_draw() -> ImageDraw.ImageDraw:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def compile_spec(spec: dict) -> dict:
-    """Compile a v2 (or adapted v1) spec into the Intermediate Representation.
+    """Compile a v2 spec into the Intermediate Representation.
 
     The IR is a flat dictionary with three keys:
 
@@ -1003,37 +899,22 @@ def compile_spec(spec: dict) -> dict:
     origin).
 
     Args:
-        spec: The raw spec JSON dict.
+        spec: The validated and normalised spec JSON dict.
 
     Returns:
         An IR dict ``{"nodes": [...], "connections": [...], "annotations": [...]}``.
     """
     draw = _scratch_draw()
 
-    # ── Detect spec shape ────────────────────────────────────────────
-    #  v2 specs have a top-level "elements" list.
-    #  Legacy specs use named top-level keys (core, inputs, …).
-    if "elements" in spec:
-        raw_elements = spec["elements"]
-        raw_connections = spec.get("connections", [])
-        raw_annotations = spec.get("annotations", [])
-        # Normalise connections
-        connections = []
-        for conn in raw_connections:
-            if isinstance(conn, dict):
-                connections.append(conn)
-            elif isinstance(conn, list):
-                connections.append({"path": conn, "style": "solid"})
-    else:
-        raw_elements, connections, raw_annotations = _adapt_legacy_spec(spec)
-
-    # ── Flatten + measure ────────────────────────────────────────────
+    raw_elements = spec["elements"]
+    connections = spec.get("connections", [])
+    raw_annotations = spec.get("annotations", [])
     id_counters: dict[str, int] = {}
+    
+    # Pass 1: Flattening & Structure Discovery
     nodes = _flatten_elements(
         raw_elements,
         parent_id=None,
-        parent_style=None,
-        draw=draw,
         id_prefix="",
         id_counters=id_counters,
     )
@@ -1057,11 +938,36 @@ def compile_spec(spec: dict) -> dict:
             if "layout" in src:
                 node["layout"] = src["layout"]
 
+    # Pass 2: Style & Theme Cascade
+    spec_theme = spec.get("theme")
+    theme_dict = THEME
+    if isinstance(spec_theme, dict):
+        theme_dict = THEME.copy()
+        theme_dict.update(spec_theme)
+
+    def cascade_styles_recursive(node_id: str, parent_style: Optional[dict] = None) -> None:
+        node = nodes_map[node_id]
+        style = resolve_style(node, parent_style, theme=theme_dict)
+        node["_resolved_style"] = style
+        for cid in node.get("children", []):
+            if cid in nodes_map:
+                cascade_styles_recursive(cid, style)
+
+    for node in nodes:
+        if not node.get("parent"):
+            cascade_styles_recursive(node["id"], None)
+
+    # Pass 3: Intrinsic Metric Capture
+    for node in nodes:
+        measure_element(node, draw)
+
     # ── Measure annotation labels ────────────────────────────────────
     annotation_nodes: list[dict] = []
     for ann in raw_annotations:
         ann_node = ann.copy()
         ann_node.setdefault("type", "label")
+        # Resolve annotation style with theme dict first
+        ann_node["_resolved_style"] = resolve_style(ann_node, theme=theme_dict)
         measure_element(ann_node, draw)
         annotation_nodes.append(ann_node)
 

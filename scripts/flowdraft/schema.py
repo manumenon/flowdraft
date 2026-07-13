@@ -138,6 +138,62 @@ def _gen_id(base: str, existing_ids: Set[str]) -> str:
     return candidate
 
 
+def _validate_style_dict(style_dict: Any, path: str) -> None:
+    if not isinstance(style_dict, dict):
+        raise SpecError("style must be a dictionary.", path=path)
+    if "strokeWidth" in style_dict:
+        val = style_dict["strokeWidth"]
+        if not isinstance(val, (int, float)) or val < 0:
+            raise SpecError(f"strokeWidth must be non-negative, got {val!r}.", path=f"{path}.strokeWidth")
+    if "cornerRadius" in style_dict:
+        val = style_dict["cornerRadius"]
+        if not isinstance(val, (int, float)) or val < 0:
+            raise SpecError(f"cornerRadius must be non-negative, got {val!r}.", path=f"{path}.cornerRadius")
+    if "padding" in style_dict:
+        pad = style_dict["padding"]
+        if isinstance(pad, dict):
+            for side in ("left", "right", "top", "bottom"):
+                if side in pad:
+                    val = pad[side]
+                    if not isinstance(val, (int, float)) or val < 0:
+                        raise SpecError(f"padding.{side} must be non-negative, got {val!r}.", path=f"{path}.padding.{side}")
+        elif isinstance(pad, (int, float)):
+            if pad < 0:
+                raise SpecError(f"padding must be non-negative, got {pad!r}.", path=f"{path}.padding")
+        elif pad is not None:
+            raise SpecError("padding must be a number or a dictionary.", path=f"{path}.padding")
+
+
+def _validate_layout_dict(layout_dict: Any, path: str) -> None:
+    if not isinstance(layout_dict, dict):
+        raise SpecError("layout must be a dictionary.", path=path)
+    if "gap" in layout_dict:
+        val = layout_dict["gap"]
+        if not isinstance(val, (int, float)) or val < 0:
+            raise SpecError(f"layout.gap must be non-negative, got {val!r}.", path=f"{path}.gap")
+    if "max_cols" in layout_dict:
+        val = layout_dict["max_cols"]
+        if not isinstance(val, (int, float)) or val <= 0:
+            raise SpecError(f"max_cols must be positive, got {val!r}.", path=f"{path}.max_cols")
+    if "grid_cols" in layout_dict:
+        val = layout_dict["grid_cols"]
+        if not isinstance(val, (int, float)) or val <= 0:
+            raise SpecError(f"grid_cols must be positive, got {val!r}.", path=f"{path}.grid_cols")
+    if "padding" in layout_dict:
+        pad = layout_dict["padding"]
+        if isinstance(pad, dict):
+            for side in ("left", "right", "top", "bottom"):
+                if side in pad:
+                    val = pad[side]
+                    if not isinstance(val, (int, float)) or val < 0:
+                        raise SpecError(f"padding.{side} must be non-negative, got {val!r}.", path=f"{path}.padding.{side}")
+        elif isinstance(pad, (int, float)):
+            if pad < 0:
+                raise SpecError(f"padding must be non-negative, got {pad!r}.", path=f"{path}.padding")
+        elif pad is not None:
+            raise SpecError("padding must be a number or a dictionary.", path=f"{path}.padding")
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Canvas
 # ──────────────────────────────────────────────────────────────────────
@@ -146,22 +202,16 @@ def _normalise_canvas(raw: Optional[dict], path: str = "canvas") -> Dict[str, An
     """Return a complete canvas dict, filling in defaults.
 
     Accepted optional keys beyond *width* / *height*:
-    ``fps``, ``frames``.
+    ``fps``, ``frames``, ``duration``, ``mode``.
     """
     if raw is None:
-        return dict(DEFAULT_CANVAS)
+        raw = {}
 
     _require_type(raw, dict, path=path, label="canvas")
 
     canvas: Dict[str, Any] = {}
     canvas["width"] = raw.get("width", DEFAULT_CANVAS["width"])
     canvas["height"] = raw.get("height", DEFAULT_CANVAS["height"])
-
-    # Pass through animation hints if present
-    if "fps" in raw:
-        canvas["fps"] = raw["fps"]
-    if "frames" in raw:
-        canvas["frames"] = raw["frames"]
 
     for key in ("width", "height"):
         val = canvas[key]
@@ -170,6 +220,77 @@ def _normalise_canvas(raw: Optional[dict], path: str = "canvas") -> Dict[str, An
                 f"canvas.{key} must be a positive number, got {val!r}.",
                 path=f"{path}.{key}",
             )
+
+    # Validate and normalize canvas.mode
+    mode = raw.get("mode", "dynamic")
+    if mode not in ("dynamic", "absolute", "graph"):
+        raise SpecError(
+            f"canvas.mode must be one of ['dynamic', 'absolute', 'graph'], got {mode!r}.",
+            path=f"{path}.mode",
+        )
+    canvas["mode"] = mode
+
+    # Temporal settings
+    fps_val = raw.get("fps")
+    dur_val = raw.get("duration")
+    frames_val = raw.get("frames")
+
+    # Validate types of provided variables
+    if fps_val is not None:
+        if not isinstance(fps_val, (int, float)):
+            raise SpecError("canvas.fps must be a number.", path=f"{path}.fps")
+        if fps_val <= 0:
+            raise SpecError("canvas.fps must be a positive number.", path=f"{path}.fps")
+    if dur_val is not None:
+        if not isinstance(dur_val, (int, float)):
+            raise SpecError("canvas.duration must be a number.", path=f"{path}.duration")
+        if dur_val <= 0:
+            raise SpecError("canvas.duration must be a positive number.", path=f"{path}.duration")
+    if frames_val is not None:
+        if not isinstance(frames_val, (int, float)):
+            raise SpecError("canvas.frames must be a number.", path=f"{path}.frames")
+        if isinstance(frames_val, float):
+            if abs(frames_val - int(frames_val)) > 1e-7:
+                raise SpecError("canvas.frames must be an integer.", path=f"{path}.frames")
+        if frames_val <= 0:
+            raise SpecError("canvas.frames must be a positive number.", path=f"{path}.frames")
+
+    provided = []
+    if fps_val is not None: provided.append("fps")
+    if dur_val is not None: provided.append("duration")
+    if frames_val is not None: provided.append("frames")
+
+    if len(provided) <= 1:
+        fps_val = 30.0
+        dur_val = 3.0
+        frames_val = 90
+    elif len(provided) == 2:
+        if fps_val is not None and dur_val is not None:
+            frames_val = fps_val * dur_val
+            if abs(frames_val - round(frames_val)) > 1e-5:
+                raise SpecError(f"Solved frames ({frames_val}) is not close to an integer.", path=path)
+            frames_val = int(round(frames_val))
+        elif fps_val is not None and frames_val is not None:
+            dur_val = float(frames_val) / fps_val
+        elif dur_val is not None and frames_val is not None:
+            fps_val = float(frames_val) / dur_val
+    else: # len(provided) == 3
+        if abs(frames_val - fps_val * dur_val) > 1e-5:
+            raise SpecError(
+                f"Inconsistent temporal animation settings: frames ({frames_val}) != fps ({fps_val}) * duration ({dur_val}).",
+                path=path,
+            )
+
+    # Double check positive range
+    if fps_val <= 0 or dur_val <= 0 or frames_val <= 0:
+        raise SpecError("Temporal animation settings must be positive.", path=path)
+
+    # Final conversion to correct types
+    canvas["fps"] = float(fps_val)
+    canvas["duration"] = float(dur_val)
+    if abs(frames_val - round(frames_val)) > 1e-5:
+        raise SpecError(f"frames must be an integer, got {frames_val}.", path=f"{path}.frames")
+    canvas["frames"] = int(round(frames_val))
 
     return canvas
 
@@ -193,6 +314,7 @@ def _normalise_element(
     path: str,
     existing_ids: Set[str],
     parent_id: Optional[str] = None,
+    parent_type: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Validate and normalise a single element dict.
 
@@ -206,6 +328,7 @@ def _normalise_element(
         existing_ids: Mutable set tracking all IDs seen so far (used
                       for duplicate / auto-ID detection).
         parent_id:    If this element is a child, the ID of its parent.
+        parent_type:  If this element is a child, the type of its parent.
 
     Returns:
         A list of normalised element dicts (parent first, then children).
@@ -237,6 +360,23 @@ def _normalise_element(
     _require_type(elem_type, str, path=f"{path}.type", label="type")
     _one_of(elem_type, SUPPORTED_ELEMENT_TYPES, path=f"{path}.type", label="type")
 
+    # --- element structure check --------------------------------------
+    if elem_type in ("card", "diamond", "input", "label"):
+        if "children" in elem:
+            raise SpecError(
+                f"Leaf element '{elem_id}' of type '{elem_type}' cannot have nested children.",
+                path=path,
+            )
+
+    # --- coordinate completeness & out_of_flow ------------------------
+    has_x = elem.get("x") is not None
+    has_y = elem.get("y") is not None
+    if has_x != has_y:
+        raise SpecError(
+            f"Element '{elem_id}' has partial coordinates: x and y must both be specified or both omitted.",
+            path=path,
+        )
+
     # --- Build normalised element -------------------------------------
     normalised: Dict[str, Any] = {"id": elem_id, "type": elem_type}
 
@@ -251,8 +391,35 @@ def _normalise_element(
     # Carry over the parent reference (set when recursing into children)
     normalised["parent"] = parent_id
 
+    if has_x and has_y:
+        if parent_id is not None:
+            normalised["out_of_flow"] = True
+        else:
+            normalised["out_of_flow"] = False
+    else:
+        normalised["out_of_flow"] = False
+
+    # --- style & layout validation ------------------------------------
+    if "style" in elem:
+        _validate_style_dict(elem["style"], path=f"{path}.style")
+    if "layout" in elem:
+        _validate_layout_dict(elem["layout"], path=f"{path}.layout")
+    if "padding" in elem:
+        pad = elem["padding"]
+        if isinstance(pad, dict):
+            for side in ("left", "right", "top", "bottom"):
+                if side in pad:
+                    val = pad[side]
+                    if not isinstance(val, (int, float)) or val < 0:
+                        raise SpecError(f"padding.{side} must be non-negative, got {val!r}.", path=f"{path}.padding.{side}")
+        elif isinstance(pad, (int, float)):
+            if pad < 0:
+                raise SpecError(f"padding must be non-negative, got {pad!r}.", path=f"{path}.padding")
+        elif pad is not None:
+            raise SpecError("padding must be a number or a dictionary.", path=f"{path}.padding")
+
     # Preserve any extra user-supplied keys the renderer might use
-    _KNOWN_KEYS = {"id", "type", "children", "footer", *_ELEMENT_DEFAULTS}
+    _KNOWN_KEYS = {"id", "type", "children", "footer", "out_of_flow", *_ELEMENT_DEFAULTS}
     for key in elem:
         if key not in _KNOWN_KEYS:
             normalised[key] = elem[key]
@@ -272,6 +439,7 @@ def _normalise_element(
                     path=child_path,
                     existing_ids=existing_ids,
                     parent_id=elem_id,
+                    parent_type=elem_type,
                 )
             )
 
@@ -302,6 +470,7 @@ def _normalise_element(
                 path=f"{path}.footer",
                 existing_ids=existing_ids,
                 parent_id=elem_id,
+                parent_type=elem_type,
             )
         )
 
@@ -393,18 +562,31 @@ def _normalise_connection(
 
     normalised: Dict[str, Any] = {"from": from_id, "to": to_id}
 
-    # --- optional ports -----------------------------------------------
-    for port_key in ("exitPort", "entryPort"):
-        port_val: Optional[str] = conn.get(port_key)
-        if port_val is not None:
-            _require_type(port_val, str, path=f"{path}.{port_key}", label=port_key)
-            _one_of(
-                port_val,
-                SUPPORTED_PORTS,
-                path=f"{path}.{port_key}",
-                label=port_key,
-            )
-            normalised[port_key] = port_val
+    # --- optional ports & aliases -------------------------------------
+    exit_port_key = "exitPort" if conn.get("exitPort") is not None else ("fromPort" if conn.get("fromPort") is not None else None)
+    if exit_port_key is not None:
+        exit_port_val = conn[exit_port_key]
+        _require_type(exit_port_val, str, path=f"{path}.{exit_port_key}", label=exit_port_key)
+        _one_of(
+            exit_port_val,
+            SUPPORTED_PORTS,
+            path=f"{path}.{exit_port_key}",
+            label=exit_port_key,
+        )
+        normalised["exitPort"] = exit_port_val
+
+    # Resolve entry port
+    entry_port_key = "entryPort" if conn.get("entryPort") is not None else ("toPort" if conn.get("toPort") is not None else None)
+    if entry_port_key is not None:
+        entry_port_val = conn[entry_port_key]
+        _require_type(entry_port_val, str, path=f"{path}.{entry_port_key}", label=entry_port_key)
+        _one_of(
+            entry_port_val,
+            SUPPORTED_PORTS,
+            path=f"{path}.{entry_port_key}",
+            label=entry_port_key,
+        )
+        normalised["entryPort"] = entry_port_val
 
     # --- optional label -----------------------------------------------
     label: Optional[str] = conn.get("label")
@@ -651,10 +833,19 @@ def validate_spec(spec: dict) -> dict:
     result["canvas"] = _normalise_canvas(spec.get("canvas"), path="canvas")
 
     # ── theme ─────────────────────────────────────────────────────────
-    theme: str = spec.get("theme", "dark")
-    _require_type(theme, str, path="theme", label="theme")
-    _one_of(theme, SUPPORTED_THEMES, path="theme", label="theme")
-    result["theme"] = theme
+    theme = spec.get("theme", "dark")
+    if isinstance(theme, dict):
+        result["theme"] = theme
+    else:
+        _require_type(theme, str, path="theme", label="theme")
+        _one_of(theme, SUPPORTED_THEMES, path="theme", label="theme")
+        result["theme"] = theme
+
+    # ── Validate top-level style / layout ─────────────────────────────
+    if "style" in spec:
+        _validate_style_dict(spec["style"], path="style")
+    if "layout" in spec:
+        _validate_layout_dict(spec["layout"], path="layout")
 
     # ── elements (required) ───────────────────────────────────────────
     _require(spec, "elements", path="<root>", expected="list of element dicts")
