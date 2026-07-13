@@ -128,11 +128,15 @@ def premium_finish(base: Image.Image, spec: dict = None) -> Image.Image:
     img.alpha_composite(_build_glow_layer(1.00).filter(ImageFilter.GaussianBlur(max(1, int(round( 2 * min(SCALE_X, SCALE_Y)))))))
 
     strip_h = int(height * 0.06)
-    for row in range(strip_h):
-        t    = row / max(strip_h - 1, 1)
-        a    = int(35 * (1.0 - t)) if not is_light else int(15 * (1.0 - t))
-        tint = (200, 200, 200, a) if is_light else (0, 0, 0, a)
-        ImageDraw.Draw(img).line([(0, height - strip_h + row), (width, height - strip_h + row)], fill=tint)
+    if strip_h > 0:
+        strip_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+        strip_draw = ImageDraw.Draw(strip_layer)
+        for row in range(strip_h):
+            t    = row / max(strip_h - 1, 1)
+            a    = int(35 * (1.0 - t)) if not is_light else int(15 * (1.0 - t))
+            tint = (200, 200, 200, a) if is_light else (0, 0, 0, a)
+            strip_draw.line([(0, height - strip_h + row), (width, height - strip_h + row)], fill=tint)
+        img.alpha_composite(strip_layer)
 
     grain = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     gd    = ImageDraw.Draw(grain)

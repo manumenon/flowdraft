@@ -1,0 +1,1099 @@
+{
+  "id": "root",
+  "layoutOptions": {
+    "elk.algorithm": "layered",
+    "elk.direction": "DOWN",
+    "elk.edgeRouting": "ORTHOGONAL",
+    "elk.spacing.nodeNode": "60",
+    "elk.layered.spacing.nodeNodeBetweenLayers": "70",
+    "elk.hierarchyHandling": "SEPARATE_CHILDREN",
+    "elk.cycleBreaking.strategy": "MODEL_ORDER",
+    "elk.padding": "[top=200,left=50,bottom=50,right=50]"
+  },
+  "children": [
+    {
+      "id": "input_panel",
+      "children": [
+        {
+          "id": "input_0",
+          "children": [],
+          "width": 110,
+          "height": 50.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "input_0_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "input_0_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "input_0_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "input_0_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "input_1",
+          "children": [],
+          "width": 110,
+          "height": 50,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "input_1_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "input_1_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "input_1_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "input_1_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "input_2",
+          "children": [],
+          "width": 110,
+          "height": 53.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "input_2_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "input_2_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "input_2_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "input_2_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "input_3",
+          "children": [],
+          "width": 110,
+          "height": 50,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "input_3_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "input_3_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "input_3_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "input_3_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "input_4",
+          "children": [],
+          "width": 112.5,
+          "height": 54.0,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "input_4_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "input_4_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "input_4_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "input_4_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.spacing.nodeNode": "20",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "20",
+        "elk.padding": "[top=64.0,left=20,bottom=20,right=20]",
+        "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+      }
+    },
+    {
+      "id": "left_panel",
+      "children": [
+        {
+          "id": "left_0",
+          "children": [],
+          "width": 200,
+          "height": 88.0,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "left_0_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "left_0_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "left_0_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "left_0_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "left_1",
+          "children": [],
+          "width": 200,
+          "height": 85.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "left_1_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "left_1_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "left_1_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "left_1_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "left_2",
+          "children": [],
+          "width": 200,
+          "height": 85.0,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "left_2_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "left_2_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "left_2_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "left_2_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.spacing.nodeNode": "17",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "17",
+        "elk.padding": "[top=64.0,left=20,bottom=20,right=20]",
+        "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+      }
+    },
+    {
+      "id": "core_panel",
+      "children": [
+        {
+          "id": "core_0",
+          "children": [],
+          "width": 200,
+          "height": 87.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "core_0_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "core_0_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "core_0_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "core_0_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "core_1",
+          "children": [],
+          "width": 200,
+          "height": 88.0,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "core_1_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "core_1_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "core_1_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "core_1_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "core_2",
+          "children": [],
+          "width": 200,
+          "height": 87.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "core_2_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "core_2_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "core_2_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "core_2_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "core_3",
+          "children": [],
+          "width": 200,
+          "height": 87.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "core_3_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "core_3_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "core_3_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "core_3_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "core_4",
+          "children": [],
+          "width": 200,
+          "height": 88.0,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "core_4_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "core_4_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "core_4_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "core_4_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "RIGHT",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.spacing.nodeNode": "20",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "20",
+        "elk.padding": "[top=85.0,left=20,bottom=20,right=20]",
+        "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+      }
+    },
+    {
+      "id": "decision",
+      "children": [],
+      "width": 140,
+      "height": 206.0,
+      "layoutOptions": {
+        "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+      },
+      "ports": [
+        {
+          "id": "decision_top",
+          "properties": {
+            "org.eclipse.elk.port.side": "NORTH"
+          }
+        },
+        {
+          "id": "decision_bottom",
+          "properties": {
+            "org.eclipse.elk.port.side": "SOUTH"
+          }
+        },
+        {
+          "id": "decision_left",
+          "properties": {
+            "org.eclipse.elk.port.side": "WEST"
+          }
+        },
+        {
+          "id": "decision_right",
+          "properties": {
+            "org.eclipse.elk.port.side": "EAST"
+          }
+        }
+      ]
+    },
+    {
+      "id": "center_panel",
+      "children": [
+        {
+          "id": "store_0",
+          "children": [],
+          "width": 200,
+          "height": 87.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "store_0_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "store_0_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "store_0_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "store_0_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "store_1",
+          "children": [],
+          "width": 200,
+          "height": 87.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "store_1_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "store_1_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "store_1_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "store_1_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "store_2",
+          "children": [],
+          "width": 200,
+          "height": 86.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "store_2_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "store_2_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "store_2_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "store_2_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "store_3",
+          "children": [],
+          "width": 200,
+          "height": 88.0,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "store_3_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "store_3_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "store_3_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "store_3_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "center_footer",
+          "children": [],
+          "width": 200,
+          "height": 80,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "center_footer_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "center_footer_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "center_footer_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "center_footer_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "RIGHT",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.spacing.nodeNode": "28",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "28",
+        "elk.padding": "[top=85.0,left=20,bottom=20,right=20]",
+        "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+      }
+    },
+    {
+      "id": "output",
+      "children": [],
+      "width": 200,
+      "height": 80,
+      "layoutOptions": {
+        "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+      },
+      "ports": [
+        {
+          "id": "output_top",
+          "properties": {
+            "org.eclipse.elk.port.side": "NORTH"
+          }
+        },
+        {
+          "id": "output_bottom",
+          "properties": {
+            "org.eclipse.elk.port.side": "SOUTH"
+          }
+        },
+        {
+          "id": "output_left",
+          "properties": {
+            "org.eclipse.elk.port.side": "WEST"
+          }
+        },
+        {
+          "id": "output_right",
+          "properties": {
+            "org.eclipse.elk.port.side": "EAST"
+          }
+        }
+      ]
+    },
+    {
+      "id": "right_panel",
+      "children": [
+        {
+          "id": "right_0",
+          "children": [],
+          "width": 200,
+          "height": 87.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "right_0_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "right_0_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "right_0_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "right_0_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "right_1",
+          "children": [],
+          "width": 200,
+          "height": 87.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "right_1_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "right_1_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "right_1_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "right_1_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        },
+        {
+          "id": "right_2",
+          "children": [],
+          "width": 200,
+          "height": 87.5,
+          "layoutOptions": {
+            "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+          },
+          "ports": [
+            {
+              "id": "right_2_top",
+              "properties": {
+                "org.eclipse.elk.port.side": "NORTH"
+              }
+            },
+            {
+              "id": "right_2_bottom",
+              "properties": {
+                "org.eclipse.elk.port.side": "SOUTH"
+              }
+            },
+            {
+              "id": "right_2_left",
+              "properties": {
+                "org.eclipse.elk.port.side": "WEST"
+              }
+            },
+            {
+              "id": "right_2_right",
+              "properties": {
+                "org.eclipse.elk.port.side": "EAST"
+              }
+            }
+          ]
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.spacing.nodeNode": "14",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "14",
+        "elk.padding": "[top=64.0,left=20,bottom=20,right=20]",
+        "org.eclipse.elk.portConstraints": "FIXED_SIDE"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_0_input_0_core_0",
+      "sources": [
+        "input_0_bottom"
+      ],
+      "targets": [
+        "core_0_top"
+      ]
+    },
+    {
+      "id": "edge_1_input_1_core_0",
+      "sources": [
+        "input_1_bottom"
+      ],
+      "targets": [
+        "core_0_top"
+      ]
+    },
+    {
+      "id": "edge_2_input_2_core_0",
+      "sources": [
+        "input_2_bottom"
+      ],
+      "targets": [
+        "core_0_top"
+      ]
+    },
+    {
+      "id": "edge_3_input_3_core_0",
+      "sources": [
+        "input_3_bottom"
+      ],
+      "targets": [
+        "core_0_top"
+      ]
+    },
+    {
+      "id": "edge_4_input_4_core_0",
+      "sources": [
+        "input_4_bottom"
+      ],
+      "targets": [
+        "core_0_top"
+      ]
+    },
+    {
+      "id": "edge_5_core_0_core_1",
+      "sources": [
+        "core_0_left"
+      ],
+      "targets": [
+        "core_1_right"
+      ]
+    },
+    {
+      "id": "edge_6_core_1_core_2",
+      "sources": [
+        "core_1_top"
+      ],
+      "targets": [
+        "core_2_left"
+      ]
+    },
+    {
+      "id": "edge_7_core_2_core_3",
+      "sources": [
+        "core_2_right"
+      ],
+      "targets": [
+        "core_3_left"
+      ]
+    },
+    {
+      "id": "edge_8_core_3_core_4",
+      "sources": [
+        "core_3_right"
+      ],
+      "targets": [
+        "core_4_left"
+      ]
+    },
+    {
+      "id": "edge_9_core_4_decision",
+      "sources": [
+        "core_4_left"
+      ],
+      "targets": [
+        "decision_top"
+      ]
+    },
+    {
+      "id": "edge_10_decision_output",
+      "sources": [
+        "decision_bottom"
+      ],
+      "targets": [
+        "output_left"
+      ]
+    },
+    {
+      "id": "edge_11_decision_core_0",
+      "sources": [
+        "decision_top"
+      ],
+      "targets": [
+        "core_0_top"
+      ]
+    },
+    {
+      "id": "edge_12_output_right_0",
+      "sources": [
+        "output_right"
+      ],
+      "targets": [
+        "right_0_left"
+      ]
+    },
+    {
+      "id": "edge_13_left_0_core_0",
+      "sources": [
+        "left_0_right"
+      ],
+      "targets": [
+        "core_0_bottom"
+      ]
+    },
+    {
+      "id": "edge_14_core_2_store_2",
+      "sources": [
+        "core_2_top"
+      ],
+      "targets": [
+        "store_2_bottom"
+      ]
+    },
+    {
+      "id": "edge_15_core_3_store_3",
+      "sources": [
+        "core_3_top"
+      ],
+      "targets": [
+        "store_3_bottom"
+      ]
+    },
+    {
+      "id": "edge_16_store_3_right_0",
+      "sources": [
+        "store_3_right"
+      ],
+      "targets": [
+        "right_0_left"
+      ]
+    },
+    {
+      "id": "edge_17_right_0_decision",
+      "sources": [
+        "right_0_left"
+      ],
+      "targets": [
+        "decision_bottom"
+      ]
+    },
+    {
+      "id": "edge_18_left_0_left_1",
+      "sources": [
+        "left_0_bottom"
+      ],
+      "targets": [
+        "left_1_top"
+      ]
+    },
+    {
+      "id": "edge_19_left_1_left_2",
+      "sources": [
+        "left_1_bottom"
+      ],
+      "targets": [
+        "left_2_top"
+      ]
+    },
+    {
+      "id": "edge_20_right_0_right_1",
+      "sources": [
+        "right_0_bottom"
+      ],
+      "targets": [
+        "right_1_top"
+      ]
+    },
+    {
+      "id": "edge_21_right_1_right_2",
+      "sources": [
+        "right_1_bottom"
+      ],
+      "targets": [
+        "right_2_top"
+      ]
+    },
+    {
+      "id": "edge_22_store_1_center_footer",
+      "sources": [
+        "store_1_bottom"
+      ],
+      "targets": [
+        "center_footer_top"
+      ]
+    }
+  ]
+}

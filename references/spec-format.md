@@ -4,7 +4,7 @@ Use this reference when creating or editing a spec for `scripts/render_flowdraft
 
 ## Layout Model
 
-The renderer is optimized for a premium dark hand-drawn architecture/process diagram:
+The renderer is optimized for a premium dark technical architecture/process diagram:
 
 1. Top title: `title.prefix` plus highlighted `title.highlight`
 2. Top input box: four compact input sources

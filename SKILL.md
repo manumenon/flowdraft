@@ -1,11 +1,11 @@
 ---
 name: flowdraft-animated-architecture-diagram
-description: Create premium hand-drawn architecture and process diagrams in the FlowDraft animated GIF style, with editable .excalidraw files, static PNG/SVG previews, and genuinely animated GIFs with moving flow highlights. Use this skill whenever the user asks for Excalidraw-like diagrams, DailyDoseOfDS-style black-background sketches, animated architecture/process GIFs, polished flowcharts, visual explanations of articles or system designs, or asks to replicate or improve a reference diagram with hand-drawn animated effects.
+description: Create premium technical architecture and process diagrams in the FlowDraft animated GIF style, with editable .excalidraw files, static PNG/SVG previews, and genuinely animated GIFs with moving flow highlights. Use this skill whenever the user asks for Excalidraw-like diagrams, DailyDoseOfDS-style black-background sketches, animated architecture/process GIFs, polished flowcharts, visual explanations of articles or system designs, or asks to replicate or improve a reference diagram.
 ---
 
-# FlowDraft: Hand-Drawn Animated Architecture Diagram Skill
+# FlowDraft: Technical Animated Architecture Diagram Skill
 
-This skill guides the creation of premium hand-drawn technical diagrams using local Pillow rendering tools.
+This skill guides the creation of premium technical diagrams using local Pillow rendering tools.
 
 ---
 

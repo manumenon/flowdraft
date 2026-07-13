@@ -1362,6 +1362,184 @@ def _scale_layout_uniformly(nodes: list[dict], scale: float) -> None:
                 if "scale" in obj: obj["scale"] *= scale
 
 
+
+def _run_legacy_node_placement(
+    ir: dict,
+    nodes: list[dict],
+    nodes_map: dict[str, dict],
+    connections: list[dict],
+    toplevel_nodes: list[dict],
+    toplevel_ids: set[str],
+    canvas_mode: str,
+    canvas_w: float,
+    canvas_h: float
+) -> None:
+        for node in nodes:
+            if node.get("x") is None:
+                node.pop("x", None)
+            if node.get("y") is None:
+                node.pop("y", None)
+
+        # ── Step 1: Layout children inside each panel bottom-up ──────────
+        visited_panels = set()
+
+        def layout_panel_hierarchical(panel_id: str, n_map: dict[str, dict]) -> None:
+            if panel_id in visited_panels:
+                return
+            visited_panels.add(panel_id)
+            panel = n_map[panel_id]
+            for cid in panel.get("children", []):
+                child = n_map.get(cid)
+                if child and child.get("type") == "panel":
+                    layout_panel_hierarchical(cid, n_map)
+            layout_panel_children(panel, n_map)
+
+        toplevel_panels = [n for n in toplevel_nodes if n.get("type") == "panel"]
+        for panel in toplevel_panels:
+            layout_panel_hierarchical(panel["id"], nodes_map)
+
+        # Also handle nested panels not reached under top-level panels
+        nested_panels = [
+            n for n in nodes
+            if n.get("type") == "panel" and n.get("parent") is not None
+        ]
+        for panel in nested_panels:
+            layout_panel_hierarchical(panel["id"], nodes_map)
+
+        # ── Step 2: Position top-level elements based on canvas mode ─────
+        fixed_toplevel_ids = {
+            nid for nid in toplevel_ids
+            if nodes_map[nid].get("x") is not None and nodes_map[nid].get("y") is not None
+        }
+        unpositioned_toplevel_ids = toplevel_ids - fixed_toplevel_ids
+
+        if canvas_mode == "absolute":
+            # Keep nodes at specified coordinates, default to (0,0) if completely missing
+            for nid in toplevel_ids:
+                node = nodes_map[nid]
+                if node.get("x") is None:
+                    node["x"] = 0.0
+                if node.get("y") is None:
+                    node["y"] = 0.0
+
+        elif canvas_mode == "graph":
+            # Graph Mode: Compound force-directed layout solver
+            try:
+                import networkx as nx
+                G = nx.Graph()
+                for nid in toplevel_ids:
+                    G.add_node(nid)
+                for conn in connections:
+                    path = conn.get("path", [])
+                    if not path and "from" in conn and "to" in conn:
+                        path = [conn["from"], conn["to"]]
+                    if isinstance(path, str):
+                        path = [path]
+                    for a, b in zip(path, path[1:]):
+                        ta = _resolve_to_toplevel(a, nodes_map)
+                        tb = _resolve_to_toplevel(b, nodes_map)
+                        if ta != tb and ta in toplevel_ids and tb in toplevel_ids:
+                            G.add_edge(ta, tb)
+
+                initial_pos = {}
+                fixed_nodes_list = []
+                for nid in toplevel_ids:
+                    node = nodes_map[nid]
+                    if nid in fixed_toplevel_ids:
+                        initial_pos[nid] = [float(node["x"]), float(node["y"])]
+                        fixed_nodes_list.append(nid)
+                    else:
+                        initial_pos[nid] = [canvas_w / 2.0, canvas_h / 2.0]
+
+                pos = nx.spring_layout(G, pos=initial_pos, fixed=fixed_nodes_list or None, k=300.0, iterations=100, seed=42)
+
+                for nid in toplevel_ids:
+                    node = nodes_map[nid]
+                    # spring_layout updates coordinates for both fixed and free nodes
+                    node["x"] = pos[nid][0]
+                    node["y"] = pos[nid][1]
+
+            except ImportError:
+                # Fallback deterministic pure Python spring/force-directed relaxation
+                pos = {}
+                for nid in toplevel_ids:
+                    node = nodes_map[nid]
+                    if nid in fixed_toplevel_ids:
+                        pos[nid] = [float(node["x"]), float(node["y"])]
+                    else:
+                        # Deterministic spread using hash or index to avoid overlap starting positions
+                        pos[nid] = [
+                            canvas_w / 2.0 + (hash(nid) % 100 - 50),
+                            canvas_h / 2.0 + (hash(nid) % 100 - 50)
+                        ]
+
+                for _ in range(100):
+                    forces = {nid: [0.0, 0.0] for nid in toplevel_ids}
+                    # Repulsion
+                    for u in toplevel_ids:
+                        for v in toplevel_ids:
+                            if u == v:
+                                continue
+                            dx = pos[u][0] - pos[v][0]
+                            dy = pos[u][1] - pos[v][1]
+                            dist = math.hypot(dx, dy) + 0.1
+                            fr = 10000.0 / (dist * dist)
+                            forces[u][0] += (dx / dist) * fr
+                            forces[u][1] += (dy / dist) * fr
+                    # Attraction
+                    for conn in connections:
+                        path = conn.get("path", [])
+                        if not path and "from" in conn and "to" in conn:
+                            path = [conn["from"], conn["to"]]
+                        if isinstance(path, str):
+                            path = [path]
+                        for a, b in zip(path, path[1:]):
+                            ta = _resolve_to_toplevel(a, nodes_map)
+                            tb = _resolve_to_toplevel(b, nodes_map)
+                            if ta != tb and ta in toplevel_ids and tb in toplevel_ids:
+                                dx = pos[tb][0] - pos[ta][0]
+                                dy = pos[tb][1] - pos[ta][1]
+                                dist = math.hypot(dx, dy) + 0.1
+                                fa = 0.1 * dist
+                                forces[ta][0] += (dx / dist) * fa
+                                forces[ta][1] += (dy / dist) * fa
+                                forces[tb][0] -= (dx / dist) * fa
+                                forces[tb][1] -= (dy / dist) * fa
+                    # Update non-fixed nodes
+                    for nid in toplevel_ids:
+                        if nid in fixed_toplevel_ids:
+                            continue
+                        fx, fy = forces[nid]
+                        f_mag = math.hypot(fx, fy)
+                        if f_mag > 20.0:
+                            fx = (fx / f_mag) * 20.0
+                            fy = (fy / f_mag) * 20.0
+                        pos[nid][0] += fx
+                        pos[nid][1] += fy
+
+                for nid in toplevel_ids:
+                    node = nodes_map[nid]
+                    node["x"] = pos[nid][0]
+                    node["y"] = pos[nid][1]
+
+        else:
+            # Dynamic Mode (Default auto-layout with topological tier placement)
+            if unpositioned_toplevel_ids:
+                _auto_layout_toplevel(unpositioned_toplevel_ids, nodes_map, connections, fixed_toplevel_ids)
+
+        # ── Step 3: Position free elements ───────────────────────────────
+        _position_free_elements(nodes, nodes_map, connections)
+
+        # ── Step 3b: Fit top-level elements spacing to canvas ────────────
+        # For absolute mode, we might not want to scale/shrink coordinate values,
+        # but _fit_to_canvas handles scaling if it exceeds canvas bounds. Let's keep it.
+        has_title = bool(ir.get("title"))
+        canvas_mode = ir.get("canvas", {}).get("mode", "dynamic")
+        _fit_to_canvas(nodes, canvas_w, canvas_h, has_title=has_title, scale_to_fit=False)
+
+        # ── Step 4: Convert child positions to absolute recursively (Pass 5) ─
+        _absolutize_children(nodes, nodes_map)
+
 def layout(
     ir: dict,
     canvas_w: int = 1920,
@@ -1391,6 +1569,7 @@ def layout(
     canvas_w = canvas_meta.get("width", canvas_w)
     canvas_h = canvas_meta.get("height", canvas_h)
     canvas_mode = canvas_meta.get("mode", "dynamic")
+    has_title = bool(ir.get("title"))
 
     # ── Build lookup ─────────────────────────────────────────────────
     nodes_map: dict[str, dict] = {n["id"]: n for n in nodes}
@@ -1400,171 +1579,22 @@ def layout(
     toplevel_ids = {n["id"] for n in toplevel_nodes}
 
     # Clear any stale coordinates (compiler sets x/y = None)
-    for node in nodes:
-        if node.get("x") is None:
-            node.pop("x", None)
-        if node.get("y") is None:
-            node.pop("y", None)
 
-    # ── Step 1: Layout children inside each panel bottom-up ──────────
-    visited_panels = set()
+    # ── Try ELK layout engine first (for graph/dynamic auto-layout) ──
+    elk_success = False
+    has_fixed_nodes = any(
+        n.get("x") is not None and n.get("y") is not None
+        for n in nodes
+    )
+    if canvas_mode != "absolute" and not has_fixed_nodes:
+        from .elk_layout import route_with_elk
+        elk_success = route_with_elk(ir)
 
-    def layout_panel_hierarchical(panel_id: str, n_map: dict[str, dict]) -> None:
-        if panel_id in visited_panels:
-            return
-        visited_panels.add(panel_id)
-        panel = n_map[panel_id]
-        for cid in panel.get("children", []):
-            child = n_map.get(cid)
-            if child and child.get("type") == "panel":
-                layout_panel_hierarchical(cid, n_map)
-        layout_panel_children(panel, n_map)
-
-    toplevel_panels = [n for n in toplevel_nodes if n.get("type") == "panel"]
-    for panel in toplevel_panels:
-        layout_panel_hierarchical(panel["id"], nodes_map)
-
-    # Also handle nested panels not reached under top-level panels
-    nested_panels = [
-        n for n in nodes
-        if n.get("type") == "panel" and n.get("parent") is not None
-    ]
-    for panel in nested_panels:
-        layout_panel_hierarchical(panel["id"], nodes_map)
-
-    # ── Step 2: Position top-level elements based on canvas mode ─────
-    fixed_toplevel_ids = {
-        nid for nid in toplevel_ids
-        if nodes_map[nid].get("x") is not None and nodes_map[nid].get("y") is not None
-    }
-    unpositioned_toplevel_ids = toplevel_ids - fixed_toplevel_ids
-
-    if canvas_mode == "absolute":
-        # Keep nodes at specified coordinates, default to (0,0) if completely missing
-        for nid in toplevel_ids:
-            node = nodes_map[nid]
-            if node.get("x") is None:
-                node["x"] = 0.0
-            if node.get("y") is None:
-                node["y"] = 0.0
-
-    elif canvas_mode == "graph":
-        # Graph Mode: Compound force-directed layout solver
-        try:
-            import networkx as nx
-            G = nx.Graph()
-            for nid in toplevel_ids:
-                G.add_node(nid)
-            for conn in connections:
-                path = conn.get("path", [])
-                if not path and "from" in conn and "to" in conn:
-                    path = [conn["from"], conn["to"]]
-                if isinstance(path, str):
-                    path = [path]
-                for a, b in zip(path, path[1:]):
-                    ta = _resolve_to_toplevel(a, nodes_map)
-                    tb = _resolve_to_toplevel(b, nodes_map)
-                    if ta != tb and ta in toplevel_ids and tb in toplevel_ids:
-                        G.add_edge(ta, tb)
-
-            initial_pos = {}
-            fixed_nodes_list = []
-            for nid in toplevel_ids:
-                node = nodes_map[nid]
-                if nid in fixed_toplevel_ids:
-                    initial_pos[nid] = [float(node["x"]), float(node["y"])]
-                    fixed_nodes_list.append(nid)
-                else:
-                    initial_pos[nid] = [canvas_w / 2.0, canvas_h / 2.0]
-
-            pos = nx.spring_layout(G, pos=initial_pos, fixed=fixed_nodes_list or None, k=300.0, iterations=100, seed=42)
-            
-            for nid in toplevel_ids:
-                node = nodes_map[nid]
-                # spring_layout updates coordinates for both fixed and free nodes
-                node["x"] = pos[nid][0]
-                node["y"] = pos[nid][1]
-
-        except ImportError:
-            # Fallback deterministic pure Python spring/force-directed relaxation
-            pos = {}
-            for nid in toplevel_ids:
-                node = nodes_map[nid]
-                if nid in fixed_toplevel_ids:
-                    pos[nid] = [float(node["x"]), float(node["y"])]
-                else:
-                    # Deterministic spread using hash or index to avoid overlap starting positions
-                    pos[nid] = [
-                        canvas_w / 2.0 + (hash(nid) % 100 - 50),
-                        canvas_h / 2.0 + (hash(nid) % 100 - 50)
-                    ]
-
-            for _ in range(100):
-                forces = {nid: [0.0, 0.0] for nid in toplevel_ids}
-                # Repulsion
-                for u in toplevel_ids:
-                    for v in toplevel_ids:
-                        if u == v:
-                            continue
-                        dx = pos[u][0] - pos[v][0]
-                        dy = pos[u][1] - pos[v][1]
-                        dist = math.hypot(dx, dy) + 0.1
-                        fr = 10000.0 / (dist * dist)
-                        forces[u][0] += (dx / dist) * fr
-                        forces[u][1] += (dy / dist) * fr
-                # Attraction
-                for conn in connections:
-                    path = conn.get("path", [])
-                    if not path and "from" in conn and "to" in conn:
-                        path = [conn["from"], conn["to"]]
-                    if isinstance(path, str):
-                        path = [path]
-                    for a, b in zip(path, path[1:]):
-                        ta = _resolve_to_toplevel(a, nodes_map)
-                        tb = _resolve_to_toplevel(b, nodes_map)
-                        if ta != tb and ta in toplevel_ids and tb in toplevel_ids:
-                            dx = pos[tb][0] - pos[ta][0]
-                            dy = pos[tb][1] - pos[ta][1]
-                            dist = math.hypot(dx, dy) + 0.1
-                            fa = 0.1 * dist
-                            forces[ta][0] += (dx / dist) * fa
-                            forces[ta][1] += (dy / dist) * fa
-                            forces[tb][0] -= (dx / dist) * fa
-                            forces[tb][1] -= (dy / dist) * fa
-                # Update non-fixed nodes
-                for nid in toplevel_ids:
-                    if nid in fixed_toplevel_ids:
-                        continue
-                    fx, fy = forces[nid]
-                    f_mag = math.hypot(fx, fy)
-                    if f_mag > 20.0:
-                        fx = (fx / f_mag) * 20.0
-                        fy = (fy / f_mag) * 20.0
-                    pos[nid][0] += fx
-                    pos[nid][1] += fy
-
-            for nid in toplevel_ids:
-                node = nodes_map[nid]
-                node["x"] = pos[nid][0]
-                node["y"] = pos[nid][1]
-
-    else:
-        # Dynamic Mode (Default auto-layout with topological tier placement)
-        if unpositioned_toplevel_ids:
-            _auto_layout_toplevel(unpositioned_toplevel_ids, nodes_map, connections, fixed_toplevel_ids)
-
-    # ── Step 3: Position free elements ───────────────────────────────
-    _position_free_elements(nodes, nodes_map, connections)
-
-    # ── Step 3b: Fit top-level elements spacing to canvas ────────────
-    # For absolute mode, we might not want to scale/shrink coordinate values,
-    # but _fit_to_canvas handles scaling if it exceeds canvas bounds. Let's keep it.
-    has_title = bool(ir.get("title"))
-    canvas_mode = ir.get("canvas", {}).get("mode", "dynamic")
-    _fit_to_canvas(nodes, canvas_w, canvas_h, has_title=has_title, scale_to_fit=False)
-
-    # ── Step 4: Convert child positions to absolute recursively (Pass 5) ─
-    _absolutize_children(nodes, nodes_map)
+    if not elk_success:
+        _run_legacy_node_placement(
+            ir, nodes, nodes_map, connections, toplevel_nodes, toplevel_ids,
+            canvas_mode, canvas_w, canvas_h
+        )
 
     # ── Step 4b: Uniform Scaling (if not in dynamic canvas mode) ─────
     if canvas_mode != "dynamic":

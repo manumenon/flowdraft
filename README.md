@@ -1,6 +1,6 @@
-# FlowDraft: Hand-Drawn Animated Architecture Diagrams
+# FlowDraft: Technical Architecture Diagram Rendering Engine
 
-Create premium, hand-drawn technical diagrams with editable Excalidraw files, static PNG/SVG previews, and animated GIF workflows.
+Create premium, professional technical diagrams with editable Excalidraw files, static PNG/SVG previews, and animated GIF workflows.
 
 ---
 

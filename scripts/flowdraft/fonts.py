@@ -11,7 +11,7 @@ from .color import c
 
 # Minimum text size guaranteed to render even when a box is too small for the
 # requested size.  Lower than this and text is unreadable.
-EMERGENCY_MIN_TEXT_SIZE = 6
+EMERGENCY_MIN_TEXT_SIZE = 9
 
 
 # ---------------------------------------------------------------------------

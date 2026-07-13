@@ -97,7 +97,7 @@ _DEFAULT_STYLE: dict[str, dict[str, Any]] = {
 _MIN_SIZES: dict[str, tuple[float, float]] = {
     "card":    (200, 80),
     "diamond": (140, 140),
-    "input":   (78,  50),
+    "input":   (110, 50),
     "panel":   (100, 100),   # panels are resized from children later
     "label":   (40,  20),
 }
@@ -167,9 +167,13 @@ def resolve_style(
             if key in parent_style and key not in elem_style:
                 style[key] = parent_style[key]
 
-        # Inherit padding if not explicitly overridden by child
+        # Inherit padding from parent if the parent explicitly set it.
+        # Do NOT inherit if the parent's padding is just its type default
+        # (e.g. panel default top:36 should not leak to child cards).
         if elem_padding is None and "padding" in parent_style:
-            style["padding"] = copy.deepcopy(parent_style["padding"])
+            parent_padding_was_explicit = parent_style.get("_padding_explicit", False)
+            if parent_padding_was_explicit:
+                style["padding"] = copy.deepcopy(parent_style["padding"])
 
         # Inherit color preset if not explicitly overridden by child
         if not has_elem_color and "color_preset" in parent_style:
@@ -210,10 +214,16 @@ def resolve_style(
         elif isinstance(elem_padding, (int, float)):
             for side in ("left", "right", "top", "bottom"):
                 style["padding"][side] = elem_padding
+        style["_padding_explicit"] = True
+    else:
+        style["_padding_explicit"] = style.get("_padding_explicit", False)
 
     # Ensure color_preset is stored in resolved style dict
     if "color_preset" not in style:
         style["color_preset"] = elem_preset or (parent_style.get("color_preset") if parent_style else None)
+
+    # Store element type for padding inheritance decisions
+    style["_element_type"] = etype
 
     # Validate hex colours
     for ckey in ("fillColor", "strokeColor"):
@@ -448,9 +458,23 @@ def _measure_diamond(
     title = element.get("title", "")
     body = element.get("body", "")
 
-    # Inner usable area = 35 % of outer dimensions (safer margin for pointed corners)
-    inner_w = base_w * 0.35
-    inner_h = base_h * 0.35
+    # Inner usable area = 50 % of outer dimensions
+    # Estimate text widths to find a better base width if width is not specified in element
+    if "width" not in element or not element["width"]:
+        _, _, natural_t_w, _ = _measure_text(
+            draw, title, 500.0, 100.0, 18,
+            min_size=12, hand=style.get("hand", True), bold=True
+        )
+        _, _, natural_b_w, _ = _measure_text(
+            draw, body, 500.0, 100.0, 13,
+            min_size=10, hand=style.get("hand", True), bold=style.get("bold", False)
+        )
+        max_natural_w = max(natural_t_w, natural_b_w)
+        estimated_inner_w = max(70.0, min(140.0, max_natural_w))
+        base_w = max(base_w, estimated_inner_w / 0.50)
+
+    inner_w = base_w * 0.50
+    inner_h = base_h * 0.50
 
     title_max_h = inner_h * 0.45
     body_max_h = inner_h * 0.55
@@ -468,8 +492,12 @@ def _measure_diamond(
     content_w = max(inner_w, t_w, b_w)
     usable_h = t_h + b_h + (3 if body else 0)
     content_h = max(inner_h, usable_h)
-    outer_w = max(base_w, content_w / 0.35)
-    outer_h = max(base_h, content_h / 0.35)
+    outer_w = max(base_w, content_w / 0.50)
+    outer_h = max(base_h, content_h / 0.50)
+
+    # Ensure reasonable aspect ratio for diamonds (wider than tall)
+    if outer_w < outer_h * 1.4:
+        outer_w = outer_h * 1.4
 
     # Offsets relative to node origin, centred dynamically
     inset_x = (outer_w - content_w) / 2.0
