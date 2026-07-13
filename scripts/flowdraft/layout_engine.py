@@ -304,10 +304,10 @@ def _get_panel_padding(panel: dict) -> dict[str, float]:
         pad = layout_cfg["padding"]
         if isinstance(pad, dict):
             return {
-                "left":   pad.get("left", 20),
-                "right":  pad.get("right", 20),
-                "top":    pad.get("top", 60),
-                "bottom": pad.get("bottom", 20),
+                "left":   pad.get("left", 12),
+                "right":  pad.get("right", 12),
+                "top":    pad.get("top", 36),
+                "bottom": pad.get("bottom", 12),
             }
 
     # 2. Try _resolved_style (set by compiler)
@@ -315,10 +315,10 @@ def _get_panel_padding(panel: dict) -> dict[str, float]:
     pad = style.get("padding")
     if isinstance(pad, dict):
         return {
-            "left":   pad.get("left", 20),
-            "right":  pad.get("right", 20),
-            "top":    pad.get("top", 60),
-            "bottom": pad.get("bottom", 20),
+            "left":   pad.get("left", 12),
+            "right":  pad.get("right", 12),
+            "top":    pad.get("top", 36),
+            "bottom": pad.get("bottom", 12),
         }
 
     # 3. Try explicit style.padding
@@ -326,13 +326,13 @@ def _get_panel_padding(panel: dict) -> dict[str, float]:
     pad = explicit_style.get("padding")
     if isinstance(pad, dict):
         return {
-            "left":   pad.get("left", 20),
-            "right":  pad.get("right", 20),
-            "top":    pad.get("top", 60),
-            "bottom": pad.get("bottom", 20),
+            "left":   pad.get("left", 12),
+            "right":  pad.get("right", 12),
+            "top":    pad.get("top", 36),
+            "bottom": pad.get("bottom", 12),
         }
 
-    return {"left": 20, "right": 20, "top": 60, "bottom": 20}
+    return {"left": 12, "right": 12, "top": 36, "bottom": 12}
 
 
 def _get_layout_config(panel: dict) -> dict[str, Any]:
@@ -762,21 +762,68 @@ def layout_panel_children(
     if in_flow_child_nodes:
         max_child_x = max(n["x"] + n["width"] for n in in_flow_child_nodes)
         max_child_y = max(n["y"] + n["height"] for n in in_flow_child_nodes)
-        panel["width"] = max_child_x + pad["right"]
-        panel["height"] = max_child_y + pad["bottom"]
+        panel["width"] = max(panel.get("width", 0.0), max_child_x + pad["right"])
+        panel["height"] = max(panel.get("height", 0.0), max_child_y + pad["bottom"])
     else:
-        panel["width"] = pad["left"] + pad["right"]
-        panel["height"] = pad["top"] + pad["bottom"]
+        panel["width"] = max(panel.get("width", 0.0), pad["left"] + pad["right"])
+        panel["height"] = max(panel.get("height", 0.0), pad["top"] + pad["bottom"])
 
     # Constrain title and subtitle width budgets to prevent badge / border overlaps
     offsets = panel.get("layout_offsets", {})
+    diff_y = 0.0
+    
+    from PIL import Image, ImageDraw
+    img_temp = Image.new("RGB", (1, 1))
+    draw_temp = ImageDraw.Draw(img_temp)
+    from scripts.flowdraft.compiler import _measure_text
+    
     if "title" in offsets:
         avail_w = panel["width"] - pad["left"] - pad["right"]
         if "badge" in offsets:
             avail_w -= (offsets["badge"]["w"] + 15.0)
-        offsets["title"]["w"] = max(50.0, avail_w)
+        avail_w = max(50.0, avail_w)
+        offsets["title"]["w"] = avail_w
+        
+        title_text = panel.get("title", "")
+        if title_text:
+            _, t_size, t_w, t_h = _measure_text(
+                draw_temp, title_text, avail_w, 200.0, offsets["title"]["size"],
+                min_size=offsets["title"]["min_size"], hand=offsets["title"]["hand"], bold=offsets["title"]["bold"]
+            )
+            old_h = offsets["title"]["h"]
+            new_h = max(34.0, t_h)
+            if new_h > old_h:
+                diff_y += (new_h - old_h)
+                offsets["title"]["h"] = new_h
+                offsets["title"]["size"] = t_size
+                
     if "subtitle" in offsets:
-        offsets["subtitle"]["w"] = max(50.0, panel["width"] - pad["left"] - pad["right"])
+        avail_w = max(50.0, panel["width"] - pad["left"] - pad["right"])
+        offsets["subtitle"]["w"] = avail_w
+        
+        subtitle_text = panel.get("subtitle", "")
+        if subtitle_text:
+            if diff_y > 0.0:
+                offsets["subtitle"]["y"] += diff_y
+                
+            _, s_size, s_w, s_h = _measure_text(
+                draw_temp, subtitle_text, avail_w, 100.0, offsets["subtitle"]["size"],
+                min_size=offsets["subtitle"]["min_size"], hand=offsets["subtitle"]["hand"], bold=offsets["subtitle"]["bold"]
+            )
+            old_h = offsets["subtitle"]["h"]
+            new_h = s_h
+            if new_h > old_h:
+                sub_diff = new_h - old_h
+                diff_y += sub_diff
+                offsets["subtitle"]["h"] = new_h
+                offsets["subtitle"]["size"] = s_size
+
+    if diff_y > 0.0:
+        for child_id in panel.get("children", []):
+            child = nodes_map.get(child_id)
+            if child and child.get("y") is not None:
+                child["y"] += diff_y
+        panel["height"] += diff_y
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1093,6 +1140,7 @@ def _fit_to_canvas(
     canvas_h: float,
     margin: float = _CANVAS_MARGIN,
     has_title: bool = False,
+    scale_to_fit: bool = True,
 ) -> None:
     """Scale and translate top-level element positions to fit the canvas.
 
@@ -1105,6 +1153,7 @@ def _fit_to_canvas(
         canvas_w: Target canvas width.
         canvas_h: Target canvas height.
         margin:   Margin on each side.
+        scale_to_fit: If False, keep layout unscaled at 100%.
     """
     positioned = [
         n for n in nodes
@@ -1131,8 +1180,12 @@ def _fit_to_canvas(
         avail_h = canvas_h - 2 * margin
 
     # Scale spacing independently in X and Y
-    scale_x = min(1.0, avail_w / content_w)
-    scale_y = min(1.0, avail_h / content_h)
+    if scale_to_fit:
+        scale_x = min(1.0, avail_w / content_w)
+        scale_y = min(1.0, avail_h / content_h)
+    else:
+        scale_x = 1.0
+        scale_y = 1.0
 
     # Translate so content starts at margin and is centered
     scaled_w = content_w * scale_x
@@ -1157,7 +1210,9 @@ def _fit_to_canvas(
             curr_y1 = curr["y"]
             curr_y2 = curr["y"] + curr["height"]
             
-            y_overlap = (prev_y1 < curr_y2 and prev_y2 > curr_y1)
+            overlap_h = min(prev_y2, curr_y2) - max(prev_y1, curr_y1)
+            min_h = min(prev["height"], curr["height"])
+            y_overlap = (overlap_h > 0.3 * min_h)
             if y_overlap and curr_x1 < prev_x2 + 20.0:
                 curr["x"] = prev_x2 + 20.0
 
@@ -1174,7 +1229,9 @@ def _fit_to_canvas(
             curr_x1 = curr["x"]
             curr_x2 = curr["x"] + curr["width"]
             
-            x_overlap = (prev_x1 < curr_x2 and prev_x2 > curr_x1)
+            overlap_w = min(prev_x2, curr_x2) - max(prev_x1, curr_x1)
+            min_w = min(prev["width"], curr["width"])
+            x_overlap = (overlap_w > 0.3 * min_w)
             if x_overlap and curr_y1 < prev_y2 + 20.0:
                 curr["y"] = prev_y2 + 20.0
 
@@ -1266,6 +1323,45 @@ def _center_layout_on_canvas(
             node["y"] += dy
 
 
+def _scale_layout_uniformly(nodes: list[dict], scale: float) -> None:
+    """Scale all element absolute positions, sizes, offsets, and styles uniformly by scale."""
+    if scale == 1.0:
+        return
+        
+    for node in nodes:
+        if node.get("x") is not None:
+            node["x"] *= scale
+        if node.get("y") is not None:
+            node["y"] *= scale
+        if node.get("width") is not None:
+            node["width"] *= scale
+        if node.get("height") is not None:
+            node["height"] *= scale
+            
+        style = node.get("_resolved_style", {})
+        if "cornerRadius" in style and style["cornerRadius"] is not None:
+            style["cornerRadius"] *= scale
+        if "strokeWidth" in style and style["strokeWidth"] is not None:
+            style["strokeWidth"] *= scale
+        if "padding" in style and isinstance(style["padding"], dict):
+            pad = style["padding"]
+            pad["left"] *= scale
+            pad["right"] *= scale
+            pad["top"] *= scale
+            pad["bottom"] *= scale
+            
+        offsets = node.get("layout_offsets", {})
+        for key in ["title", "subtitle", "badge", "icon", "body"]:
+            if key in offsets:
+                obj = offsets[key]
+                if "x" in obj: obj["x"] *= scale
+                if "y" in obj: obj["y"] *= scale
+                if "w" in obj: obj["w"] *= scale
+                if "h" in obj: obj["h"] *= scale
+                if "size" in obj: obj["size"] *= scale
+                if "scale" in obj: obj["scale"] *= scale
+
+
 def layout(
     ir: dict,
     canvas_w: int = 1920,
@@ -1285,6 +1381,8 @@ def layout(
        - Centering layout on target canvas.
     """
     nodes: list[dict] = ir.get("nodes", [])
+    nodes = [n for n in nodes if not n["id"].startswith("decor_")]
+    ir["nodes"] = nodes
     connections: list[dict] = ir.get("connections", [])
     annotations: list[dict] = ir.get("annotations", [])
 
@@ -1462,17 +1560,83 @@ def layout(
     # For absolute mode, we might not want to scale/shrink coordinate values,
     # but _fit_to_canvas handles scaling if it exceeds canvas bounds. Let's keep it.
     has_title = bool(ir.get("title"))
-    _fit_to_canvas(nodes, canvas_w, canvas_h, has_title=has_title)
+    canvas_mode = ir.get("canvas", {}).get("mode", "dynamic")
+    _fit_to_canvas(nodes, canvas_w, canvas_h, has_title=has_title, scale_to_fit=False)
 
     # ── Step 4: Convert child positions to absolute recursively (Pass 5) ─
     _absolutize_children(nodes, nodes_map)
 
+    # ── Step 4b: Uniform Scaling (if not in dynamic canvas mode) ─────
+    if canvas_mode != "dynamic":
+        positioned = [
+            n for n in nodes
+            if n.get("parent") is None and n.get("x") is not None and n.get("y") is not None
+        ]
+        if positioned:
+            min_x = min(n["x"] for n in positioned)
+            min_y = min(n["y"] for n in positioned)
+            max_x = max(n["x"] + n["width"] for n in positioned)
+            max_y = max(n["y"] + n["height"] for n in positioned)
+            
+            content_w = max_x - min_x
+            content_h = max_y - min_y
+            
+            margin = 18.0
+            avail_w = canvas_w - 2 * margin
+            if has_title:
+                avail_h = canvas_h - 130.0 - 2 * margin
+            else:
+                avail_h = canvas_h - 2 * margin
+                
+            if content_w > 0 and content_h > 0:
+                scale_x = min(1.0, avail_w / content_w)
+                scale_y = min(1.0, avail_h / content_h)
+                scale = min(scale_x, scale_y)
+                
+                if scale < 1.0:
+                    _scale_layout_uniformly(nodes, scale)
+                    nodes_map = {n["id"]: n for n in nodes}
+
     # ── Step 5: Center entire diagram on the target canvas (Pass 5) ──
     has_title = bool(ir.get("title"))
-    _center_layout_on_canvas(nodes, canvas_w, canvas_h, has_title=has_title)
+    if canvas_mode == "dynamic":
+        positioned = [
+            n for n in nodes
+            if n.get("parent") is None and n.get("x") is not None and n.get("y") is not None
+        ]
+        if positioned:
+            min_x = min(n["x"] for n in positioned)
+            min_y = min(n["y"] for n in positioned)
+            margin = 18.0
+            target_x = margin + 10.0
+            target_y = 135.0 if has_title else margin + 10.0
+            
+            dx = target_x - min_x
+            dy = target_y - min_y
+            
+            for node in nodes:
+                if node.get("x") is not None:
+                    node["x"] += dx
+                if node.get("y") is not None:
+                    node["y"] += dy
+            
+            max_x = max(n["x"] + n["width"] for n in positioned)
+            max_y = max(n["y"] + n["height"] for n in positioned)
+            
+            canvas_w = max(800.0 if has_title else 100.0, max_x + margin)
+            canvas_h = max(200.0 if has_title else 100.0, max_y + margin)
+            
+            if "canvas" not in ir:
+                ir["canvas"] = {}
+            ir["canvas"]["width"] = int(math.ceil(canvas_w))
+            ir["canvas"]["height"] = int(math.ceil(canvas_h))
+    else:
+        _center_layout_on_canvas(nodes, canvas_w, canvas_h, has_title=has_title)
 
     # Rebuild nodes_map after centering because we need correct absolute x, y
     nodes_map = {n["id"]: n for n in nodes}
+    canvas_w = ir.get("canvas", {}).get("width", canvas_w)
+    canvas_h = ir.get("canvas", {}).get("height", canvas_h)
 
     # ── Step 5b: Edge Routing and Label Injection (Pass 6) ───────────
     existing_label_boxes = []
@@ -1500,10 +1664,22 @@ def layout(
             while curr and curr.get("parent"):
                 excluded_ids.add(curr["parent"])
                 curr = nodes_map.get(curr["parent"])
-        obstacles = [n for n in nodes if n["id"] not in excluded_ids]
+        obstacles = [n for n in nodes if n["id"] not in excluded_ids and not n["id"].startswith("decor_")]
         
         # Run A* or fallback
-        routed_points = route_orthogonal_astar(p_start, p_end, obstacles, canvas_w, canvas_h)
+        soft_cards = [src_node, tgt_node]
+        soft_panels = []
+        for nid in (src_id, tgt_id):
+            curr = nodes_map.get(nid)
+            if curr and curr.get("parent"):
+                p_node = nodes_map.get(curr["parent"])
+                if p_node:
+                    soft_panels.append(p_node)
+        
+        routed_points = route_orthogonal_astar(
+            p_start, p_end, obstacles, canvas_w, canvas_h,
+            soft_cards=soft_cards, soft_panels=soft_panels
+        )
         if not routed_points:
             routed_points = fallback_orthogonal_route(p_start, p_end)
             
@@ -1535,20 +1711,21 @@ def layout(
         subtitle_text  = title_spec.get("subtitle", "")
         
         # Outer border
-        xs = [n["x"] for n in nodes if n.get("x") is not None]
-        ys = [n["y"] for n in nodes if n.get("y") is not None]
-        rights = [n["x"] + n["width"] for n in nodes if n.get("x") is not None and n.get("width") is not None]
-        bottoms = [n["y"] + n["height"] for n in nodes if n.get("y") is not None and n.get("height") is not None]
+        all_elements = nodes + annotations
+        xs = [n["x"] for n in all_elements if n.get("x") is not None]
+        ys = [n["y"] for n in all_elements if n.get("y") is not None]
+        rights = [n["x"] + n["width"] for n in all_elements if n.get("x") is not None and n.get("width") is not None]
+        bottoms = [n["y"] + n["height"] for n in all_elements if n.get("y") is not None and n.get("height") is not None]
         
         min_x = min(xs) if xs else 50.0
         min_y = min(ys) if ys else 117.0
         max_x = max(rights) if rights else canvas_w - 50.0
         max_y = max(bottoms) if bottoms else canvas_h - 50.0
         
-        outer_border_x = max(10.0, min_x - 30.0)
-        outer_border_y = max(10.0, min_y - 20.0)
-        outer_border_w = min(canvas_w - 10.0, max_x + 30.0) - outer_border_x
-        outer_border_h = min(canvas_h - 10.0, max_y + 30.0) - outer_border_y
+        outer_border_x = 18.0
+        outer_border_y = max(135.0, min_y - 20.0)
+        outer_border_w = canvas_w - 36.0
+        outer_border_h = (canvas_h - 18.0) - outer_border_y
         
         border_node = {
             "id": "decor_outer_border",
@@ -1853,6 +2030,8 @@ def route_orthogonal_astar(
     canvas_h: float,
     grid_size: float = 8.0,
     clearance: float = 6.0,
+    soft_cards: list[dict] = [],
+    soft_panels: list[dict] = [],
 ) -> list[tuple[float, float]] | None:
     start_gx = int(round(p_start[0] / grid_size))
     start_gy = int(round(p_start[1] / grid_size))
@@ -1881,6 +2060,32 @@ def route_orthogonal_astar(
         g_x2 = int(math.ceil(x2 / grid_size))
         g_y2 = int(math.ceil(y2 / grid_size))
         grid_obstacles.append((g_x1, g_y1, g_x2, g_y2))
+        
+    soft_cards_grid = []
+    for obs in soft_cards:
+        ox = obs.get("x", 0.0) or 0.0
+        oy = obs.get("y", 0.0) or 0.0
+        ow = obs.get("width", 1.0) or 1.0
+        oh = obs.get("height", 1.0) or 1.0
+        
+        g_x1 = int(math.floor(ox / grid_size))
+        g_y1 = int(math.floor(oy / grid_size))
+        g_x2 = int(math.ceil((ox + ow) / grid_size))
+        g_y2 = int(math.ceil((oy + oh) / grid_size))
+        soft_cards_grid.append((g_x1, g_y1, g_x2, g_y2))
+        
+    soft_panels_grid = []
+    for obs in soft_panels:
+        ox = obs.get("x", 0.0) or 0.0
+        oy = obs.get("y", 0.0) or 0.0
+        ow = obs.get("width", 1.0) or 1.0
+        oh = obs.get("height", 1.0) or 1.0
+        
+        g_x1 = int(math.floor(ox / grid_size))
+        g_y1 = int(math.floor(oy / grid_size))
+        g_x2 = int(math.ceil((ox + ow) / grid_size))
+        g_y2 = int(math.ceil((oy + oh) / grid_size))
+        soft_panels_grid.append((g_x1, g_y1, g_x2, g_y2))
         
     def is_blocked(gx, gy):
         if (gx, gy) == (start_gx, start_gy) or (gx, gy) == (end_gx, end_gy):
@@ -1925,8 +2130,26 @@ def route_orthogonal_astar(
             if is_blocked(ngx, ngy):
                 continue
                 
+            is_soft_card = False
+            for sx1, sy1, sx2, sy2 in soft_cards_grid:
+                if sx1 <= ngx <= sx2 and sy1 <= ngy <= sy2:
+                    is_soft_card = True
+                    break
+            
+            is_soft_panel = False
+            if not is_soft_card:
+                for sx1, sy1, sx2, sy2 in soft_panels_grid:
+                    if sx1 <= ngx <= sx2 and sy1 <= ngy <= sy2:
+                        is_soft_panel = True
+                        break
+            
+            soft_penalty = 0.0
+            if is_soft_card:
+                soft_penalty = 100000.0
+            elif is_soft_panel:
+                soft_penalty = 100.0
             turn_penalty = 15.0 if (ndx != dx or ndy != dy) else 0.0
-            new_g = g + 1.0 + turn_penalty
+            new_g = g + 1.0 + turn_penalty + soft_penalty
             
             h = abs(ngx - end_gx) + abs(ngy - end_gy)
             new_f = new_g + h

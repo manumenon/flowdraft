@@ -22,10 +22,10 @@
         "direction": "column",
         "gap": 20,
         "padding": {
-          "left": 20,
-          "right": 20,
-          "top": 60,
-          "bottom": 20
+          "left": 12,
+          "right": 12,
+          "top": 36,
+          "bottom": 12
         }
       },
       "style": {
@@ -100,10 +100,10 @@
         "direction": "row",
         "gap": 20,
         "padding": {
-          "left": 24,
-          "right": 24,
-          "top": 70,
-          "bottom": 24
+          "left": 12,
+          "right": 12,
+          "top": 36,
+          "bottom": 12
         }
       },
       "style": {
@@ -210,10 +210,10 @@
         "direction": "column",
         "gap": 17,
         "padding": {
-          "left": 20,
-          "right": 20,
-          "top": 60,
-          "bottom": 20
+          "left": 12,
+          "right": 12,
+          "top": 36,
+          "bottom": 12
         }
       },
       "style": {
@@ -270,10 +270,10 @@
         "direction": "row",
         "gap": 28,
         "padding": {
-          "left": 20,
-          "right": 20,
-          "top": 100,
-          "bottom": 20
+          "left": 12,
+          "right": 12,
+          "top": 36,
+          "bottom": 12
         }
       },
       "style": {
@@ -351,10 +351,10 @@
         "direction": "column",
         "gap": 14,
         "padding": {
-          "left": 20,
-          "right": 20,
-          "top": 60,
-          "bottom": 20
+          "left": 12,
+          "right": 12,
+          "top": 36,
+          "bottom": 12
         }
       },
       "style": {

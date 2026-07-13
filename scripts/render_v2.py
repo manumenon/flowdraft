@@ -293,6 +293,8 @@ def run_pipeline(
     canvas_w = canvas_meta.get("width", 1920)
     canvas_h = canvas_meta.get("height", 1440)
     ir = layout(ir, canvas_w, canvas_h)
+    canvas_w = ir.get("canvas", {}).get("width", canvas_w)
+    canvas_h = ir.get("canvas", {}).get("height", canvas_h)
 
     # Reset scaling factor to 1.0 since layout_engine already fitted everything to canvas
     fc.SCALE_X = 1.0
@@ -317,38 +319,14 @@ def run_pipeline(
     hl_rect_y = 27
     hl_rect_h = 72
 
-    # 5. Compute dynamic outer border enclosing all nodes (for layout_spec)
-    diagram_nodes = [n for n in ir["nodes"] if not n["id"].startswith("decor_")]
-    xs = [n["x"] for n in diagram_nodes]
-    ys = [n["y"] for n in diagram_nodes]
-    rights = [n["x"] + n["width"] for n in diagram_nodes]
-    bottoms = [n["y"] + n["height"] for n in diagram_nodes]
-    
-    min_x = min(xs) if xs else 50
-    min_y = min(ys) if ys else 117
-    max_x = max(rights) if rights else canvas_w - 50
-    max_y = max(bottoms) if bottoms else canvas_h - 50
-    
-    outer_border_x = max(10, min_x - 30)
-    outer_border_y = max(100, min_y - 20)
-    outer_border_w = min(canvas_w - 10, max_x + 30) - outer_border_x
-    outer_border_h = min(canvas_h - 10, max_y + 30) - outer_border_y
-
-    # Calculate highlight box position dynamically for layout_spec
-    if title_spec and highlight_text:
-        _hl_font = load_font(44, hand=fc.HAND, bold=True)
-        _hl_tw, _ = text_size(draw, highlight_text, _hl_font)
-        _hl_tw    = max(int(_hl_tw / SCALE), 200)
-        _hl_pad_x = 22
-        
-        if prefix_text:
-            _pref_font = load_font(47, hand=fc.HAND, bold=True)
-            _pref_tw, _ = text_size(draw, prefix_text, _pref_font)
-            _pref_tw_scaled = _pref_tw / SCALE
-            hl_rect_x = max(600, int(45 + _pref_tw_scaled + 20))
-        else:
-            hl_rect_x = 45
-        hl_rect_w = _hl_tw + _hl_pad_x * 2
+    # 5. Extract layout decorations dynamically for layout_spec
+    outer_border = None
+    highlight_panel = None
+    for node in ir["nodes"]:
+        if node["id"] == "decor_outer_border":
+            outer_border = (node["x"], node["y"], node["x"] + node["width"], node["y"] + node["height"])
+        elif node["id"] == "decor_title_highlight":
+            highlight_panel = (node["x"], node["y"], node["x"] + node["width"], node["y"] + node["height"])
 
     # 6. Render nodes, connections, annotations, and injected page layout decorations
     render_all(ex_doc, draw, ir)
@@ -376,8 +354,8 @@ def run_pipeline(
     validated["_resolved_pulse_targets"] = pulse_targets
 
     layout_spec = {
-        "highlight_panel": (hl_rect_x, hl_rect_y, hl_rect_x + hl_rect_w, hl_rect_y + hl_rect_h) if (title_spec and highlight_text) else None,
-        "outer_border": (outer_border_x, outer_border_y, outer_border_x + outer_border_w, outer_border_y + outer_border_h)
+        "highlight_panel": highlight_panel,
+        "outer_border": outer_border
     }
     for node in ir["nodes"]:
         if node.get("type") == "panel" and not node["id"].startswith("decor_"):

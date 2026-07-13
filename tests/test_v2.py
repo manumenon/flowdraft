@@ -625,6 +625,51 @@ class TestFlowDraftV2(unittest.TestCase):
         self.assertEqual(frame_0.size, (100, 100))
         self.assertEqual(frame_15.size, (100, 100))
 
+    def test_uniform_scaling(self):
+        """Test that layout scales all components uniformly when content exceeds fixed canvas."""
+        spec = {
+            "canvas": {
+                "mode": "absolute",
+                "width": 800,
+                "height": 600
+            },
+            "elements": [
+                {
+                    "id": "panel_huge",
+                    "type": "panel",
+                    "x": 0,
+                    "y": 0,
+                    "width": 1600,
+                    "height": 1200,
+                    "title": "Huge Panel",
+                    "children": [
+                        {
+                            "id": "card_huge",
+                            "type": "card",
+                            "x": 100,
+                            "y": 100,
+                            "width": 400,
+                            "height": 200,
+                            "title": "Huge Card"
+                        }
+                    ]
+                }
+            ]
+        }
+        validated = validate_spec(spec)
+        ir = compile_spec(validated)
+        
+        # Run layout with fixed 800x600 canvas
+        laid_out_ir = layout(ir, canvas_w=800, canvas_h=600)
+        nodes_map = {n["id"]: n for n in laid_out_ir["nodes"]}
+        
+        panel = nodes_map["panel_huge"]
+        card = nodes_map["card_huge"]
+        
+        self.assertLess(panel["width"], 1600.0)
+        self.assertLess(card["width"], 400.0)
+        self.assertLess(panel["layout_offsets"]["title"]["size"], 22.0)
+
 
 if __name__ == "__main__":
     unittest.main()

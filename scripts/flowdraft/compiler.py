@@ -39,9 +39,9 @@ from .text import fit_text
 # ---------------------------------------------------------------------------
 
 _DEFAULT_PADDING: dict[str, dict[str, float]] = {
-    "card":    {"left": 16, "right": 16, "top": 12, "bottom": 12},
-    "diamond": {"left": 0,  "right": 0,  "top": 0,  "bottom": 0},
-    "panel":   {"left": 20, "right": 20, "top": 60, "bottom": 20},
+    "card":    {"left": 12, "right": 12, "top": 8,   "bottom": 8},
+    "diamond": {"left": 0,  "right": 0,  "top": 0,   "bottom": 0},
+    "panel":   {"left": 12, "right": 12, "top": 36,  "bottom": 12},
     "input":   {"left": 6,  "right": 6,  "top": 6,  "bottom": 6},
     "label":   {"left": 4,  "right": 4,  "top": 2,  "bottom": 2},
 }
@@ -448,9 +448,9 @@ def _measure_diamond(
     title = element.get("title", "")
     body = element.get("body", "")
 
-    # Inner usable area = 50 % of outer dimensions
-    inner_w = base_w * 0.5
-    inner_h = base_h * 0.5
+    # Inner usable area = 35 % of outer dimensions (safer margin for pointed corners)
+    inner_w = base_w * 0.35
+    inner_h = base_h * 0.35
 
     title_max_h = inner_h * 0.45
     body_max_h = inner_h * 0.55
@@ -466,21 +466,21 @@ def _measure_diamond(
 
     # Grow inner area if content overflows, then map back to outer
     content_w = max(inner_w, t_w, b_w)
-    content_h = max(inner_h, t_h + b_h + (3 if body else 0))
-    outer_w = max(base_w, content_w / 0.5)
-    outer_h = max(base_h, content_h / 0.5)
+    usable_h = t_h + b_h + (3 if body else 0)
+    content_h = max(inner_h, usable_h)
+    outer_w = max(base_w, content_w / 0.35)
+    outer_h = max(base_h, content_h / 0.35)
 
-    # Offsets relative to node origin, centred in the diamond
-    inset_x = outer_w * 0.25
-    inset_y = outer_h * 0.25
-    usable_w = outer_w * 0.5
+    # Offsets relative to node origin, centred dynamically
+    inset_x = (outer_w - content_w) / 2.0
+    inset_y = (outer_h - usable_h) / 2.0
     content_gap = 3.0
 
     offsets: dict[str, dict] = {
         "title": {
             "x": inset_x,
             "y": inset_y,
-            "w": usable_w,
+            "w": content_w,
             "h": t_h if title else 0,
             "size": t_size,
             "min_size": 12,
@@ -493,7 +493,7 @@ def _measure_diamond(
         offsets["body"] = {
             "x": inset_x,
             "y": inset_y + (t_h if title else 0) + content_gap,
-            "w": usable_w,
+            "w": content_w,
             "h": b_h,
             "size": b_size,
             "min_size": 10,
@@ -816,9 +816,11 @@ def _flatten_elements(
             "color_preset": elem.get("color_preset"),
             "parent": parent_id or elem.get("parent"),
             "children": [],
-            # Preserve any explicit coordinates from spec
+            # Preserve any explicit coordinates and sizes from spec
             "x": elem.get("x"),
             "y": elem.get("y"),
+            "width": elem.get("width"),
+            "height": elem.get("height"),
         }
 
         # Copy through auxiliary fields the renderer may need
