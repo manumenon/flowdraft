@@ -244,16 +244,16 @@ def _normalise_canvas(raw: Optional[dict], path: str = "canvas") -> Dict[str, An
     if dur_val is not None:
         if not isinstance(dur_val, (int, float)):
             raise SpecError("canvas.duration must be a number.", path=f"{path}.duration")
-        if dur_val <= 0:
-            raise SpecError("canvas.duration must be a positive number.", path=f"{path}.duration")
+        if dur_val < 0:
+            raise SpecError("canvas.duration must be a non-negative number.", path=f"{path}.duration")
     if frames_val is not None:
         if not isinstance(frames_val, (int, float)):
             raise SpecError("canvas.frames must be a number.", path=f"{path}.frames")
         if isinstance(frames_val, float):
             if abs(frames_val - int(frames_val)) > 1e-7:
                 raise SpecError("canvas.frames must be an integer.", path=f"{path}.frames")
-        if frames_val <= 0:
-            raise SpecError("canvas.frames must be a positive number.", path=f"{path}.frames")
+        if frames_val < 0:
+            raise SpecError("canvas.frames must be a non-negative number.", path=f"{path}.frames")
 
     provided = []
     if fps_val is not None: provided.append("fps")
@@ -282,8 +282,8 @@ def _normalise_canvas(raw: Optional[dict], path: str = "canvas") -> Dict[str, An
             )
 
     # Double check positive range
-    if fps_val <= 0 or dur_val <= 0 or frames_val <= 0:
-        raise SpecError("Temporal animation settings must be positive.", path=path)
+    if fps_val <= 0 or dur_val < 0 or frames_val < 0:
+        raise SpecError("Temporal animation settings must be positive for FPS, and non-negative for duration and frames.", path=path)
 
     # Final conversion to correct types
     canvas["fps"] = float(fps_val)

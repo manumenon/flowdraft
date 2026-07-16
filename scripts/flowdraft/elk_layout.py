@@ -45,8 +45,10 @@ def route_with_elk(ir: dict) -> bool:
     
     # Find top parent helper
     def get_top_parent(nid):
+        visited = set()
         curr = nodes_map.get(nid)
-        while curr and curr.get("parent"):
+        while curr and curr.get("parent") and curr["parent"] not in visited:
+            visited.add(curr["id"])
             curr = nodes_map.get(curr["parent"])
         return curr["id"] if curr else nid
 

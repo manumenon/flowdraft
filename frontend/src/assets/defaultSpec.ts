@@ -1,0 +1,611 @@
+import type { FlowSpec } from '../types/spec';
+
+export const defaultSpec: FlowSpec = {
+  canvas: {
+    width: 1920,
+    height: 1440,
+    fps: 30,
+    frames: 90
+  },
+  hand: false,
+  theme: 'dark',
+  signature: '@FlowDraft',
+  title: {
+    prefix: 'Architecture of the',
+    highlight: 'Cognitive Memory Mesh',
+    subtitle: 'Multi-Agent State Synchronization & Graph RAG'
+  },
+  elements: [
+    {
+      id: 'input_panel',
+      type: 'panel',
+      title: 'Telemetry & Knowledge Ingest',
+      layout: {
+        direction: 'column',
+        gap: 20,
+        padding: {
+          left: 12,
+          right: 12,
+          top: 36,
+          bottom: 12
+        }
+      },
+      style: {
+        strokeColor: '#22c86f',
+        strokeWidth: 2,
+        cornerRadius: 16
+      },
+      children: [
+        {
+          id: 'input_0',
+          type: 'input',
+          title: 'Vector Streams',
+          icon: 'database',
+          style: {
+            color: '#3b82f6',
+            strokeWidth: 2.5,
+            cornerRadius: 8
+          }
+        },
+        {
+          id: 'input_1',
+          type: 'input',
+          title: 'LLM Context Caches',
+          icon: 'cpu',
+          style: {
+            color: '#a855f7',
+            strokeWidth: 2.5,
+            cornerRadius: 8
+          }
+        },
+        {
+          id: 'input_2',
+          type: 'input',
+          title: 'GitOps State',
+          icon: 'git-branch',
+          style: {
+            color: '#10b981',
+            strokeWidth: 2.5,
+            cornerRadius: 8
+          }
+        },
+        {
+          id: 'input_3',
+          type: 'input',
+          title: 'User Sessions',
+          icon: 'users',
+          style: {
+            color: '#f59e0b',
+            strokeWidth: 2.5,
+            cornerRadius: 8
+          }
+        },
+        {
+          id: 'input_4',
+          type: 'input',
+          title: 'Graph DB Nodes',
+          icon: 'share-2',
+          style: {
+            color: '#ec4899',
+            strokeWidth: 2.5,
+            cornerRadius: 8
+          }
+        }
+      ]
+    },
+    {
+      id: 'core_panel',
+      type: 'panel',
+      title: 'Orchestration & Synchronization Core',
+      subtitle: '(Asynchronous distributed pipeline)',
+      layout: {
+        direction: 'row',
+        gap: 20,
+        padding: {
+          left: 12,
+          right: 12,
+          top: 36,
+          bottom: 12
+        }
+      },
+      style: {
+        strokeColor: '#1d8be8',
+        strokeWidth: 3,
+        cornerRadius: 20,
+        colorPreset: 'core'
+      },
+      children: [
+        {
+          id: 'core_0',
+          type: 'card',
+          title: 'Ingest & Decouple',
+          body: 'Poll memory queues\nParse raw markdown\nResolve sequence IDs',
+          icon: 'activity',
+          style: {
+            color: '#3b82f6',
+            strokeWidth: 2,
+            cornerRadius: 12,
+            bold: true,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'core_1',
+          type: 'card',
+          title: 'Privacy Guardrail',
+          body: 'Regex & NER scrubbing\nToken redactor\nHash system secrets',
+          icon: 'shield-check',
+          style: {
+            color: '#10b981',
+            strokeWidth: 2,
+            cornerRadius: 12,
+            bold: true,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'core_2',
+          type: 'card',
+          title: 'Vector Embedding',
+          body: 'Chunk long forms\nGenerate embeddings\nCompute cosine similarity',
+          icon: 'layers',
+          style: {
+            color: '#a855f7',
+            strokeWidth: 2,
+            cornerRadius: 12,
+            bold: true,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'core_3',
+          type: 'card',
+          title: 'Graph Stitching',
+          body: 'Extract entities\nMap dependencies\nUpdate entity relations',
+          icon: 'git-commit',
+          style: {
+            color: '#ec4899',
+            strokeWidth: 2,
+            cornerRadius: 12,
+            bold: true,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'core_4',
+          type: 'card',
+          title: 'Consensus Lock',
+          body: 'Raft protocol tick\nResolve delta drift\nCommit state update',
+          icon: 'lock',
+          style: {
+            color: '#f59e0b',
+            strokeWidth: 2,
+            cornerRadius: 12,
+            bold: true,
+            borderless: true,
+            transparent: false
+          }
+        }
+      ]
+    },
+    {
+      id: 'decision',
+      type: 'diamond',
+      title: 'State Validated?',
+      body: 'Zero PII detected\nSchema matched\nMerge conflict clear',
+      style: {
+        color: '#ef4444',
+        strokeWidth: 3
+      }
+    },
+    {
+      id: 'output',
+      type: 'card',
+      title: 'Dispatched Context to Fabric',
+      icon: 'zap',
+      style: {
+        color: '#10b981',
+        strokeWidth: 2.5,
+        cornerRadius: 12,
+        borderless: true,
+        transparent: false
+      }
+    },
+    {
+      id: 'left_panel',
+      type: 'panel',
+      title: 'Distributed Ingestion Layer',
+      badge: 'event driven',
+      layout: {
+        direction: 'column',
+        gap: 17,
+        padding: {
+          left: 12,
+          right: 12,
+          top: 36,
+          bottom: 12
+        }
+      },
+      style: {
+        strokeColor: '#22c86f',
+        strokeWidth: 2,
+        cornerRadius: 16,
+        colorPreset: 'green'
+      },
+      children: [
+        {
+          id: 'left_0',
+          type: 'card',
+          title: 'Ephemeral Buffers',
+          body: 'Redis Stream queues\nKafka transaction logs\nIn-memory hot keys',
+          icon: 'zap',
+          style: {
+            color: '#10b981',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'left_1',
+          type: 'card',
+          title: 'Model-Agnostic Parsers',
+          body: 'Claude XML tags\nOpenAI JSON schemas\nMarkdown execution blocks',
+          icon: 'code',
+          style: {
+            color: '#10b981',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'left_2',
+          type: 'card',
+          title: 'Stream Aggregators',
+          body: 'Agent token usage logs\nException trace states\nTool execution histories',
+          icon: 'terminal',
+          style: {
+            color: '#10b981',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        }
+      ]
+    },
+    {
+      id: 'center_panel',
+      type: 'panel',
+      title: 'Persistent State Mesh',
+      subtitle: '(Distributed, encrypted, multi-model storage tier)',
+      layout: {
+        direction: 'row',
+        gap: 28,
+        padding: {
+          left: 12,
+          right: 12,
+          top: 36,
+          bottom: 12
+        }
+      },
+      style: {
+        strokeColor: '#bd54d3',
+        strokeWidth: 2,
+        cornerRadius: 16,
+        colorPreset: 'purple'
+      },
+      children: [
+        {
+          id: 'store_0',
+          type: 'card',
+          title: 'System WAL',
+          body: 'Write-Ahead Log\nSQLite manifest\nRollback transaction journal',
+          icon: 'database',
+          style: {
+            color: '#bd54d3',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'store_1',
+          type: 'card',
+          title: 'Blob Engine',
+          body: 'Immutable cold backups\nRaw system snap dumps\nLZ4 compression',
+          icon: 'archive',
+          style: {
+            color: '#bd54d3',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'store_2',
+          type: 'card',
+          title: 'Vector Database',
+          body: 'pgvector storage\nDynamic HNSW index\nQuantized float weights',
+          icon: 'disc',
+          style: {
+            color: '#bd54d3',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'store_3',
+          type: 'card',
+          title: 'Knowledge Graph',
+          body: 'Neo4j / Memgraph\nSemantic connections\nTransitive paths',
+          icon: 'share-2',
+          style: {
+            color: '#bd54d3',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        }
+      ],
+      footer: {
+        id: 'center_footer',
+        type: 'card',
+        title: 'Hybrid Search Engine (HNSW Index + BM25 Lexical + Cypher Traversal)',
+        style: {
+          color: '#bd54d3',
+          strokeWidth: 2,
+          cornerRadius: 8,
+          borderless: true,
+          transparent: false
+        }
+      }
+    },
+    {
+      id: 'right_panel',
+      type: 'panel',
+      title: 'Agent Execution Fabric',
+      layout: {
+        direction: 'column',
+        gap: 14,
+        padding: {
+          left: 12,
+          right: 12,
+          top: 36,
+          bottom: 12
+        }
+      },
+      style: {
+        strokeColor: '#f4b64e',
+        strokeWidth: 2,
+        cornerRadius: 16,
+        colorPreset: 'amber'
+      },
+      children: [
+        {
+          id: 'right_0',
+          type: 'card',
+          title: 'Dynamic Planner',
+          body: 'Injects real-time context\nAdapts runbook goals\nCalculates token budget',
+          icon: 'sliders',
+          style: {
+            color: '#f4b64e',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'right_1',
+          type: 'card',
+          title: 'Ephemeral Tools',
+          body: 'Sandboxed runtimes\nShort-lived API configurations\nLocal file operations',
+          icon: 'box',
+          style: {
+            color: '#f4b64e',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        },
+        {
+          id: 'right_2',
+          type: 'card',
+          title: 'Persona Registry',
+          body: 'Cross-agent alignment\nHistorical user biases\nGlobal system behaviors',
+          icon: 'user-check',
+          style: {
+            color: '#f4b64e',
+            strokeWidth: 2,
+            cornerRadius: 10,
+            borderless: true,
+            transparent: false
+          }
+        }
+      ]
+    }
+  ],
+  connections: [
+    {
+      from: 'input_0',
+      to: 'core_0',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    },
+    {
+      from: 'input_1',
+      to: 'core_0',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    },
+    {
+      from: 'input_2',
+      to: 'core_0',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    },
+    {
+      from: 'input_3',
+      to: 'core_0',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    },
+    {
+      from: 'input_4',
+      to: 'core_0',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    },
+    {
+      from: 'core_0',
+      to: 'core_1',
+      exitPort: 'left',
+      entryPort: 'right'
+    },
+    {
+      from: 'core_1',
+      to: 'core_2',
+      exitPort: 'top',
+      entryPort: 'left'
+    },
+    {
+      from: 'core_2',
+      to: 'core_3',
+      exitPort: 'right',
+      entryPort: 'left'
+    },
+    {
+      from: 'core_3',
+      to: 'core_4',
+      exitPort: 'right',
+      entryPort: 'left'
+    },
+    {
+      from: 'core_4',
+      to: 'decision',
+      exitPort: 'left',
+      entryPort: 'top'
+    },
+    {
+      from: 'decision',
+      to: 'output',
+      exitPort: 'bottom',
+      entryPort: 'left'
+    },
+    {
+      from: 'decision',
+      to: 'core_0',
+      exitPort: 'top',
+      entryPort: 'top'
+    },
+    {
+      from: 'output',
+      to: 'right_0',
+      exitPort: 'right',
+      entryPort: 'left'
+    },
+    {
+      from: 'left_0',
+      to: 'core_0',
+      exitPort: 'right',
+      entryPort: 'bottom'
+    },
+    {
+      from: 'core_2',
+      to: 'store_2',
+      exitPort: 'top',
+      entryPort: 'bottom'
+    },
+    {
+      from: 'core_3',
+      to: 'store_3',
+      exitPort: 'top',
+      entryPort: 'bottom'
+    },
+    {
+      from: 'store_3',
+      to: 'right_0',
+      exitPort: 'right',
+      entryPort: 'left'
+    },
+    {
+      from: 'right_0',
+      to: 'decision',
+      exitPort: 'left',
+      entryPort: 'bottom'
+    },
+    {
+      from: 'left_0',
+      to: 'left_1',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    },
+    {
+      from: 'left_1',
+      to: 'left_2',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    },
+    {
+      from: 'right_0',
+      to: 'right_1',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    },
+    {
+      from: 'right_1',
+      to: 'right_2',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    },
+    {
+      from: 'store_1',
+      to: 'center_footer',
+      exitPort: 'bottom',
+      entryPort: 'top'
+    }
+  ],
+  annotations: [
+    {
+      text: 'Iterate state sync until vector drift < 2% and WAL entries commit to storage blocks',
+      attachTo: 'core_panel',
+      position: 'top'
+    },
+    {
+      text: 'Timeout / Consensus recovery path',
+      attachTo: 'core_panel',
+      position: 'top-right'
+    },
+    {
+      text: 'Ingest Events',
+      attachTo: 'left_panel',
+      position: 'top-label'
+    },
+    {
+      text: 'Dynamic Compile',
+      from: 'store_3',
+      to: 'right_0',
+      position: 'midpoint'
+    },
+    {
+      text: 'Feedback Loop',
+      from: 'right_0',
+      to: 'decision',
+      position: 'midpoint'
+    }
+  ]
+};
