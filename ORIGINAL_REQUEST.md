@@ -47,3 +47,38 @@ Integrity mode: benchmark
 - [ ] The Render Worker picks up the job, launches Playwright, captures frames, and compiles them via FFmpeg.
 - [ ] Output files (MP4/GIF) are successfully uploaded to MinIO and accessible via a signed/public downloadable URL.
 - [ ] All containers spin up successfully via `docker compose up`.
+
+## Follow-up — 2026-07-16T19:51:59Z
+
+Update the project documentation to match our implemented multi-container architecture and GWT Web Worker layout engine.
+
+Working directory: c:\projects\2dmotion-flow-dataflow
+Integrity mode: development
+
+## Requirements
+
+### R1. Developer README (README.md and PROJECT.md)
+- Update/create `README.md` and `PROJECT.md` to comprehensively explain the architecture of the project.
+- Document all containers and services: PostgreSQL database, Redis queue, MinIO object storage, FastAPI gateway, React Flow frontend, and Playwright worker.
+- Provide clear local running, testing, and Docker Compose deployment instructions.
+
+### R2. API Reference Guide (API_REFERENCE.md)
+- Create or update the API reference detailing all endpoints exposed by the Python API gateway (e.g., authentication, diagram schema storage, and export job queue).
+- Detail the exact JSON schemas for saving diagrams and requesting video export.
+- Document the state transitions of the export job queue.
+
+### R3. Web Worker & Playwright Setup Guide (TROUBLESHOOTING.md)
+- Detail how the ELKjs GWT layout engine is loaded synchronously inside the Web Worker thread using message intercepting.
+- Document the headless Playwright capture worker environment, dependencies (like Chromium, FFmpeg), and the clock freeze/advance mechanism.
+- Provide troubleshooting steps for layout overlapping or rendering failures.
+
+## Acceptance Criteria
+
+### Documentation Coverage
+- [ ] `README.md`, `PROJECT.md`, `API_REFERENCE.md`, and `TROUBLESHOOTING.md` are updated or created in the project repository.
+- [ ] Documentation includes complete, non-placeholder instructions for launching the stack with `docker compose up --build`.
+- [ ] API guide defines exact JSON schemas for saving schemas and requesting MP4/GIF exports.
+- [ ] Web worker layout section explains the custom GWT worker interception synchronization mechanism.
+
+### Documentation Quality
+- [ ] All files are formatted in clean Markdown with zero "TBD" or placeholder sections.
