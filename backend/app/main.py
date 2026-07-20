@@ -27,6 +27,11 @@ except ImportError:
 from app.api.v1.auth import router as auth_router
 from app.api.v1.diagrams import router as diagrams_router
 from app.api.v1.exports import router as exports_router
+from app.api.v1.mcp import mcp, make_mcp_asgi_app
+from app.core.config import settings
+from fastapi import FastAPI, status, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 app = FastAPI(
     title="FlowDraft Gateway API",
@@ -42,6 +47,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# MCP API Key validation middleware
+@app.middleware("http")
+async def mcp_auth_middleware(request: Request, call_next):
+    if request.url.path.startswith(("/api/v1/mcp", "/api/mcp")):
+        api_key = request.headers.get("X-MCP-API-Key") or request.query_params.get("api_key")
+        if not api_key:
+            return JSONResponse(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                content={"detail": "MCP API Key is missing"}
+            )
+        allowed_keys = [k.strip() for k in settings.MCP_API_KEYS.split(",") if k.strip()]
+        if api_key not in allowed_keys:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": "Invalid MCP API Key"}
+            )
+    return await call_next(request)
 
 # Custom exception handler for SpecError to return HTTP 400 Bad Request
 @app.exception_handler(SpecError)
@@ -113,4 +136,9 @@ app.include_router(exports_router, prefix="/api/v1/export", tags=["exports"])
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(diagrams_router, prefix="/api/diagrams", tags=["diagrams"])
 app.include_router(exports_router, prefix="/api/export", tags=["exports"])
+
+# Mount FastMCP SSE applications
+app.mount("/api/v1/mcp", make_mcp_asgi_app("/api/v1/mcp"))
+app.mount("/api/mcp", make_mcp_asgi_app("/api/mcp"))
+
 

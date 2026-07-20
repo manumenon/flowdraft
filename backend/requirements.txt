@@ -10,3 +10,5 @@ python-dotenv==1.2.2
 python-multipart==0.0.32
 pyjwt==2.13.0
 bcrypt==5.0.0
+mcp==1.2.1
+

@@ -10,6 +10,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     FRONTEND_URL: str = "http://localhost:3000"
+    MCP_API_KEYS: str = "default-mcp-key"
+
 
     model_config = SettingsConfigDict(
         env_file=".env",
