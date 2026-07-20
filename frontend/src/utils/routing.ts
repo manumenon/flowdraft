@@ -143,7 +143,8 @@ export function getManhattanPath(
   startDir: string,
   endX: number,
   endY: number,
-  endDir: string
+  endDir: string,
+  midpointOffset: number = 0
 ): [number, number][] {
   const points: [number, number][] = [];
   points.push([startX, startY]);
@@ -175,11 +176,11 @@ export function getManhattanPath(
   const isEndHorizontal = endDir.toLowerCase() === 'left' || endDir.toLowerCase() === 'right';
 
   if (isStartHorizontal && isEndHorizontal) {
-    const midX = (p1x + p2x) / 2;
+    const midX = (p1x + p2x) / 2 + midpointOffset;
     points.push([midX, p1y]);
     points.push([midX, p2y]);
   } else if (!isStartHorizontal && !isEndHorizontal) {
-    const midY = (p1y + p2y) / 2;
+    const midY = (p1y + p2y) / 2 + midpointOffset;
     points.push([p1x, midY]);
     points.push([p2x, midY]);
   } else {

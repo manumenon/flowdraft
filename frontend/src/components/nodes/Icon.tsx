@@ -11,6 +11,31 @@ interface IconProps {
 export const Icon: React.FC<IconProps> = ({ name, className, size = 18, color }) => {
   if (!name) return null;
 
+  const trimmed = name.trim();
+
+  // Handle Raw SVGs
+  if (trimmed.startsWith('<svg')) {
+    return (
+      <div
+        className={className}
+        style={{ width: size, height: size, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        dangerouslySetInnerHTML={{ __html: name }}
+      />
+    );
+  }
+
+  // Handle Custom Image Links/URLs
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
+    return (
+      <img
+        src={name}
+        alt="icon"
+        className={className}
+        style={{ width: size, height: size, objectFit: 'contain' }}
+      />
+    );
+  }
+
   // Convert kebab-case or snake_case to PascalCase
   const pascalName = name
     .split(/[-_]/)

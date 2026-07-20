@@ -90,8 +90,12 @@ def route_with_elk(ir: dict) -> bool:
                 "elk.direction": "DOWN" if direction == "column" else "RIGHT",
                 "elk.spacing.nodeNode": str(gap),
                 "elk.layered.spacing.nodeNodeBetweenLayers": str(gap),
+                "elk.spacing.edgeNode": "20",
+                "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+                "elk.edgeRouting": "ORTHOGONAL",
                 "elk.padding": f"[top={top_pad},left=20,bottom=20,right=20]"
             }
+
         else:
             elk_node["width"] = node.get("width", 200)
             elk_node["height"] = node.get("height", 80)
@@ -108,11 +112,16 @@ def route_with_elk(ir: dict) -> bool:
             "elk.direction": "DOWN",
             "elk.spacing.nodeNode": "80",
             "elk.layered.spacing.nodeNodeBetweenLayers": "90",
+            "elk.spacing.edgeNode": "30",
+            "elk.spacing.edgeEdge": "15",
+            "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+            "elk.cycleBreaking.strategy": "GREEDY",
+            "elk.edgeRouting": "ORTHOGONAL",
             "elk.hierarchyHandling": "SEPARATE_CHILDREN",
-            "elk.cycleBreaking.strategy": "MODEL_ORDER",
             "elk.layered.crossingMinimization.strategy": "INTERACTIVE",
             "elk.padding": f"[top={top_root_pad},left=50,bottom=50,right=50]"
         },
+
         "children": [],
         "edges": []
     }

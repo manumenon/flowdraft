@@ -90,8 +90,12 @@ self.onmessage = async (event: MessageEvent) => {
           'elk.direction': direction === 'column' ? 'DOWN' : 'RIGHT',
           'elk.spacing.nodeNode': String(gap),
           'elk.layered.spacing.nodeNodeBetweenLayers': String(gap),
+          'elk.spacing.edgeNode': '20',
+          'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+          'elk.edgeRouting': 'ORTHOGONAL',
           'elk.padding': `[top=${topPad},left=${padLeft},bottom=${padBottom},right=${padRight}]`
         };
+
       } else {
         elkNode.width = node.width || 200;
         elkNode.height = node.height || 80;
@@ -107,14 +111,19 @@ self.onmessage = async (event: MessageEvent) => {
         'elk.direction': 'DOWN',
         'elk.spacing.nodeNode': '80',
         'elk.layered.spacing.nodeNodeBetweenLayers': '90',
+        'elk.spacing.edgeNode': '30',
+        'elk.spacing.edgeEdge': '15',
+        'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+        'elk.cycleBreaking.strategy': 'GREEDY',
+        'elk.edgeRouting': 'ORTHOGONAL',
         'elk.hierarchyHandling': 'SEPARATE_CHILDREN',
-        'elk.cycleBreaking.strategy': 'MODEL_ORDER',
         'elk.layered.crossingMinimization.strategy': 'INTERACTIVE',
         'elk.padding': `[top=${topRootPad},left=50,bottom=50,right=50]`
       },
       children: [],
       edges: []
     };
+
 
     elements.forEach((node: any) => {
       const nid = node.id;

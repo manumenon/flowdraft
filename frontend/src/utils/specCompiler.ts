@@ -44,23 +44,23 @@ export const THEMES: Record<string, Record<string, string>> = {
   },
   white: {
     bg: '#ffffff',
-    white: '#111827',
-    muted: '#4b5563',
-    frame: '#6b7280',
-    core_fill: '#dbeafe',
-    core_stroke: '#0284c7',
-    green: '#15803d',
-    green_fill: '#dcfce7',
-    purple: '#7c3aed',
-    purple_fill: '#ede9fe',
-    cyan: '#0891b2',
-    blue_fill: '#dbeafe',
-    highlight: '#99f6e4',
-    amber: '#b45309',
-    pink: '#be185d',
-    archive_fill: '#ede9fe',
-    source_fill: '#dcfce7',
-    pack_fill: '#d1fae5',
+    white: '#000000',
+    muted: '#27272a',
+    frame: '#09090b',
+    core_fill: '#ffffff',
+    core_stroke: '#09090b',
+    green: '#09090b',
+    green_fill: '#ffffff',
+    purple: '#09090b',
+    purple_fill: '#ffffff',
+    cyan: '#09090b',
+    blue_fill: '#ffffff',
+    highlight: '#f4f4f5',
+    amber: '#09090b',
+    pink: '#09090b',
+    archive_fill: '#ffffff',
+    source_fill: '#ffffff',
+    pack_fill: '#ffffff',
   },
 };
 
@@ -228,9 +228,39 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
     };
   });
 
-  // 4. Compile connections to React Flow Edges with parallel counts
+  // 4. Compile connections to React Flow Edges with parallel counts and source coloring
   const rawConnections = spec.connections || [];
   const edgeGroups: Record<string, number[]> = {};
+
+  // Count connections sharing the same exit/entry ports
+  const sourcePortGroups: Record<string, number[]> = {};
+  const targetPortGroups: Record<string, number[]> = {};
+  
+  // Group connections arriving at the same target node + entryPort for target corridors
+  const targetCorridorGroups: Record<string, number[]> = {};
+
+  rawConnections.forEach((conn, idx) => {
+    const exitPort = conn.exitPort || conn.fromPort || 'bottom';
+    const entryPort = conn.entryPort || conn.toPort || 'top';
+    const sourceKey = `${conn.from}-${exitPort}`;
+    const targetKey = `${conn.to}-${entryPort}`;
+
+    if (!sourcePortGroups[sourceKey]) {
+      sourcePortGroups[sourceKey] = [];
+    }
+    sourcePortGroups[sourceKey].push(idx);
+
+    if (!targetPortGroups[targetKey]) {
+      targetPortGroups[targetKey] = [];
+    }
+    targetPortGroups[targetKey].push(idx);
+
+    const corridorKey = `${conn.to}-${entryPort}`;
+    if (!targetCorridorGroups[corridorKey]) {
+      targetCorridorGroups[corridorKey] = [];
+    }
+    targetCorridorGroups[corridorKey].push(idx);
+  });
 
   rawConnections.forEach((conn, idx) => {
     const u = conn.from;
@@ -242,6 +272,54 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
     edgeGroups[key].push(idx);
   });
 
+  // Muted, desaturated palettes that blend with the Obsidian dark / clean light themes
+  const SOURCE_PALETTE_DARK = [
+    '#6b93c0', // steel blue
+    '#6bae7c', // sage green
+    '#c4a05a', // warm gold
+    '#c07272', // dusty rose
+    '#9b84c0', // lavender
+    '#5ea8a8', // muted teal
+    '#c07aa0', // mauve
+    '#c08f5e', // burnt sand
+    '#5eaca0', // seafoam
+    '#8a82b8', // soft violet
+    '#b8a84e', // olive gold
+    '#7c8ac0', // slate indigo
+  ];
+
+  const SOURCE_PALETTE_LIGHT = [
+    '#4472a8', // medium blue
+    '#3a8a54', // forest green
+    '#a07830', // dark gold
+    '#a04848', // brick red
+    '#7a5aa0', // muted purple
+    '#2a8888', // deep teal
+    '#a0507a', // plum
+    '#a07040', // sienna
+    '#2a8a7a', // dark seafoam
+    '#6a62a0', // dark violet
+    '#8a8030', // dark olive
+    '#4a5a98', // navy
+  ];
+
+  // Collect unique source nodes in order of first appearance to assign colors consistently
+  const uniqueSources: string[] = [];
+  rawConnections.forEach((conn) => {
+    if (!uniqueSources.includes(conn.from)) {
+      uniqueSources.push(conn.from);
+    }
+  });
+
+  const isDark = theme === 'dark';
+  const palette = isDark ? SOURCE_PALETTE_DARK : SOURCE_PALETTE_LIGHT;
+  const sourceColorMap: Record<string, string> = {};
+  uniqueSources.forEach((srcId, index) => {
+    sourceColorMap[srcId] = palette[index % palette.length];
+  });
+
+  const shouldAutoColor = uniqueSources.length >= 3;
+
   const rfEdges = rawConnections.map((conn, idx) => {
     const u = conn.from;
     const v = conn.to;
@@ -249,16 +327,31 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
     const parallelIndex = edgeGroups[key].indexOf(idx);
     const parallelCount = edgeGroups[key].length;
 
-    // Resolve color
-    let edgeColor = conn.color || themeColors.muted;
+    const exitPort = conn.exitPort || conn.fromPort || 'bottom';
+    const entryPort = conn.entryPort || conn.toPort || 'top';
+    const sourceKey = `${conn.from}-${exitPort}`;
+    const targetKey = `${conn.to}-${entryPort}`;
+
+    const sourceIndex = sourcePortGroups[sourceKey].indexOf(idx);
+    const sourceCount = sourcePortGroups[sourceKey].length;
+    const targetIndex = targetPortGroups[targetKey].indexOf(idx);
+    const targetCount = targetPortGroups[targetKey].length;
+
+    const corridorKey = `${conn.to}-${entryPort}`;
+    const corridorIndex = targetCorridorGroups[corridorKey].indexOf(idx);
+    const corridorCount = targetCorridorGroups[corridorKey].length;
+
+    // Resolve color (conn.color override -> auto-assigned source color -> default theme color)
+    const autoColor = shouldAutoColor ? sourceColorMap[conn.from] : undefined;
+    let edgeColor = conn.color || autoColor || themeColors.muted;
     edgeColor = adjustColor(edgeColor, theme);
 
     return {
       id: `edge-${conn.from}-${conn.to}-${idx}`,
       source: conn.from,
       target: conn.to,
-      sourceHandle: conn.exitPort || conn.fromPort || 'bottom',
-      targetHandle: conn.entryPort || conn.toPort || 'top',
+      sourceHandle: exitPort,
+      targetHandle: entryPort,
       type: 'routed',
       zIndex: 10,
       markerEnd: {
@@ -273,6 +366,13 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
         label: conn.label,
         parallelIndex,
         parallelCount,
+        sourceIndex,
+        sourceCount,
+        targetIndex,
+        targetCount,
+        corridorIndex,
+        corridorCount,
+        sourceNodeColor: autoColor,
       },
     };
   });

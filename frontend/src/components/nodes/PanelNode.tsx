@@ -16,23 +16,25 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
   const isTransparent = !!style.transparent;
 
   const handleStyle = {
-    opacity: isPureRender ? 0 : 0.6,
+    opacity: isPureRender ? 0 : 0.8,
     pointerEvents: isPureRender ? 'none' as const : 'auto' as const,
     background: accentColor,
-    width: 8,
-    height: 8,
-    border: '1px solid white',
+    width: 6,
+    height: 6,
+    border: '1.5px solid var(--surface-1)',
   };
 
   return (
     <div
-      className="relative h-full w-full select-none"
+      className={`relative h-full w-full select-none transition-all duration-300 ${
+        selected ? 'ring-2 ring-emerald-500 shadow-glow-emerald scale-[1.002]' : ''
+      }`}
       style={{
-        backgroundColor: isTransparent ? 'transparent' : 'var(--panel-bg, rgba(30, 30, 46, 0.15))',
-        border: isBorderless ? 'none' : `${strokeWidth}px solid ${strokeColor}`,
+        backgroundColor: isTransparent ? 'transparent' : 'var(--panel-bg)',
+        border: isBorderless ? 'none' : `${strokeWidth}px solid ${selected ? strokeColor : 'var(--border-default)'}`,
         borderRadius: `${cornerRadius}px`,
-        color: 'var(--node-fg, #cdd6f4)',
-        boxShadow: isPureRender ? 'none' : 'inset 0 0 15px rgba(255, 255, 255, 0.02)',
+        color: 'var(--node-fg)',
+        boxShadow: isPureRender ? 'none' : 'inset 0 0 20px rgba(255, 255, 255, 0.01)',
       }}
     >
       {!isPureRender && (
@@ -57,14 +59,14 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
       <Handle type="target" position={Position.Right} id="right" style={handleStyle} />
       <Handle type="source" position={Position.Right} id="right" style={handleStyle} />
 
-      {/* Header Title & Subtitle / Badge */}
-      <div className="absolute top-3 left-4 right-4 flex items-start justify-between pointer-events-none select-none">
+      {/* Premium Header Title & Subtitle Badge */}
+      <div className="absolute top-4 left-4 right-4 flex items-start justify-between pointer-events-none select-none">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[11px] font-bold tracking-widest uppercase" style={{ color: strokeColor }}>
+          <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: strokeColor }}>
             {data.title || ''}
           </span>
           {data.subtitle && (
-            <span className="text-[9px] leading-tight font-medium opacity-65 italic text-slate-300">
+            <span className="text-[10px] leading-tight font-medium opacity-60 italic text-text-secondary">
               {data.subtitle}
             </span>
           )}
@@ -72,7 +74,7 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
 
         {data.badge && (
           <span
-            className="text-[8px] px-2 py-0.5 font-bold uppercase tracking-widest rounded-full flex-shrink-0"
+            className="text-[10px] px-2 py-0.5 font-bold uppercase tracking-widest rounded-full flex-shrink-0"
             style={{
               backgroundColor: `${strokeColor}15`,
               color: strokeColor,
