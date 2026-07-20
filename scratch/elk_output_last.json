@@ -32,11 +32,11 @@
           "id": "input_1",
           "children": [],
           "edges": [],
-          "width": 110,
+          "width": 113.5,
           "height": 50,
           "$H": 281,
-          "x": 150,
-          "y": 64
+          "x": 20,
+          "y": 134
         },
         {
           "id": "input_2",
@@ -45,7 +45,7 @@
           "width": 110,
           "height": 52,
           "$H": 283,
-          "x": 150,
+          "x": 153.5,
           "y": 134
         },
         {
@@ -55,8 +55,8 @@
           "width": 110,
           "height": 50,
           "$H": 285,
-          "x": 20,
-          "y": 134
+          "x": 150,
+          "y": 64
         },
         {
           "id": "input_4",
@@ -81,9 +81,9 @@
         "elk.padding": "[top=64.0,left=20,bottom=20,right=20]"
       },
       "$H": 277,
-      "x": 759.5333333333333,
-      "y": 298.5,
-      "width": 280,
+      "x": 757.7833333333333,
+      "y": 286.5,
+      "width": 283.5,
       "height": 278
     },
     {
@@ -94,7 +94,7 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 88,
+          "height": 83.5,
           "$H": 291,
           "x": 20,
           "y": 64
@@ -104,20 +104,20 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 85.5,
+          "height": 81.5,
           "$H": 293,
           "x": 20,
-          "y": 169
+          "y": 164.5
         },
         {
           "id": "left_2",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 85,
+          "height": 81.5,
           "$H": 295,
           "x": 20,
-          "y": 271.5
+          "y": 263
         }
       ],
       "edges": [
@@ -134,11 +134,11 @@
               "id": "edge_internal_18_left_0_left_1_s0",
               "startPoint": {
                 "x": 120,
-                "y": 152
+                "y": 147.5
               },
               "endPoint": {
                 "x": 120,
-                "y": 169
+                "y": 164.5
               },
               "incomingShape": "left_0",
               "outgoingShape": "left_1"
@@ -159,11 +159,11 @@
               "id": "edge_internal_19_left_1_left_2_s0",
               "startPoint": {
                 "x": 120,
-                "y": 254.5
+                "y": 246
               },
               "endPoint": {
                 "x": 120,
-                "y": 271.5
+                "y": 263
               },
               "incomingShape": "left_1",
               "outgoingShape": "left_2"
@@ -183,10 +183,10 @@
         "elk.padding": "[top=64.0,left=20,bottom=20,right=20]"
       },
       "$H": 289,
-      "x": 439.5333333333333,
+      "x": 437.7833333333333,
       "y": 200,
       "width": 240,
-      "height": 376.5
+      "height": 364.5
     },
     {
       "id": "core_panel",
@@ -196,17 +196,17 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5,
+          "height": 83.5,
           "$H": 299,
           "x": 20,
-          "y": 83.25
+          "y": 83
         },
         {
           "id": "core_1",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 88,
+          "height": 83.5,
           "$H": 301,
           "x": 240,
           "y": 83
@@ -216,27 +216,27 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5,
+          "height": 83.5,
           "$H": 303,
           "x": 460,
-          "y": 83.25
+          "y": 83
         },
         {
           "id": "core_3",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5,
+          "height": 83.5,
           "$H": 305,
           "x": 680,
-          "y": 83.25
+          "y": 83
         },
         {
           "id": "core_4",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 88,
+          "height": 83.5,
           "$H": 307,
           "x": 900,
           "y": 83
@@ -256,11 +256,11 @@
               "id": "edge_internal_5_core_0_core_1_s0",
               "startPoint": {
                 "x": 220,
-                "y": 127
+                "y": 124.75
               },
               "endPoint": {
                 "x": 240,
-                "y": 127
+                "y": 124.75
               },
               "incomingShape": "core_0",
               "outgoingShape": "core_1"
@@ -281,11 +281,11 @@
               "id": "edge_internal_6_core_1_core_2_s0",
               "startPoint": {
                 "x": 440,
-                "y": 127
+                "y": 124.75
               },
               "endPoint": {
                 "x": 460,
-                "y": 127
+                "y": 124.75
               },
               "incomingShape": "core_1",
               "outgoingShape": "core_2"
@@ -306,11 +306,11 @@
               "id": "edge_internal_7_core_2_core_3_s0",
               "startPoint": {
                 "x": 660,
-                "y": 127
+                "y": 124.75
               },
               "endPoint": {
                 "x": 680,
-                "y": 127
+                "y": 124.75
               },
               "incomingShape": "core_2",
               "outgoingShape": "core_3"
@@ -331,11 +331,11 @@
               "id": "edge_internal_8_core_3_core_4_s0",
               "startPoint": {
                 "x": 880,
-                "y": 127
+                "y": 124.75
               },
               "endPoint": {
                 "x": 900,
-                "y": 127
+                "y": 124.75
               },
               "incomingShape": "core_3",
               "outgoingShape": "core_4"
@@ -356,9 +356,9 @@
       },
       "$H": 297,
       "x": 526.2,
-      "y": 666.5,
+      "y": 654.5,
       "width": 1120,
-      "height": 191
+      "height": 186.5
     },
     {
       "id": "decision",
@@ -368,7 +368,7 @@
       "height": 140,
       "$H": 309,
       "x": 50,
-      "y": 1908
+      "y": 1867
     },
     {
       "id": "center_panel",
@@ -378,9 +378,9 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5,
+          "height": 83.5,
           "$H": 313,
-          "x": 240,
+          "x": 20,
           "y": 83
         },
         {
@@ -388,19 +388,19 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5,
+          "height": 83.5,
           "$H": 315,
           "x": 20,
-          "y": 298.5
+          "y": 290
         },
         {
           "id": "store_2",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 86.5,
+          "height": 83.5,
           "$H": 317,
-          "x": 20,
+          "x": 240,
           "y": 83
         },
         {
@@ -408,10 +408,10 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 88,
+          "height": 83.5,
           "$H": 319,
           "x": 20,
-          "y": 190.5
+          "y": 186.5
         },
         {
           "id": "center_footer",
@@ -421,7 +421,7 @@
           "height": 80,
           "$H": 321,
           "x": 248,
-          "y": 302.25
+          "y": 291.75
         }
       ],
       "edges": [
@@ -438,11 +438,11 @@
               "id": "edge_internal_22_store_1_center_footer_s0",
               "startPoint": {
                 "x": 220,
-                "y": 342.25
+                "y": 331.75
               },
               "endPoint": {
                 "x": 248,
-                "y": 342.25
+                "y": 331.75
               },
               "incomingShape": "store_1",
               "outgoingShape": "center_footer"
@@ -463,9 +463,9 @@
       },
       "$H": 311,
       "x": 572.2,
-      "y": 947.5,
+      "y": 931,
       "width": 468,
-      "height": 406
+      "height": 393.5
     },
     {
       "id": "output",
@@ -475,7 +475,7 @@
       "height": 80,
       "$H": 323,
       "x": 292.2,
-      "y": 1273.5
+      "y": 1244.5
     },
     {
       "id": "right_panel",
@@ -485,7 +485,7 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5,
+          "height": 83.5,
           "$H": 327,
           "x": 20,
           "y": 64
@@ -495,20 +495,20 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5,
+          "height": 83.5,
           "$H": 329,
           "x": 20,
-          "y": 165.5
+          "y": 161.5
         },
         {
           "id": "right_2",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5,
+          "height": 83.5,
           "$H": 331,
           "x": 20,
-          "y": 267
+          "y": 259
         }
       ],
       "edges": [
@@ -525,11 +525,11 @@
               "id": "edge_internal_20_right_0_right_1_s0",
               "startPoint": {
                 "x": 120,
-                "y": 151.5
+                "y": 147.5
               },
               "endPoint": {
                 "x": 120,
-                "y": 165.5
+                "y": 161.5
               },
               "incomingShape": "right_0",
               "outgoingShape": "right_1"
@@ -550,11 +550,11 @@
               "id": "edge_internal_21_right_1_right_2_s0",
               "startPoint": {
                 "x": 120,
-                "y": 253
+                "y": 245
               },
               "endPoint": {
                 "x": 120,
-                "y": 267
+                "y": 259
               },
               "incomingShape": "right_1",
               "outgoingShape": "right_2"
@@ -575,9 +575,9 @@
       },
       "$H": 325,
       "x": 646.2,
-      "y": 1443.5,
+      "y": 1414.5,
       "width": 240,
-      "height": 374.5
+      "height": 362.5
     }
   ],
   "edges": [
@@ -594,11 +594,11 @@
           "id": "edge_1_input_panel_core_panel_s0",
           "startPoint": {
             "x": 899.5333333333333,
-            "y": 576.5
+            "y": 564.5
           },
           "endPoint": {
             "x": 899.5333333333333,
-            "y": 666.5
+            "y": 654.5
           },
           "incomingShape": "input_panel",
           "outgoingShape": "core_panel"
@@ -619,28 +619,28 @@
           "id": "edge_2_core_panel_decision_s0",
           "startPoint": {
             "x": 1086.2,
-            "y": 857.5
+            "y": 841
           },
           "endPoint": {
             "x": 208.39999999999998,
-            "y": 1908
+            "y": 1867
           },
           "bendPoints": [
             {
               "x": 1086.2,
-              "y": 867.5
+              "y": 851
             },
             {
               "x": 245.2,
-              "y": 867.5
+              "y": 851
             },
             {
               "x": 245.2,
-              "y": 1848
+              "y": 1807
             },
             {
               "x": 208.39999999999998,
-              "y": 1848
+              "y": 1807
             }
           ],
           "incomingShape": "core_panel",
@@ -662,28 +662,28 @@
           "id": "edge_3_decision_output_s0",
           "startPoint": {
             "x": 155.6,
-            "y": 1908
+            "y": 1867
           },
           "endPoint": {
             "x": 425.5333333333333,
-            "y": 1353.5
+            "y": 1324.5
           },
           "bendPoints": [
             {
               "x": 155.59999999999997,
-              "y": 1828
+              "y": 1787
             },
             {
               "x": 229.2,
-              "y": 1828
+              "y": 1787
             },
             {
               "x": 229.2,
-              "y": 1363.5
+              "y": 1334.5
             },
             {
               "x": 425.5333333333333,
-              "y": 1363.5
+              "y": 1334.5
             }
           ],
           "incomingShape": "decision",
@@ -708,20 +708,20 @@
           "id": "edge_4_decision_core_panel_s0",
           "startPoint": {
             "x": 261.2,
-            "y": 1908
+            "y": 1867
           },
           "endPoint": {
             "x": 1366.2,
-            "y": 857.5
+            "y": 841
           },
           "bendPoints": [
             {
               "x": 261.2,
-              "y": 877.5
+              "y": 861
             },
             {
               "x": 1366.2,
-              "y": 877.5
+              "y": 861
             }
           ],
           "incomingShape": "decision",
@@ -743,20 +743,20 @@
           "id": "edge_5_output_right_panel_s0",
           "startPoint": {
             "x": 358.8666666666667,
-            "y": 1353.5
+            "y": 1324.5
           },
           "endPoint": {
             "x": 726.2,
-            "y": 1443.5
+            "y": 1414.5
           },
           "bendPoints": [
             {
               "x": 358.8666666666667,
-              "y": 1373.5
+              "y": 1344.5
             },
             {
               "x": 726.2,
-              "y": 1373.5
+              "y": 1344.5
             }
           ],
           "incomingShape": "output",
@@ -777,21 +777,21 @@
         {
           "id": "edge_6_left_panel_core_panel_s0",
           "startPoint": {
-            "x": 559.5333333333333,
-            "y": 576.5
+            "x": 557.7833333333333,
+            "y": 564.5
           },
           "endPoint": {
             "x": 1272.8666666666666,
-            "y": 666.5
+            "y": 654.5
           },
           "bendPoints": [
             {
-              "x": 559.5333333333333,
-              "y": 586.5
+              "x": 557.7833333333333,
+              "y": 574.5
             },
             {
               "x": 1272.8666666666666,
-              "y": 586.5
+              "y": 574.5
             }
           ],
           "incomingShape": "left_panel",
@@ -813,11 +813,11 @@
           "id": "edge_7_core_panel_center_panel_s0",
           "startPoint": {
             "x": 806.2,
-            "y": 857.5
+            "y": 841
           },
           "endPoint": {
             "x": 806.2,
-            "y": 947.5
+            "y": 931
           },
           "incomingShape": "core_panel",
           "outgoingShape": "center_panel"
@@ -838,11 +838,11 @@
           "id": "edge_8_center_panel_right_panel_s0",
           "startPoint": {
             "x": 806.2,
-            "y": 1353.5
+            "y": 1324.5
           },
           "endPoint": {
             "x": 806.2,
-            "y": 1443.5
+            "y": 1414.5
           },
           "incomingShape": "center_panel",
           "outgoingShape": "right_panel"
@@ -866,20 +866,20 @@
           "id": "edge_9_right_panel_decision_s0",
           "startPoint": {
             "x": 766.2,
-            "y": 1818
+            "y": 1777
           },
           "endPoint": {
             "x": 102.8,
-            "y": 1908
+            "y": 1867
           },
           "bendPoints": [
             {
               "x": 766.2,
-              "y": 1838
+              "y": 1797
             },
             {
               "x": 102.80000000000001,
-              "y": 1838
+              "y": 1797
             }
           ],
           "incomingShape": "right_panel",
@@ -893,5 +893,5 @@
   "x": 0,
   "y": 0,
   "width": 1696.2,
-  "height": 2098
+  "height": 2057
 }

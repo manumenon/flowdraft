@@ -10,6 +10,5 @@ dist/
 build/
 *.egg-info/
 .auth/
-.agents/
 .cache/
 .storage/

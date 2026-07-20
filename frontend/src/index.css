@@ -222,3 +222,39 @@ body {
 .react-flow__handle:hover {
   transform: scale(1.4) !important;
 }
+
+/* Telemetry dashed path flow animation */
+.dashed-edge-flow {
+  animation: dashFlow 1.5s linear infinite !important;
+}
+
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+/* Panel animated gradient background */
+@keyframes gradientBG {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-panel-gradient {
+  background: linear-gradient(-45deg, rgba(23, 27, 48, 0.45), rgba(49, 46, 129, 0.3), rgba(30, 27, 75, 0.4), rgba(17, 24, 39, 0.45));
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite !important;
+}
+
+.white-theme .animated-panel-gradient {
+  background: linear-gradient(-45deg, rgba(241, 243, 245, 0.95), rgba(224, 231, 255, 0.9), rgba(238, 242, 255, 0.95), rgba(249, 250, 251, 0.95));
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite !important;
+}

@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Set
 # ──────────────────────────────────────────────────────────────────────
 
 SUPPORTED_ELEMENT_TYPES: frozenset[str] = frozenset(
-    {"card", "diamond", "panel", "input", "label", "group"}
+    {"card", "diamond", "panel", "input", "label", "group", "cylinder", "cloud"}
 )
 
 SUPPORTED_CONNECTION_STYLES: frozenset[str] = frozenset(

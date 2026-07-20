@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
    ReactFlow,
    useNodesState,
@@ -22,6 +22,8 @@ import InputNode from './nodes/InputNode';
 import DecisionNode from './nodes/DecisionNode';
 import PanelNode from './nodes/PanelNode';
 import LabelNode from './nodes/LabelNode';
+import CylinderNode from './nodes/CylinderNode';
+import CloudNode from './nodes/CloudNode';
 import { Play, RotateCcw, AppWindow, ChevronUp, ChevronDown, Pause, Sparkles } from 'lucide-react';
 import { gsap } from 'gsap';
 
@@ -32,6 +34,8 @@ const nodeTypes = {
   panel: PanelNode,
   group: PanelNode,
   label: LabelNode,
+  cylinder: CylinderNode,
+  cloud: CloudNode,
 };
 
 const edgeTypes = {
@@ -49,6 +53,7 @@ interface CanvasProps {
   onDropTemplate?: (template: any, x: number, y: number) => void;
   snapToGrid?: boolean;
   onToggleSnap?: () => void;
+  tourStep?: number | null;
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
@@ -62,9 +67,13 @@ export const Canvas: React.FC<CanvasProps> = ({
   onDropTemplate,
   snapToGrid = false,
   onToggleSnap,
+  tourStep,
 }) => {
   const { runLayout, isLayoutRunning, isWorkerReady } = useFlowLayout();
-  const { screenToFlowPosition, getNodes } = useReactFlow();
+  const { screenToFlowPosition, getNodes, fitView } = useReactFlow();
+  const [promptLayoutAlert, setPromptLayoutAlert] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const prevLengthsRef = useRef({ elements: spec.elements?.length || 0, connections: spec.connections?.length || 0 });
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -221,7 +230,9 @@ export const Canvas: React.FC<CanvasProps> = ({
       const { positionedNodes, canvasWidth, canvasHeight } = await runLayout(
         compiled.flatElements,
         spec.connections || [],
-        spec.title
+        spec.title,
+        spec.canvas?.layoutDirection,
+        spec.canvas?.layoutAlgorithm
       );
 
       setNodes((currentNodes) =>
@@ -246,6 +257,9 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       setCanvasSize({ width: canvasWidth, height: canvasHeight });
       (window as any).__LAYOUT_COMPLETE__ = true;
+      setTimeout(() => {
+        fitView({ duration: 800, padding: 0.1 });
+      }, 50);
     } catch (err) {
       console.error('Failed to calculate layout:', err);
       setNodes((currentNodes) => {
@@ -379,6 +393,55 @@ export const Canvas: React.FC<CanvasProps> = ({
     }
   }, [compiled.flatElements, compiled.canvas.mode, executeLayout, isWorkerReady]);
 
+  // Track elements/connections length additions and removals for auto-layout or user prompt
+  useEffect(() => {
+    const currentElementsLen = compiled.flatElements.length;
+    const currentConnectionsLen = (spec.connections || []).length;
+
+    const wasAddedOrRemoved =
+      currentElementsLen !== prevLengthsRef.current.elements ||
+      currentConnectionsLen !== prevLengthsRef.current.connections;
+
+    prevLengthsRef.current = { elements: currentElementsLen, connections: currentConnectionsLen };
+
+    if (wasAddedOrRemoved) {
+      const canvasMode = compiled.canvas.mode;
+      if (canvasMode !== 'absolute') {
+        if (isWorkerReady) {
+          executeLayout();
+        }
+      } else {
+        setPromptLayoutAlert(true);
+      }
+    }
+  }, [compiled.flatElements.length, (spec.connections || []).length, compiled.canvas.mode, isWorkerReady, executeLayout]);
+
+  // Run layout immediately when layout options change and we are not in absolute mode
+  useEffect(() => {
+    const canvasMode = compiled.canvas.mode;
+    if (canvasMode !== 'absolute') {
+      if (isWorkerReady) {
+        executeLayout();
+      }
+    }
+  }, [spec.canvas?.layoutDirection, spec.canvas?.layoutAlgorithm, compiled.canvas.mode, executeLayout, isWorkerReady]);
+
+  // Auto zoom-to-fit on canvas wrapper container resize (handles sidebars collapsing/expanding)
+  useEffect(() => {
+    if (isPureRender || !containerRef.current) return;
+
+    const observer = new ResizeObserver(() => {
+      setTimeout(() => {
+        fitView({ duration: 400, padding: 0.1 });
+      }, 50);
+    });
+
+    observer.observe(containerRef.current);
+    return () => {
+      observer.disconnect();
+    };
+  }, [isPureRender, fitView]);
+
   const themeColors = THEMES[theme] || THEMES.dark;
 
   const containerStyle = {
@@ -388,7 +451,22 @@ export const Canvas: React.FC<CanvasProps> = ({
   } as React.CSSProperties;
 
   return (
-    <div style={containerStyle} className="relative w-full h-full select-none overflow-hidden font-sans">
+    <div ref={containerRef} style={containerStyle} className="relative w-full h-full select-none overflow-hidden font-sans">
+      {/* Dynamic Auto-Layout Prompt Alert banner */}
+      {promptLayoutAlert && !isPureRender && (
+        <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-50 animate-zoom-in">
+          <button
+            onClick={() => {
+              executeLayout();
+              setPromptLayoutAlert(false);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg transition duration-200 hover:scale-105 active:scale-95 focus-ring"
+          >
+            <Sparkles size={14} className="animate-pulse" />
+            <span>Diagram updated. Click to Auto-Layout</span>
+          </button>
+        </div>
+      )}
       {/* Glow Filter Definitions */}
       <svg style={{ position: 'absolute', width: 0, height: 0 }}>
         <defs>
@@ -573,7 +651,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
         {!isPureRender && spec.elements && spec.elements.length > 0 && (
           isPlayerCollapsed ? (
-            <Panel position="bottom-center" className="bg-surface-1/90 border border-border-themed p-1.5 rounded-xl shadow-2xl flex items-center gap-2.5 z-50 backdrop-blur-md select-none mb-4 animate-zoom-in">
+            <Panel position="bottom-center" className={`bg-surface-1/90 border border-border-themed p-1.5 rounded-xl shadow-2xl flex items-center gap-2.5 z-50 backdrop-blur-md select-none mb-4 animate-zoom-in ${tourStep === 4 ? 'ring-4 ring-indigo-500 scale-[1.02] shadow-glow-indigo' : ''}`}>
               <button
                 onClick={togglePlay}
                 className="p-1.5 bg-accent hover:opacity-90 text-white rounded-lg transition focus-ring"
@@ -594,7 +672,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               </button>
             </Panel>
           ) : (
-            <Panel position="bottom-center" className="bg-surface-1/90 border border-border-themed p-3 rounded-xl shadow-2xl flex flex-col gap-2.5 z-50 backdrop-blur-md w-[400px] select-none mb-4 animate-zoom-in relative">
+            <Panel position="bottom-center" className={`bg-surface-1/90 border border-border-themed p-3 rounded-xl shadow-2xl flex flex-col gap-2.5 z-50 backdrop-blur-md w-[400px] select-none mb-4 animate-zoom-in relative ${tourStep === 4 ? 'ring-4 ring-indigo-500 scale-[1.02] shadow-glow-indigo' : ''}`}>
               <button
                 onClick={() => setIsPlayerCollapsed(true)}
                 className="absolute top-2.5 right-2.5 p-1 text-text-muted hover:text-text-primary rounded hover:bg-surface-2 transition focus-ring"

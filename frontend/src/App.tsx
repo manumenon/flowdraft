@@ -540,10 +540,11 @@ function App() {
     <div className="flex h-screen w-screen bg-surface-0 text-text-primary overflow-hidden font-sans">
       {/* Project Space Sidebar */}
       <div
+        id="tour-explorer"
         style={{ width: leftSidebarCollapsed ? 56 : leftSidebarWidth }}
         className={`h-full flex-shrink-0 z-30 border-r border-border-themed bg-surface-1 relative ${
           isResizing ? '' : 'transition-[width] duration-300'
-        }`}
+        } ${tourStep === 1 ? 'ring-4 ring-indigo-500 shadow-glow-indigo z-50' : ''}`}
       >
         <ProjectSidebar
           token={token}
@@ -559,6 +560,7 @@ function App() {
           }}
           isCollapsed={leftSidebarCollapsed}
           onToggleCollapse={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
+          onShowToast={showToast}
         />
         {!leftSidebarCollapsed && (
           <div
@@ -742,6 +744,7 @@ function App() {
             onDropTemplate={handleDropTemplate}
             snapToGrid={snapToGrid}
             onToggleSnap={() => setSnapToGrid(!snapToGrid)}
+            tourStep={tourStep}
           />
         </div>
       </div>
@@ -751,7 +754,7 @@ function App() {
         style={{ width: rightSidebarCollapsed ? 56 : rightSidebarWidth }}
         className={`h-full flex-shrink-0 z-30 border-l border-border-themed bg-surface-1 relative ${
           isResizing ? '' : 'transition-[width] duration-300'
-        }`}
+        } ${(tourStep === 2 || tourStep === 3) ? 'ring-4 ring-indigo-500 shadow-glow-indigo z-50' : ''}`}
       >
         {!rightSidebarCollapsed && (
           <div
@@ -770,6 +773,7 @@ function App() {
           token={token}
           activeDiagramId={activeDiagramId}
           onTriggerAuth={() => setShowAuthModal(true)}
+          tourStep={tourStep}
         />
       </div>
 
@@ -851,8 +855,34 @@ function App() {
 
       {/* Interactive Tour Overlay */}
       {tourStep !== null && (
-        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[99] w-full max-w-sm px-4 select-none animate-zoom-in">
-          <div className="glass-panel p-5 rounded-2xl shadow-premium border border-accent/25 bg-surface-1/95 text-text-primary flex flex-col gap-4">
+        <div 
+          className={`z-[99] w-full max-w-sm px-4 select-none animate-zoom-in transition-all duration-300 ${
+            tourStep === 1 
+              ? 'fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 md:max-w-md' 
+              : tourStep === 2
+                ? 'fixed right-[350px] top-[180px]'
+                : tourStep === 3
+                  ? 'fixed right-[350px] top-[300px]'
+                  : tourStep === 4
+                    ? 'fixed bottom-[180px] left-1/2 transform -translate-x-1/2'
+                    : 'fixed bottom-[100px] right-[100px]'
+          }`}
+        >
+          <div className="glass-panel p-5 rounded-2xl shadow-premium border border-accent/25 bg-surface-1/95 text-text-primary flex flex-col gap-4 relative">
+            {/* Tour Pointer Arrow */}
+            {tourStep === 2 && (
+              <div className="absolute right-[-8px] top-1/2 -translate-y-1/2 border-t-8 border-b-8 border-l-8 border-transparent border-l-surface-1" />
+            )}
+            {tourStep === 3 && (
+              <div className="absolute right-[-8px] top-[24px] border-t-8 border-b-8 border-l-8 border-transparent border-l-surface-1" />
+            )}
+            {tourStep === 4 && (
+              <div className="absolute bottom-[-8px] left-1/2 -translate-x-1/2 border-l-8 border-r-8 border-t-8 border-transparent border-t-surface-1" />
+            )}
+            {tourStep === 5 && (
+              <div className="absolute bottom-[-8px] right-[116px] border-l-8 border-r-8 border-t-8 border-transparent border-t-surface-1" />
+            )}
+
             {/* Header / Close */}
             <div className="flex items-center justify-between pb-2 border-b border-border-themed">
               <span className="text-[10px] font-extrabold uppercase tracking-widest text-accent font-mono">

@@ -1,4 +1,4 @@
-export type ElementType = 'card' | 'diamond' | 'panel' | 'input' | 'label' | 'group';
+export type ElementType = 'card' | 'diamond' | 'panel' | 'input' | 'label' | 'group' | 'cylinder' | 'cloud';
 export type PortType = 'top' | 'bottom' | 'left' | 'right';
 export type ConnectionStyle = 'solid' | 'dashed' | 'dotted';
 export type AnnotationPosition =
@@ -96,6 +96,8 @@ export interface CanvasConfig {
   gridVariant?: 'dots' | 'lines' | 'cross';
   gridGap?: number;
   gridSize?: number;
+  layoutDirection?: 'vertical' | 'horizontal';
+  layoutAlgorithm?: string;
 }
 
 export interface TitleConfig {

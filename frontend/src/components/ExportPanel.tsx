@@ -8,6 +8,7 @@ interface ExportPanelProps {
   activeDiagramId: string | null;
   onTriggerAuth: () => void;
   isInline?: boolean;
+  tourStep?: number | null;
 }
 
 interface ExportJobStatus {
@@ -25,6 +26,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
   activeDiagramId,
   onTriggerAuth,
   isInline = false,
+  tourStep,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [format, setFormat] = useState<'mp4' | 'gif'>('mp4');
@@ -304,8 +306,11 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
     <div className="absolute bottom-6 right-6 z-[30] flex flex-col items-end">
       {/* Drawer overlay Trigger Button */}
       <button
+        id="tour-exporter"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="px-4 py-2.5 bg-accent hover:opacity-90 text-white font-bold rounded-xl shadow-lg transition flex items-center gap-2 focus-ring select-none animate-fade-in"
+        className={`px-4 py-2.5 bg-accent hover:opacity-90 text-white font-bold rounded-xl shadow-lg transition flex items-center gap-2 focus-ring select-none animate-fade-in ${
+          tourStep === 5 ? 'ring-4 ring-amber-500 scale-105 shadow-glow-amber' : ''
+        }`}
         aria-label="Open Export Drawer"
       >
         <Film size={15} className={jobs.some((j) => j.status === 'processing') ? 'animate-spin' : ''} />

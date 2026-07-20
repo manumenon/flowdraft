@@ -46,7 +46,9 @@ export function useFlowLayout() {
   const runLayout = useCallback((
     elements: ElementSpec[],
     connections: ConnectionSpec[],
-    title: any
+    title: any,
+    layoutDirection?: 'vertical' | 'horizontal',
+    layoutAlgorithm?: string
   ): Promise<{ positionedNodes: PositionedNodeInfo[]; canvasWidth: number; canvasHeight: number }> => {
     return new Promise((resolve, reject) => {
       if (!workerRef.current) {
@@ -96,7 +98,7 @@ export function useFlowLayout() {
       };
 
       workerRef.current.addEventListener('message', handleMessage);
-      workerRef.current.postMessage({ elements, connections, title });
+      workerRef.current.postMessage({ elements, connections, title, layoutDirection, layoutAlgorithm });
     });
   }, []);
 

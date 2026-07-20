@@ -38,7 +38,7 @@ export const InputNode: React.FC<NodeProps> = (props) => {
         borderRadius: `${cornerRadius ?? 24}px`,
         color: 'var(--node-fg)',
         boxShadow: selected
-          ? `0 0 0 3px ${strokeColor}55, 0 10px 24px -6px ${strokeColor}33`
+          ? `0 0 16px 2px ${strokeColor}`
           : isPureRender
             ? 'none'
             : '0 6px 20px rgba(0, 0, 0, 0.03)',

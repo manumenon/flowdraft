@@ -26,15 +26,56 @@ if (gwtDispatcher) {
   } as any);
 }
 
-function isFeedback(srcId: string, tgtId: string): boolean {
-  if (srcId === 'decision' && tgtId === 'core_0') return true;
-  if (srcId === 'right_0' && tgtId === 'decision') return true;
-  return false;
+function findFeedbackEdges(elements: any[], connections: any[]): Set<string> {
+  const adj: Record<string, string[]> = {};
+  elements.forEach((n: any) => {
+    adj[n.id] = [];
+  });
+  
+  connections?.forEach((conn: any) => {
+    const from = conn.from;
+    const to = conn.to;
+    if (adj[from] && adj[to]) {
+      adj[from].push(to);
+    }
+  });
+
+  const visited = new Set<string>();
+  const recStack = new Set<string>();
+  const feedbackEdges = new Set<string>();
+
+  const dfs = (node: string) => {
+    visited.add(node);
+    recStack.add(node);
+
+    const neighbors = adj[node] || [];
+    for (const neighbor of neighbors) {
+      if (!visited.has(neighbor)) {
+        dfs(neighbor);
+      } else if (recStack.has(neighbor)) {
+        feedbackEdges.add(`${node}->${neighbor}`);
+      }
+    }
+
+    recStack.delete(node);
+  };
+
+  elements.forEach((n: any) => {
+    if (!visited.has(n.id)) {
+      dfs(n.id);
+    }
+  });
+
+  return feedbackEdges;
 }
 
 self.onmessage = async (event: MessageEvent) => {
   console.log("WORKER: Received layout request event!");
-  const { elements, connections, title } = event.data;
+  const { elements, connections, title, layoutDirection, layoutAlgorithm } = event.data;
+  const feedbackEdges = findFeedbackEdges(elements, connections);
+  const isFeedback = (srcId: string, tgtId: string): boolean => {
+    return feedbackEdges.has(`${srcId}->${tgtId}`);
+  };
 
   try {
     const nodesMap = new Map<string, any>();
@@ -104,11 +145,14 @@ self.onmessage = async (event: MessageEvent) => {
     });
 
     const topRootPad = title ? 200 : 80;
+    const rootAlgorithm = layoutAlgorithm || 'layered';
+    const rootDirection = layoutDirection === 'horizontal' ? 'RIGHT' : 'DOWN';
+
     const elkRoot: any = {
       id: 'root',
       layoutOptions: {
-        'elk.algorithm': 'layered',
-        'elk.direction': 'DOWN',
+        'elk.algorithm': rootAlgorithm,
+        'elk.direction': rootDirection,
         'elk.spacing.nodeNode': '80',
         'elk.layered.spacing.nodeNodeBetweenLayers': '90',
         'elk.spacing.edgeNode': '30',

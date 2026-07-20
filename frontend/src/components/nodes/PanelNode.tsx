@@ -28,16 +28,15 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
     <div
       className={`relative h-full w-full select-none transition-all duration-300 animate-zoom-in ${
         selected ? 'scale-[1.002] shadow-premium' : ''
-      }`}
+      } ${isTransparent ? '' : 'animated-panel-gradient'}`}
       style={{
-        backgroundColor: isTransparent ? 'transparent' : 'var(--panel-bg)',
         backdropFilter: isTransparent ? 'none' : 'blur(12px)',
         WebkitBackdropFilter: isTransparent ? 'none' : 'blur(12px)',
         border: isBorderless ? 'none' : `${strokeWidth}px solid ${selected ? strokeColor : 'var(--border-default)'}`,
         borderRadius: `${cornerRadius}px`,
         color: 'var(--node-fg)',
         boxShadow: selected
-          ? `0 0 0 3px ${strokeColor}22, 0 16px 36px -12px ${strokeColor}11`
+          ? `0 0 16px 2px ${strokeColor}`
           : isPureRender
             ? 'none'
             : 'inset 0 0 40px rgba(255, 255, 255, 0.015), 0 4px 20px rgba(0, 0, 0, 0.02)',

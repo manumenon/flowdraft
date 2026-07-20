@@ -13,6 +13,21 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
   const accentColor = style.color || '#ef4444';
   const fill = style.transparent ? 'transparent' : 'var(--node-bg)';
 
+  const titleText = data.title || '';
+  const bodyText = data.body || '';
+  const totalLength = titleText.length + bodyText.length;
+
+  let titleFontSize = '11px';
+  let bodyFontSize = '10px';
+
+  if (totalLength > 100) {
+    titleFontSize = '9px';
+    bodyFontSize = '8px';
+  } else if (totalLength > 50) {
+    titleFontSize = '10px';
+    bodyFontSize = '9px';
+  }
+
   const handleStyle = {
     opacity: isPureRender ? 0 : 0.8,
     pointerEvents: isPureRender ? 'none' as const : 'auto' as const,
@@ -31,8 +46,8 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
       }`}
       style={{
         filter: selected 
-          ? `drop-shadow(0 10px 20px ${accentColor}55) drop-shadow(0 4px 6px ${accentColor}33)` 
-          : 'drop-shadow(0 4px 10px rgba(0, 0, 0, 0.04))',
+          ? `drop-shadow(0 0 8px ${accentColor})` 
+          : 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15))',
       }}
     >
       {/* SVG outline for Diamond */}
@@ -61,12 +76,18 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
       <Handle type="source" position={Position.Right} id="right" style={handleStyle} />
 
       {/* Centered text container */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 pointer-events-none">
-        <span className="text-[10px] font-extrabold leading-tight tracking-wider" style={{ color: accentColor }}>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-5 pointer-events-none">
+        <span 
+          className="font-extrabold leading-tight tracking-wider max-w-[70%] break-words" 
+          style={{ color: accentColor, fontSize: titleFontSize }}
+        >
           {data.title || ''}
         </span>
         {data.body && (
-          <span className="text-[10px] leading-normal opacity-70 whitespace-pre-wrap font-mono mt-1 max-w-[80%] text-text-secondary">
+          <span 
+            className="leading-normal opacity-70 whitespace-pre-wrap font-mono mt-1.5 max-w-[68%] text-text-secondary overflow-hidden text-ellipsis break-all"
+            style={{ fontSize: bodyFontSize }}
+          >
             {data.body}
           </span>
         )}

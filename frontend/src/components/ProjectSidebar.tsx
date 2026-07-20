@@ -14,6 +14,7 @@ interface ProjectSidebarProps {
   onSaveComplete: (id: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onShowToast?: (type: 'success' | 'error' | 'info' | 'warning', title: string, message: string) => void;
 }
 
 interface Diagram {
@@ -36,6 +37,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   onSaveComplete,
   isCollapsed = false,
   onToggleCollapse,
+  onShowToast,
 }) => {
   const [diagrams, setDiagrams] = useState<Diagram[]>([]);
   const [loading, setLoading] = useState(false);
@@ -59,9 +61,12 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       if (res.ok) {
         const data = await res.json();
         setDiagrams(data);
+      } else {
+        onShowToast?.('error', 'Fetch Blueprints Failed', 'API gateway returned error status: ' + res.status);
       }
     } catch (err) {
       console.error('Failed to fetch diagrams', err);
+      onShowToast?.('warning', 'Database Unreachable', 'Backend service is offline. Using local sandbox.');
     } finally {
       setLoading(false);
     }
@@ -109,9 +114,13 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         setDiagrams((prev) => [newDiag, ...prev]);
         onSelectSpec(newDiag.spec, newDiag.theme, newDiag.id);
         setTitleInput('New Diagram');
+        onShowToast?.('success', 'Blueprint Created', 'Saved new spec to database.');
+      } else {
+        onShowToast?.('error', 'Creation Failed', 'Server rejected blueprint creation.');
       }
     } catch (err) {
       console.error('Error creating diagram', err);
+      onShowToast?.('error', 'Creation Error', 'Unable to create diagram. Backend offline.');
     } finally {
       setSaving(false);
     }
@@ -145,9 +154,12 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         const updated = await res.json();
         setDiagrams((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
         onSaveComplete(updated.id);
+      } else {
+        onShowToast?.('error', 'Save Failed', 'Server rejected saving changes.');
       }
     } catch (err) {
       console.error('Error saving diagram', err);
+      onShowToast?.('error', 'Save Error', 'Connection failed. Could not write to database.');
     } finally {
       setSaving(false);
     }
@@ -170,6 +182,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       if (res.ok) {
         setDiagrams((prev) => prev.filter((d) => d.id !== id));
         setDeleteConfirmId(null);
+        onShowToast?.('info', 'Blueprint Deleted', 'Removed diagram blueprint successfully.');
         if (activeDiagramId === id) {
           onSelectSpec({
             title: { prefix: 'SYSTEM', highlight: 'FlowDraft', subtitle: 'Architecture Animator' },
@@ -179,10 +192,51 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
             theme: 'dark',
           }, 'dark');
         }
+      } else {
+        onShowToast?.('error', 'Delete Failed', 'Server rejected blueprint deletion.');
       }
     } catch (err) {
       console.error('Error deleting diagram', err);
+      onShowToast?.('error', 'Deletion Error', 'Failed to communicate with database server.');
     }
+  };
+
+  const handleExportLocalJSON = () => {
+    try {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(spec, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `${spec.title?.highlight || 'flowdraft_diagram'}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      onShowToast?.('success', 'Export Complete', 'Downloaded diagram spec JSON file.');
+    } catch (err) {
+      console.error('Failed to export local JSON', err);
+      onShowToast?.('error', 'Export Failed', 'Could not compile layout JSON.');
+    }
+  };
+
+  const handleImportLocalJSON = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (parsed.elements && Array.isArray(parsed.elements)) {
+          onSelectSpec(parsed, parsed.theme || 'dark');
+          onShowToast?.('success', 'Import Complete', 'Loaded diagram spec from local file.');
+        } else {
+          onShowToast?.('error', 'Invalid Format', 'Spec JSON is missing required elements array.');
+        }
+      } catch (err) {
+        onShowToast?.('error', 'Import Failed', 'Invalid JSON syntax.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const userInitials = currentUser ? currentUser.slice(0, 2).toUpperCase() : 'GS';
@@ -416,6 +470,30 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
             })}
           </div>
         )}
+      </div>
+
+      {/* Local Files Import/Export fallback tool container */}
+      <div className="p-4 border-t border-border-themed bg-surface-2/20 flex flex-col gap-2 flex-shrink-0">
+        <span className="text-[10px] font-extrabold tracking-widest text-text-muted uppercase font-mono">Local File Backup</span>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExportLocalJSON}
+            className="flex-grow py-1.5 bg-surface-2 hover:bg-surface-3 border border-border-themed hover:border-border-strong text-[10px] uppercase font-bold tracking-wider rounded-lg flex items-center justify-center gap-1 text-text-secondary hover:text-text-primary focus-ring transition duration-200"
+            title="Download diagram as .json file locally"
+          >
+            Export Spec
+          </button>
+          
+          <label className="flex-grow py-1.5 bg-surface-2 hover:bg-surface-3 border border-border-themed hover:border-border-strong text-[10px] uppercase font-bold tracking-wider rounded-lg flex items-center justify-center gap-1 text-text-secondary hover:text-text-primary cursor-pointer text-center select-none focus-ring transition duration-200">
+            Import Spec
+            <input
+              type="file"
+              accept=".json"
+              onChange={handleImportLocalJSON}
+              className="hidden"
+            />
+          </label>
+        </div>
       </div>
     </div>
   );

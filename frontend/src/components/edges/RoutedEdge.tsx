@@ -140,7 +140,9 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
       {/* 2. Core connection path */}
       <path
         id={id}
-        className="react-flow__edge-path transition-all duration-300 group-hover:opacity-100"
+        className={`react-flow__edge-path transition-all duration-300 group-hover:opacity-100 ${
+          strokeDasharray ? 'dashed-edge-flow' : ''
+        }`}
         d={d}
         fill="none"
         stroke={selected ? '#6366f1' : edgeColor}

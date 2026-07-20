@@ -16,6 +16,7 @@ interface PropertyEditorProps {
   token: string | null;
   activeDiagramId: string | null;
   onTriggerAuth: () => void;
+  tourStep?: number | null;
 }
 
 const ICON_CATEGORIES = {
@@ -43,7 +44,9 @@ const COMPONENT_TEMPLATES = [
   { title: 'Postgres DB', type: 'card', icon: 'Database', color: '#14b8a6' },
   { title: 'Redis Cache', type: 'card', icon: 'Zap', color: '#f59e0b' },
   { title: 'Object Storage', type: 'card', icon: 'HardDrive', color: '#f43f5e' },
-  { title: 'Queue Worker', type: 'card', icon: 'Cpu', color: '#a855f7' }
+  { title: 'Queue Worker', type: 'card', icon: 'Cpu', color: '#a855f7' },
+  { title: 'Database Cylinder', type: 'cylinder', icon: 'Database', color: '#2563eb' },
+  { title: 'Cloud CDN', type: 'cloud', icon: 'Cloud', color: '#0891b2' }
 ];
 
 export const PropertyEditor: React.FC<PropertyEditorProps> = ({
@@ -57,6 +60,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   token,
   activeDiagramId,
   onTriggerAuth,
+  tourStep,
 }) => {
   const { screenToFlowPosition, getNodes } = useReactFlow();
   const [confirmDeleteNode, setConfirmDeleteNode] = useState(false);
@@ -80,6 +84,17 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
       setActiveTab('inspector');
     }
   }, [selectedElementId, selectedEdge]);
+
+  // Auto-switch tabs based on tour steps
+  useEffect(() => {
+    if (tourStep === 2) {
+      setActiveTab('spawn');
+    } else if (tourStep === 3) {
+      setActiveTab('inspector');
+    } else if (tourStep === 5) {
+      setActiveTab('export');
+    }
+  }, [tourStep]);
 
   // Find selected node in flat elements
   const findElementRecursive = (elements: ElementSpec[], id: string): ElementSpec | null => {
@@ -1046,6 +1061,35 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
               </select>
             </div>
 
+            {/* Layout Direction Selector */}
+            <div>
+              <label htmlFor="canvas-layout-dir" className="block text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1.5 font-mono">Layout Flow Direction</label>
+              <select
+                id="canvas-layout-dir"
+                value={spec.canvas?.layoutDirection || 'vertical'}
+                onChange={(e) => updateCanvasConfig('layoutDirection', e.target.value)}
+                className="w-full px-3 py-2 bg-surface-0 border border-border-themed rounded-lg text-xs text-text-primary focus:outline-none focus:border-accent transition focus-ring font-medium"
+              >
+                <option value="vertical">Vertical Flow (Top to Bottom)</option>
+                <option value="horizontal">Horizontal Flow (Left to Right)</option>
+              </select>
+            </div>
+
+            {/* Layout Algorithm Selector */}
+            <div>
+              <label htmlFor="canvas-layout-alg" className="block text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1.5 font-mono">Layout Algorithm</label>
+              <select
+                id="canvas-layout-alg"
+                value={spec.canvas?.layoutAlgorithm || 'layered'}
+                onChange={(e) => updateCanvasConfig('layoutAlgorithm', e.target.value)}
+                className="w-full px-3 py-2 bg-surface-0 border border-border-themed rounded-lg text-xs text-text-primary focus:outline-none focus:border-accent transition focus-ring font-medium"
+              >
+                <option value="layered">Layered (Hierarchical)</option>
+                <option value="radial">Radial Layout</option>
+                <option value="force">Force-Directed Layout</option>
+              </select>
+            </div>
+
             {/* Grid Pattern settings */}
             <div className="border-t border-border-themed pt-4 mt-1 flex flex-col gap-4">
               <span className="font-semibold text-[11px] uppercase tracking-wider text-text-muted">Grid Overlay Settings</span>
@@ -1122,6 +1166,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
               activeDiagramId={activeDiagramId}
               onTriggerAuth={onTriggerAuth}
               isInline={true}
+              tourStep={tourStep}
             />
           </div>
         )}

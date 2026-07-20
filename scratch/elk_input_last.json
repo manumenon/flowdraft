@@ -29,7 +29,7 @@
           "id": "input_1",
           "children": [],
           "edges": [],
-          "width": 110,
+          "width": 113.5,
           "height": 50
         },
         {
@@ -74,21 +74,21 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 88.0
+          "height": 83.5
         },
         {
           "id": "left_1",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 85.5
+          "height": 81.5
         },
         {
           "id": "left_2",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 85.0
+          "height": 81.5
         }
       ],
       "edges": [
@@ -130,35 +130,35 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5
+          "height": 83.5
         },
         {
           "id": "core_1",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 88.0
+          "height": 83.5
         },
         {
           "id": "core_2",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5
+          "height": 83.5
         },
         {
           "id": "core_3",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5
+          "height": 83.5
         },
         {
           "id": "core_4",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 88.0
+          "height": 83.5
         }
       ],
       "edges": [
@@ -225,28 +225,28 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5
+          "height": 83.5
         },
         {
           "id": "store_1",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5
+          "height": 83.5
         },
         {
           "id": "store_2",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 86.5
+          "height": 83.5
         },
         {
           "id": "store_3",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 88.0
+          "height": 83.5
         },
         {
           "id": "center_footer",
@@ -293,21 +293,21 @@
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5
+          "height": 83.5
         },
         {
           "id": "right_1",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5
+          "height": 83.5
         },
         {
           "id": "right_2",
           "children": [],
           "edges": [],
           "width": 200,
-          "height": 87.5
+          "height": 83.5
         }
       ],
       "edges": [

@@ -40,7 +40,7 @@ export const CardNode: React.FC<NodeProps> = (props) => {
         borderRadius: `${cornerRadius}px`,
         color: 'var(--node-fg)',
         boxShadow: selected
-          ? `0 0 0 3px ${strokeColor}55, 0 16px 36px -8px ${strokeColor}33, 0 8px 16px -8px ${strokeColor}33`
+          ? `0 0 16px 2px ${strokeColor}`
           : isPureRender
             ? 'none'
             : '0 8px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02)',
