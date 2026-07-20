@@ -74,6 +74,8 @@ export interface ConnectionSpec {
   label?: string;
   style?: ConnectionStyle;
   color?: string;
+  animationSpeed?: number;
+  particleCount?: number;
 }
 
 export interface AnnotationSpec {
@@ -91,6 +93,9 @@ export interface CanvasConfig {
   duration?: number;
   frames?: number;
   mode?: 'dynamic' | 'absolute' | 'graph';
+  gridVariant?: 'dots' | 'lines' | 'cross';
+  gridGap?: number;
+  gridSize?: number;
 }
 
 export interface TitleConfig {

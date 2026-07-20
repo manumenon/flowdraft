@@ -29,21 +29,27 @@ export const CardNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative px-4 py-3.5 flex flex-col justify-between h-full w-full select-none transition-all duration-300 ${
-        selected ? 'ring-2 ring-indigo-500 shadow-glow-blue scale-[1.01]' : 'hover:shadow-lg border-border-strong'
+      className={`relative px-4 py-3.5 flex flex-col justify-between h-full w-full select-none transition-all duration-300 animate-zoom-in ${
+        selected 
+          ? 'scale-[1.02] shadow-premium' 
+          : 'hover:scale-[1.03] hover:-translate-y-1 hover:shadow-xl cursor-pointer'
       }`}
       style={{
         backgroundColor: isTransparent ? 'transparent' : 'var(--node-bg)',
         border: isBorderless ? 'none' : `${strokeWidth}px solid ${selected ? strokeColor : 'var(--border-default)'}`,
         borderRadius: `${cornerRadius}px`,
         color: 'var(--node-fg)',
-        boxShadow: isPureRender ? 'none' : '0 10px 15px -3px rgba(0, 0, 0, 0.05)',
+        boxShadow: selected
+          ? `0 0 0 3px ${strokeColor}55, 0 16px 36px -8px ${strokeColor}33, 0 8px 16px -8px ${strokeColor}33`
+          : isPureRender
+            ? 'none'
+            : '0 8px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02)',
       }}
     >
-      {/* 3px top border colored accent strip */}
+      {/* 3.5px top border colored accent strip */}
       {!isTransparent && (
         <div
-          className="absolute top-0 left-0 right-0 h-[3px] rounded-t-lg"
+          className="absolute top-0 left-0 right-0 h-[3.5px] rounded-t-lg"
           style={{ backgroundColor: accentColor }}
         />
       )}

@@ -4,9 +4,11 @@ import {
    useNodesState,
    useEdgesState,
    Background,
+   BackgroundVariant,
    Controls,
    Panel,
    MiniMap,
+   useReactFlow,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -20,7 +22,7 @@ import InputNode from './nodes/InputNode';
 import DecisionNode from './nodes/DecisionNode';
 import PanelNode from './nodes/PanelNode';
 import LabelNode from './nodes/LabelNode';
-import { Play, RotateCcw, AppWindow } from 'lucide-react';
+import { Play, RotateCcw, AppWindow, ChevronUp, ChevronDown, Pause, Sparkles } from 'lucide-react';
 import { gsap } from 'gsap';
 
 const nodeTypes = {
@@ -44,6 +46,7 @@ interface CanvasProps {
   onEdgeSelect?: (from: string, to: string, index: number) => void;
   onNodeDragStop?: (id: string, x: number, y: number, allNodes?: any[]) => void;
   onConnect?: (from: string, to: string, exitPort: string, entryPort: string) => void;
+  onDropTemplate?: (template: any, x: number, y: number) => void;
   snapToGrid?: boolean;
   onToggleSnap?: () => void;
 }
@@ -56,10 +59,60 @@ export const Canvas: React.FC<CanvasProps> = ({
   onEdgeSelect,
   onNodeDragStop,
   onConnect,
+  onDropTemplate,
   snapToGrid = false,
   onToggleSnap,
 }) => {
   const { runLayout, isLayoutRunning, isWorkerReady } = useFlowLayout();
+  const { screenToFlowPosition, getNodes } = useReactFlow();
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const templateDataStr = event.dataTransfer.getData('application/reactflow-template');
+      if (!templateDataStr) return;
+
+      try {
+        const template = JSON.parse(templateDataStr);
+        const position = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        });
+
+        // Avoid stacking dropped nodes too
+        const isNear = (x1: number, y1: number, x2: number, y2: number) => {
+          return Math.abs(x1 - x2) < 40 && Math.abs(y1 - y2) < 40;
+        };
+
+        const findVacantPosition = (currentPos: { x: number; y: number }): { x: number; y: number } => {
+          let isOccupied = false;
+          const rfNodes = getNodes();
+          for (const node of rfNodes) {
+            if (node.position && isNear(node.position.x, node.position.y, currentPos.x, currentPos.y)) {
+              isOccupied = true;
+              break;
+            }
+          }
+          if (isOccupied) {
+            return findVacantPosition({ x: currentPos.x + 50, y: currentPos.y + 50 });
+          }
+          return currentPos;
+        };
+
+        const finalPos = findVacantPosition(position);
+        onDropTemplate?.(template, finalPos.x, finalPos.y);
+      } catch (err) {
+        console.error('Failed to parse dropped template data', err);
+      }
+    },
+    [screenToFlowPosition, onDropTemplate, getNodes]
+  );
 
   const compiled = useMemo(() => {
     return compileSpec(spec, theme);
@@ -69,10 +122,37 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
   const [, setCanvasSize] = useState({ width: 1920, height: 1440 });
 
+  const totalSelected = useMemo(() => {
+    return nodes.filter((n: any) => n.selected).length + edges.filter((e: any) => e.selected).length;
+  }, [nodes, edges]);
+
+  // Keyboard shortcut Ctrl+A to select all nodes and edges
+  useEffect(() => {
+    if (isPureRender) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isInput = activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.getAttribute('contenteditable') === 'true'
+      );
+      if (isInput) return;
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        setNodes((nds) => nds.map((n) => ({ ...n, selected: true })));
+        setEdges((eds) => eds.map((ed) => ({ ...ed, selected: true })));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPureRender, setNodes, setEdges]);
+
   // Timeline Player States
   const [isPlaying, setIsPlaying] = useState(true);
   const [progress, setProgress] = useState(0);
   const [speed, setSpeed] = useState(1);
+  const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(false);
 
   // Sync seek bar with GSAP global timeline ticker
   useEffect(() => {
@@ -406,6 +486,8 @@ export const Canvas: React.FC<CanvasProps> = ({
         }}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        onDragOver={isPureRender ? undefined : onDragOver}
+        onDrop={isPureRender ? undefined : onDrop}
         fitView
         nodesDraggable={!isPureRender}
         nodesConnectable={!isPureRender}
@@ -413,10 +495,24 @@ export const Canvas: React.FC<CanvasProps> = ({
         minZoom={0.1}
         maxZoom={4}
       >
-        {!isPureRender && <Background color={theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'} gap={20} size={1} />}
+        {!isPureRender && (
+          <Background
+            variant={
+              spec.canvas?.gridVariant === 'lines'
+                ? BackgroundVariant.Lines
+                : spec.canvas?.gridVariant === 'cross'
+                  ? BackgroundVariant.Cross
+                  : BackgroundVariant.Dots
+            }
+            color={theme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)'}
+            gap={spec.canvas?.gridGap ?? 20}
+            size={spec.canvas?.gridSize ?? 1}
+          />
+        )}
         {!isPureRender && <Controls showInteractive={false} />}
         {!isPureRender && (
           <MiniMap
+            position="bottom-right"
             className="!bg-surface-1/90 border border-border-themed rounded-xl"
             nodeColor={() => (theme === 'dark' ? '#171b30' : '#f1f3f5')}
             maskColor={theme === 'dark' ? 'rgba(10, 13, 26, 0.6)' : 'rgba(255, 255, 255, 0.6)'}
@@ -424,7 +520,15 @@ export const Canvas: React.FC<CanvasProps> = ({
         )}
 
         {!isPureRender && (
-          <Panel position="top-right" className="bg-surface-1/90 border border-border-themed p-1.5 rounded-xl shadow-xl flex gap-1.5 z-50 backdrop-blur-md">
+          <Panel position="top-right" className="bg-surface-1/90 border border-border-themed p-1.5 rounded-xl shadow-xl flex gap-1.5 items-center z-50 backdrop-blur-md">
+            {totalSelected > 0 && (
+              <>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-accent-soft border border-accent/20 text-accent text-[10px] font-bold uppercase tracking-wider rounded-lg shadow-sm">
+                  Selected: {totalSelected}
+                </span>
+                <div className="w-[1px] bg-slate-200 dark:bg-slate-800 self-stretch my-0.5 h-4" />
+              </>
+            )}
             <button
               onClick={onToggleSnap}
               className={`flex items-center gap-1 px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider rounded-lg border transition focus-ring ${
@@ -467,65 +571,203 @@ export const Canvas: React.FC<CanvasProps> = ({
           </Panel>
         )}
 
-        {!isPureRender && (
-          <Panel position="bottom-center" className="bg-surface-1/90 border border-border-themed p-3 rounded-xl shadow-2xl flex flex-col gap-2.5 z-50 backdrop-blur-md w-[400px] select-none mb-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase font-mono tracking-widest font-extrabold text-text-muted flex items-center gap-1">
-                <Play className="text-accent animate-pulse" size={10} /> Live Timeline Player
+        {!isPureRender && spec.elements && spec.elements.length > 0 && (
+          isPlayerCollapsed ? (
+            <Panel position="bottom-center" className="bg-surface-1/90 border border-border-themed p-1.5 rounded-xl shadow-2xl flex items-center gap-2.5 z-50 backdrop-blur-md select-none mb-4 animate-zoom-in">
+              <button
+                onClick={togglePlay}
+                className="p-1.5 bg-accent hover:opacity-90 text-white rounded-lg transition focus-ring"
+                title={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? <Pause size={11} /> : <Play size={11} />}
+              </button>
+              <span className="text-[10px] font-mono font-bold text-text-secondary">
+                {Math.round(progress)}%
               </span>
-              <div className="flex items-center gap-1 bg-surface-3/50 px-1.5 py-0.5 rounded border border-border-themed font-mono text-[9px] font-bold text-text-secondary">
-                <span>FPS: {spec.canvas?.fps || 30}</span>
-                <span className="mx-1">•</span>
-                <span>Time: {Math.round(progress * ((spec.canvas?.frames || 90) / (spec.canvas?.fps || 30)) / 100)}s</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="0.5"
-                value={progress}
-                onChange={handleSliderChange}
-                className="flex-grow accent-indigo-600 bg-surface-3 h-1.5 rounded-lg focus-ring cursor-pointer"
-              />
-            </div>
-
-            <div className="flex items-center justify-between mt-1">
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={handleRewind}
-                  className="p-1.5 hover:bg-surface-2 text-text-secondary hover:text-text-primary rounded-lg border border-border-themed transition focus-ring"
-                  title="Rewind Timeline"
-                >
-                  <RotateCcw size={13} />
-                </button>
-                <button
-                  onClick={togglePlay}
-                  className="px-3.5 py-1.5 bg-accent hover:opacity-90 text-white text-[10px] uppercase font-mono tracking-wider font-bold rounded-lg flex items-center gap-1 transition focus-ring"
-                >
-                  {isPlaying ? 'Pause' : 'Play'}
-                </button>
+              <div className="w-[1px] bg-slate-200 dark:bg-slate-800 self-stretch my-0.5 h-4" />
+              <button
+                onClick={() => setIsPlayerCollapsed(false)}
+                className="p-1 text-text-muted hover:text-text-primary rounded hover:bg-surface-2 transition focus-ring"
+                title="Expand Timeline"
+              >
+                <ChevronUp size={13} />
+              </button>
+            </Panel>
+          ) : (
+            <Panel position="bottom-center" className="bg-surface-1/90 border border-border-themed p-3 rounded-xl shadow-2xl flex flex-col gap-2.5 z-50 backdrop-blur-md w-[400px] select-none mb-4 animate-zoom-in relative">
+              <button
+                onClick={() => setIsPlayerCollapsed(true)}
+                className="absolute top-2.5 right-2.5 p-1 text-text-muted hover:text-text-primary rounded hover:bg-surface-2 transition focus-ring"
+                title="Minimize Timeline"
+              >
+                <ChevronDown size={14} />
+              </button>
+              <div className="flex items-center justify-between pr-6">
+                <span className="text-[10px] uppercase font-mono tracking-widest font-extrabold text-text-muted flex items-center gap-1">
+                  <Play className="text-accent animate-pulse" size={10} /> Live Timeline Player
+                </span>
+                <div className="flex items-center gap-1 bg-surface-3/50 px-1.5 py-0.5 rounded border border-border-themed font-mono text-[9px] font-bold text-text-secondary">
+                  <span>FPS: {spec.canvas?.fps || 30}</span>
+                  <span className="mx-1">•</span>
+                  <span>Time: {Math.round(progress * ((spec.canvas?.frames || 90) / (spec.canvas?.fps || 30)) / 100)}s</span>
+                </div>
               </div>
 
-              <div className="flex items-center bg-surface-2 p-0.5 rounded-lg border border-border-themed">
-                {[0.5, 1, 2].map((s) => (
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={progress}
+                  onChange={handleSliderChange}
+                  className="flex-grow accent-indigo-600 bg-surface-3 h-1.5 rounded-lg focus-ring cursor-pointer"
+                />
+              </div>
+
+              <div className="flex items-center justify-between mt-1">
+                <div className="flex items-center gap-1.5">
                   <button
-                    key={s}
-                    onClick={() => handleSpeedChange(s)}
-                    className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono transition ${
-                      speed === s ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-muted hover:text-text-primary'
-                    }`}
+                    onClick={handleRewind}
+                    className="p-1.5 hover:bg-surface-2 text-text-secondary hover:text-text-primary rounded-lg border border-border-themed transition focus-ring"
+                    title="Rewind Timeline"
                   >
-                    {s}x
+                    <RotateCcw size={13} />
                   </button>
-                ))}
+                  <button
+                    onClick={togglePlay}
+                    className="px-3.5 py-1.5 bg-accent hover:opacity-90 text-white text-[10px] uppercase font-mono tracking-wider font-bold rounded-lg flex items-center gap-1 transition focus-ring"
+                  >
+                    {isPlaying ? 'Pause' : 'Play'}
+                  </button>
+                </div>
+
+                <div className="flex items-center bg-surface-2 p-0.5 rounded-lg border border-border-themed">
+                  {[0.5, 1, 2].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => handleSpeedChange(s)}
+                      className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono transition ${
+                        speed === s ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      {s}x
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          </Panel>
+            </Panel>
+          )
         )}
       </ReactFlow>
+
+      {/* Onboarding Empty State CTA */}
+      {!isPureRender && (!spec.elements || spec.elements.length === 0) && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[45] p-6">
+          <div className="max-w-md w-full bg-surface-1/90 border border-border-themed p-8 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-auto text-center flex flex-col items-center gap-5 animate-zoom-in">
+            <div className="p-3.5 bg-accent-soft text-accent rounded-2xl border border-accent/25">
+              <Sparkles size={28} className="animate-pulse text-accent" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-text-primary uppercase tracking-wider">Welcome to FlowDraft</h3>
+              <p className="text-xs text-text-muted mt-2 max-w-xs mx-auto leading-relaxed">
+                Start mapping your architecture! Drag components from the sidebar, or quickly spawn a starter component below:
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 w-full mt-2">
+              <button
+                onClick={() => onDropTemplate?.({
+                  type: 'card',
+                  name: 'PostgreSQL DB',
+                  width: 180,
+                  height: 120,
+                  style: {
+                    accentColor: '#10B981',
+                    strokeColor: '#059669',
+                    strokeWidth: 2,
+                    cornerRadius: 12,
+                  },
+                  data: {
+                    title: 'Database',
+                    subtitle: 'PostgreSQL Instance',
+                    metric: '99.9% uptime',
+                    metricIcon: 'Database',
+                    fields: [
+                      { key: 'port', value: '5432' },
+                      { key: 'pool', value: 'max 20' }
+                    ]
+                  }
+                }, 300, 200)}
+                className="w-full py-2.5 px-4 bg-surface-2 hover:bg-surface-3 border border-border-themed text-text-secondary hover:text-text-primary rounded-xl text-xs font-bold transition flex items-center justify-between group focus-ring cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> PostgreSQL Database
+                </span>
+                <span className="text-[10px] text-text-muted group-hover:text-accent font-medium transition">Spawn +</span>
+              </button>
+              <button
+                onClick={() => onDropTemplate?.({
+                  type: 'card',
+                  name: 'API Gateway',
+                  width: 200,
+                  height: 140,
+                  style: {
+                    accentColor: '#3B82F6',
+                    strokeColor: '#2563EB',
+                    strokeWidth: 2,
+                    cornerRadius: 12,
+                  },
+                  data: {
+                    title: 'API Gateway',
+                    subtitle: 'Kong / Envoy proxy',
+                    metric: '45ms latency',
+                    metricIcon: 'Zap',
+                    fields: [
+                      { key: 'routes', value: 'v1/api' },
+                      { key: 'rate-limit', value: '1000/s' }
+                    ]
+                  }
+                }, 300, 200)}
+                className="w-full py-2.5 px-4 bg-surface-2 hover:bg-surface-3 border border-border-themed text-text-secondary hover:text-text-primary rounded-xl text-xs font-bold transition flex items-center justify-between group focus-ring cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> API Gateway
+                </span>
+                <span className="text-[10px] text-text-muted group-hover:text-accent font-medium transition">Spawn +</span>
+              </button>
+              <button
+                onClick={() => onDropTemplate?.({
+                  type: 'card',
+                  name: 'Message Queue',
+                  width: 180,
+                  height: 100,
+                  style: {
+                    accentColor: '#F59E0B',
+                    strokeColor: '#D97706',
+                    strokeWidth: 2,
+                    cornerRadius: 8,
+                    data: {
+                      title: 'RabbitMQ / Kafka',
+                      subtitle: 'Event broker stream',
+                      metric: '0 lag events',
+                      metricIcon: 'Activity',
+                      fields: [
+                        { key: 'topic', value: 'orders.pub' }
+                      ]
+                    }
+                  }
+                }, 300, 200)}
+                className="w-full py-2.5 px-4 bg-surface-2 hover:bg-surface-3 border border-border-themed text-text-secondary hover:text-text-primary rounded-xl text-xs font-bold transition flex items-center justify-between group focus-ring cursor-pointer"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Message Queue
+                </span>
+                <span className="text-[10px] text-text-muted group-hover:text-accent font-medium transition">Spawn +</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

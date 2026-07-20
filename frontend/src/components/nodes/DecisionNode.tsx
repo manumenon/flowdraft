@@ -23,14 +23,25 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
   };
 
   return (
-    <div className={`relative w-full h-full select-none transition-all duration-300 ${selected ? 'scale-[1.01]' : ''}`}>
+    <div
+      className={`relative w-full h-full select-none transition-all duration-300 animate-zoom-in ${
+        selected 
+          ? 'scale-[1.03]' 
+          : 'hover:scale-[1.05] cursor-pointer'
+      }`}
+      style={{
+        filter: selected 
+          ? `drop-shadow(0 10px 20px ${accentColor}55) drop-shadow(0 4px 6px ${accentColor}33)` 
+          : 'drop-shadow(0 4px 10px rgba(0, 0, 0, 0.04))',
+      }}
+    >
       {/* SVG outline for Diamond */}
       <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
         <polygon
           points="50,2 98,50 50,98 2,50"
           fill={fill}
-          stroke={selected ? 'var(--accent)' : strokeColor}
-          strokeWidth={selected ? strokeWidth + 1 : strokeWidth}
+          stroke={selected ? strokeColor : strokeColor}
+          strokeWidth={selected ? strokeWidth + 1.5 : strokeWidth}
           vectorEffect="non-scaling-stroke"
           className="transition-all duration-300"
         />

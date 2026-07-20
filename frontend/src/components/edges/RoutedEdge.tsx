@@ -80,12 +80,13 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
     if (activePackets.length === 0 || !d) return;
 
     const tweens: gsap.core.Tween[] = [];
+    const speedMultiplier = edgeData.animationSpeed ?? 1.0;
+    const duration = 4.0 / speedMultiplier;
 
     activePackets.forEach((packet, idx) => {
       // Set initial state
       gsap.set(packet, { offsetDistance: '0%' });
 
-      const duration = 4.0;
       const delay = idx * (duration / activePackets.length);
 
       const tween = gsap.to(packet, {
@@ -102,7 +103,7 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
     return () => {
       tweens.forEach((t) => t.kill());
     };
-  }, [d]);
+  }, [d, edgeData.animationSpeed, edgeData.particleCount]);
 
   // Dash array mapping
   let strokeDasharray = undefined;
@@ -119,15 +120,19 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
   ];
 
   return (
-    <>
+    <g className="group cursor-pointer">
       {/* 1. Subtle ambient glow path */}
       {d && (
         <path
           d={d}
           fill="none"
-          stroke={edgeColor}
-          strokeWidth={(Number(style.strokeWidth) || 2) * 3}
-          className={`opacity-[0.08] blur-[2px] transition-all duration-300 ${selected ? 'opacity-[0.20]' : ''}`}
+          stroke={selected ? '#6366f1' : edgeColor}
+          strokeWidth={(Number(style.strokeWidth) || 2) * 5}
+          className={`transition-all duration-300 ${
+            selected 
+              ? 'opacity-[0.35] blur-[4px]' 
+              : 'opacity-[0.06] blur-[2px] group-hover:opacity-[0.25] group-hover:blur-[3px]'
+          }`}
           style={{ pointerEvents: 'none' }}
         />
       )}
@@ -135,23 +140,24 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
       {/* 2. Core connection path */}
       <path
         id={id}
-        className="react-flow__edge-path transition-all duration-300"
+        className="react-flow__edge-path transition-all duration-300 group-hover:opacity-100"
         d={d}
         fill="none"
-        stroke={selected ? '#3b82f6' : edgeColor}
-        strokeWidth={selected ? (Number(style.strokeWidth) || 2) + 1 : style.strokeWidth || 2}
+        stroke={selected ? '#6366f1' : edgeColor}
+        strokeWidth={selected ? (Number(style.strokeWidth) || 2) + 1.5 : style.strokeWidth || 2}
         strokeDasharray={strokeDasharray}
         markerEnd={markerEnd}
         style={{
           ...style,
-          stroke: selected ? '#3b82f6' : edgeColor,
-          opacity: 0.95,
+          stroke: selected ? '#6366f1' : edgeColor,
+          opacity: selected ? 1 : 0.85,
         }}
       />
 
       {/* 3. Flowing glowing packets along the path */}
       {d &&
-        Array.from({ length: 3 }).map((_, idx) => (
+        edgeData.particleCount !== 0 &&
+        Array.from({ length: edgeData.particleCount ?? 3 }).map((_, idx) => (
           <g
             key={idx}
             ref={(el) => {
@@ -185,7 +191,7 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
           </div>
         </EdgeLabelRenderer>
       )}
-    </>
+    </g>
   );
 };
 

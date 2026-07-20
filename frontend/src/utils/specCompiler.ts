@@ -373,6 +373,8 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
         corridorIndex,
         corridorCount,
         sourceNodeColor: autoColor,
+        animationSpeed: conn.animationSpeed ?? 1.0,
+        particleCount: conn.particleCount ?? 3,
       },
     };
   });

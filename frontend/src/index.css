@@ -201,8 +201,9 @@ body {
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke-dasharray: 4, 4;
+  stroke-dasharray: 5, 5;
   animation: edgeSelectedMove 0.8s linear infinite;
+  filter: drop-shadow(0 0 3px rgba(99, 102, 241, 0.8));
 }
 
 @keyframes edgeSelectedMove {

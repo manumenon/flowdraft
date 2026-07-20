@@ -12,6 +12,8 @@ interface ProjectSidebarProps {
   onLogout: () => void;
   activeDiagramId: string | null;
   onSaveComplete: (id: string) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 interface Diagram {
@@ -32,6 +34,8 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   onLogout,
   activeDiagramId,
   onSaveComplete,
+  isCollapsed = false,
+  onToggleCollapse,
 }) => {
   const [diagrams, setDiagrams] = useState<Diagram[]>([]);
   const [loading, setLoading] = useState(false);
@@ -183,12 +187,82 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
 
   const userInitials = currentUser ? currentUser.slice(0, 2).toUpperCase() : 'GS';
 
+  if (isCollapsed) {
+    return (
+      <div className="w-14 bg-surface-1 border-r border-border-themed flex flex-col items-center py-4 justify-between h-full flex-shrink-0 text-text-primary font-sans shadow-premium z-30">
+        <div className="flex flex-col items-center gap-6 w-full">
+          {/* Logo FD button to trigger toggle */}
+          <button
+            onClick={onToggleCollapse}
+            className="w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-[11px] text-white shadow-glow-blue select-none bg-accent hover:opacity-90 transition focus-ring"
+            title="Expand Sidebar Explorer"
+          >
+            FD
+          </button>
+          
+          {/* User profile initials */}
+          <div
+            onClick={currentUser ? onLogout : onTriggerAuth}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-glow-blue cursor-pointer select-none bg-accent hover:opacity-95 flex-shrink-0"
+            title={currentUser ? `Sign Out (${currentUser})` : 'Sign In'}
+          >
+            {userInitials}
+          </div>
+
+          <div className="w-8 h-[1px] bg-border-themed" />
+
+          {/* Create Empty Diagram Shortcut Button */}
+          {token && (
+            <button
+              onClick={handleCreateDiagram}
+              disabled={saving}
+              className="p-2 bg-surface-2 hover:bg-surface-3 text-text-secondary hover:text-text-primary border border-border-themed rounded-lg transition focus-ring"
+              title="Add New Spec Diagram"
+            >
+              <Plus size={14} />
+            </button>
+          )}
+
+          {/* Compass view saved list toggle */}
+          <button
+            onClick={onToggleCollapse}
+            className="p-2 bg-surface-2 hover:bg-surface-3 text-text-secondary hover:text-text-primary border border-border-themed rounded-lg transition focus-ring"
+            title="Show Saved Blueprints list"
+          >
+            <Compass size={14} className={loading ? "animate-spin text-accent" : ""} />
+          </button>
+        </div>
+
+        {/* Bottom signin state */}
+        <div className="flex flex-col items-center">
+          {currentUser ? (
+            <button
+              onClick={onLogout}
+              className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 border border-border-themed hover:border-red-500/20 rounded-lg transition focus-ring"
+              title="Sign Out"
+            >
+              <LogOut size={14} />
+            </button>
+          ) : (
+            <button
+              onClick={onTriggerAuth}
+              className="p-2 bg-accent-soft hover:bg-accent text-accent hover:text-white border border-accent/20 rounded-lg transition focus-ring"
+              title="Sign In"
+            >
+              <Key size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-80 bg-surface-1 border-r border-border-themed flex flex-col h-full flex-shrink-0 text-text-primary font-sans shadow-premium">
       {/* User Header Section */}
       <div className="p-4 border-b border-border-themed flex items-center justify-between bg-surface-2/55">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-glow-blue select-none" style={{ backgroundColor: 'var(--accent)' }}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white shadow-glow-blue select-none animate-fade-in" style={{ backgroundColor: 'var(--accent)' }}>
             {userInitials}
           </div>
           <div className="flex flex-col min-w-0">

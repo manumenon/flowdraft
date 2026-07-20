@@ -27,21 +27,27 @@ export const InputNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative px-3 py-2 flex items-center justify-start h-full w-full select-none gap-2 transition-all duration-300 ${
-        selected ? 'ring-2 ring-amber-500 shadow-glow-amber scale-[1.01]' : 'hover:shadow-md'
+      className={`relative px-4 py-2.5 flex items-center justify-start h-full w-full select-none gap-2 transition-all duration-300 animate-zoom-in ${
+        selected 
+          ? 'scale-[1.02] shadow-premium' 
+          : 'hover:scale-[1.03] hover:shadow-lg cursor-pointer'
       }`}
       style={{
         backgroundColor: isTransparent ? 'transparent' : 'var(--node-bg)',
         border: isBorderless ? 'none' : `${strokeWidth}px solid ${selected ? strokeColor : 'var(--border-default)'}`,
-        borderRadius: `${cornerRadius}px`,
+        borderRadius: `${cornerRadius ?? 24}px`,
         color: 'var(--node-fg)',
-        boxShadow: isPureRender ? 'none' : '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+        boxShadow: selected
+          ? `0 0 0 3px ${strokeColor}55, 0 10px 24px -6px ${strokeColor}33`
+          : isPureRender
+            ? 'none'
+            : '0 6px 20px rgba(0, 0, 0, 0.03)',
       }}
     >
       {/* 3px left color accent strip */}
       {!isTransparent && (
         <div
-          className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-lg"
+          className="absolute left-0 top-0 bottom-0 w-[3.5px] rounded-l-full"
           style={{ backgroundColor: accentColor }}
         />
       )}

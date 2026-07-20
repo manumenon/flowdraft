@@ -7,6 +7,7 @@ interface ExportPanelProps {
   spec: FlowSpec;
   activeDiagramId: string | null;
   onTriggerAuth: () => void;
+  isInline?: boolean;
 }
 
 interface ExportJobStatus {
@@ -23,6 +24,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
   spec,
   activeDiagramId,
   onTriggerAuth,
+  isInline = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [format, setFormat] = useState<'mp4' | 'gif'>('mp4');
@@ -171,6 +173,133 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
 
   const completedJobsCount = jobs.filter((j) => j.status === 'completed' && j.downloadUrl).length;
 
+  if (isInline) {
+    return (
+      <div className="flex flex-col gap-4 text-text-primary">
+        <div>
+          <span className="block text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2">Select Format</span>
+          <div className="grid grid-cols-2 gap-2 bg-surface-3 border border-border-themed p-0.5 rounded-xl">
+            <button
+              onClick={() => setFormat('mp4')}
+              className={`py-2 rounded-lg text-xs font-bold transition focus-ring ${
+                format === 'mp4' ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              MP4 Video
+            </button>
+            <button
+              onClick={() => setFormat('gif')}
+              className={`py-2 rounded-lg text-xs font-bold transition focus-ring ${
+                format === 'gif' ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              GIF Animation
+            </button>
+          </div>
+        </div>
+
+        <button
+          onClick={handleStartExport}
+          disabled={submitting}
+          className="w-full py-2.5 bg-accent hover:opacity-90 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md focus-ring uppercase tracking-wider font-mono"
+        >
+          {submitting ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Submit Render Task
+        </button>
+
+        {/* Jobs Status List History logs */}
+        <div className="flex flex-col gap-2 mt-2 min-h-0">
+          <div className="flex items-center justify-between border-b border-border-themed pb-2 mb-1">
+            <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Active Jobs Logs</span>
+            {jobs.length > 0 && (
+              <div>
+                {confirmClearHistory ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={handleClearHistory}
+                      className="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] font-bold uppercase tracking-wider hover:bg-red-500"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setConfirmClearHistory(false)}
+                      className="px-1.5 py-0.5 bg-surface-3 text-text-primary rounded text-[10px] font-bold uppercase tracking-wider hover:bg-surface-2"
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleClearHistory}
+                    className="text-[11px] text-red-600 hover:text-red-500 font-bold uppercase font-mono"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2 pt-2 border-t border-border-themed max-h-[300px] overflow-y-auto custom-scrollbar">
+            {jobs.length === 0 ? (
+              <div className="text-center py-6 text-[11px] text-text-muted font-mono">
+                No active/historical export jobs queued.
+              </div>
+            ) : (
+              jobs.map((job) => (
+                <div
+                  key={job.jobId}
+                  className="p-3 rounded-lg bg-surface-2 border border-border-themed flex items-center justify-between animate-fade-in"
+                >
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-bold text-text-primary truncate leading-tight">
+                      {job.title}
+                    </span>
+                    <span className="text-[10px] font-mono text-text-muted uppercase mt-0.5">
+                      {job.format} format
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {job.status === 'queued' && (
+                      <span className="text-[10px] px-1.5 py-0.5 bg-surface-3 border border-border-themed rounded font-bold text-text-secondary">
+                        Queued ({jobProgress[job.jobId] || 0}%)
+                      </span>
+                    )}
+                    {job.status === 'processing' && (
+                      <div className="flex items-center gap-1">
+                        <Loader2 size={10} className="animate-spin text-accent" />
+                        <span className="text-[10px] text-accent font-bold">Rendering ({jobProgress[job.jobId] || 30}%)</span>
+                      </div>
+                    )}
+                    {job.status === 'completed' && job.downloadUrl && (
+                      <a
+                        href={baseUrl + job.downloadUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded transition flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider focus-ring"
+                        title="Download Animation Output"
+                      >
+                        <Download size={11} />
+                      </a>
+                    )}
+                    {job.status === 'failed' && (
+                      <span
+                        className="p-1.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
+                        title={job.errorMessage || 'Failed render pipeline'}
+                      >
+                        <AlertTriangle size={11} />
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="absolute bottom-6 right-6 z-[30] flex flex-col items-end">
       {/* Drawer overlay Trigger Button */}
@@ -189,149 +318,157 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
         {isOpen ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
       </button>
 
-      {/* Slide-out Drawer Panel container */}
-      <div
-        className={`fixed right-0 top-14 bottom-0 w-80 bg-surface-1/90 backdrop-blur-md border-l border-border-themed flex flex-col z-[45] shadow-premium transition-transform duration-300 transform ${
-          isOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        <div className="p-4 border-b border-border-themed flex items-center justify-between bg-surface-2/50">
-          <span className="font-bold flex items-center gap-2 text-xs uppercase tracking-wider text-text-primary">
-            <Film size={16} className="text-accent" /> Export Options
-          </span>
-          <button
+      {/* Centered Modal Overlay */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-surface-0/60 backdrop-blur-sm z-[90] cursor-pointer"
             onClick={() => setIsOpen(false)}
-            className="p-1 hover:bg-surface-3 text-text-muted hover:text-text-primary rounded-lg transition focus-ring"
-            aria-label="Close export panel"
-          >
-            <ChevronDown size={18} />
-          </button>
-        </div>
+          />
+          {/* Modal Container */}
+          <div className="fixed inset-0 flex items-center justify-center p-4 z-[100] pointer-events-none select-none animate-zoom-in">
+            <div className="w-full max-w-sm bg-surface-1 border border-border-themed rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md flex flex-col pointer-events-auto relative p-6 text-text-primary">
+              <div className="flex items-center justify-between pb-3 border-b border-border-themed mb-4">
+                <span className="font-bold flex items-center gap-2 text-xs uppercase tracking-wider text-text-primary">
+                  <Film size={16} className="text-accent" /> Export Options
+                </span>
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1 hover:bg-surface-3 text-text-muted hover:text-text-primary rounded-lg transition focus-ring"
+                  aria-label="Close export panel"
+                >
+                  <ChevronDown size={18} />
+                </button>
+              </div>
 
-        <div className="p-4 flex flex-col gap-4 flex-grow overflow-y-auto custom-scrollbar">
-          {/* Format selector option buttons */}
-          <div>
-            <span className="block text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2">Select Format</span>
-            <div className="grid grid-cols-2 gap-2 bg-surface-3 border border-border-themed p-0.5 rounded-xl">
-              <button
-                onClick={() => setFormat('mp4')}
-                className={`py-2 rounded-lg text-xs font-bold transition focus-ring ${
-                  format === 'mp4' ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                MP4 Video
-              </button>
-              <button
-                onClick={() => setFormat('gif')}
-                className={`py-2 rounded-lg text-xs font-bold transition focus-ring ${
-                  format === 'gif' ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-secondary hover:text-text-primary'
-                }`}
-              >
-                GIF Animation
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={handleStartExport}
-            disabled={submitting}
-            className="w-full py-2.5 bg-accent hover:opacity-90 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md focus-ring uppercase tracking-wider font-mono"
-          >
-            {submitting ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Submit Render Task
-          </button>
-
-          {/* Jobs Status List History logs */}
-          <div className="flex-grow flex flex-col gap-2 mt-4 min-h-0">
-            <div className="flex items-center justify-between border-b border-border-themed pb-2 mb-1">
-              <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Active Jobs Logs</span>
-              {jobs.length > 0 && (
+              <div className="flex flex-col gap-4 overflow-y-auto max-h-[400px] pr-1 custom-scrollbar">
+                {/* Format selector option buttons */}
                 <div>
-                  {confirmClearHistory ? (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={handleClearHistory}
-                        className="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] font-bold uppercase tracking-wider hover:bg-red-500"
-                      >
-                        Confirm
-                      </button>
-                      <button
-                        onClick={() => setConfirmClearHistory(false)}
-                        className="px-1.5 py-0.5 bg-surface-3 text-text-primary rounded text-[10px] font-bold uppercase tracking-wider hover:bg-surface-2"
-                      >
-                        No
-                      </button>
-                    </div>
-                  ) : (
+                  <span className="block text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-2">Select Format</span>
+                  <div className="grid grid-cols-2 gap-2 bg-surface-3 border border-border-themed p-0.5 rounded-xl">
                     <button
-                      onClick={handleClearHistory}
-                      className="text-[11px] text-red-600 hover:text-red-500 font-bold uppercase font-mono"
+                      onClick={() => setFormat('mp4')}
+                      className={`py-2 rounded-lg text-xs font-bold transition focus-ring ${
+                        format === 'mp4' ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-secondary hover:text-text-primary'
+                      }`}
                     >
-                      Clear All
+                      MP4 Video
                     </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2 pt-2 border-t border-border-themed max-h-48 overflow-y-auto custom-scrollbar">
-              {jobs.length === 0 ? (
-                <div className="text-center py-6 text-[11px] text-text-muted font-mono">
-                  No active/historical export jobs queued.
-                </div>
-              ) : (
-                jobs.map((job) => (
-                  <div
-                    key={job.jobId}
-                    className="p-3 rounded-lg bg-surface-2 border border-border-themed flex items-center justify-between animate-fade-in"
-                  >
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-text-primary truncate leading-tight">
-                        {job.title}
-                      </span>
-                      <span className="text-[10px] font-mono text-text-muted uppercase mt-0.5">
-                        {job.format} format
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      {job.status === 'queued' && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-surface-3 border border-border-themed rounded font-bold text-text-secondary">
-                          Queued ({jobProgress[job.jobId] || 0}%)
-                        </span>
-                      )}
-                      {job.status === 'processing' && (
-                        <div className="flex items-center gap-1">
-                          <Loader2 size={10} className="animate-spin text-accent" />
-                          <span className="text-[10px] text-accent font-bold">Rendering ({jobProgress[job.jobId] || 30}%)</span>
-                        </div>
-                      )}
-                      {job.status === 'completed' && job.downloadUrl && (
-                        <a
-                          href={baseUrl + job.downloadUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="p-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded transition flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider focus-ring"
-                          title="Download Animation Output"
-                        >
-                          <Download size={11} /> Download
-                        </a>
-                      )}
-                      {job.status === 'failed' && (
-                        <span
-                          className="p-1.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
-                          title={job.errorMessage || 'Failed render pipeline'}
-                        >
-                          <AlertTriangle size={11} /> Failed
-                        </span>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => setFormat('gif')}
+                      className={`py-2 rounded-lg text-xs font-bold transition focus-ring ${
+                        format === 'gif' ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-secondary hover:text-text-primary'
+                      }`}
+                    >
+                      GIF Animation
+                    </button>
                   </div>
-                ))
-              )}
+                </div>
+
+                <button
+                  onClick={handleStartExport}
+                  disabled={submitting}
+                  className="w-full py-2.5 bg-accent hover:opacity-90 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md focus-ring uppercase tracking-wider font-mono"
+                >
+                  {submitting ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />} Submit Render Task
+                </button>
+
+                {/* Jobs Status List History logs */}
+                <div className="flex flex-col gap-2 mt-4">
+                  <div className="flex items-center justify-between border-b border-border-themed pb-2 mb-1">
+                    <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">Active Jobs Logs</span>
+                    {jobs.length > 0 && (
+                      <div>
+                        {confirmClearHistory ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={handleClearHistory}
+                              className="px-1.5 py-0.5 bg-red-600 text-white rounded text-[10px] font-bold uppercase tracking-wider hover:bg-red-500"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setConfirmClearHistory(false)}
+                              className="px-1.5 py-0.5 bg-surface-3 text-text-primary rounded text-[10px] font-bold uppercase tracking-wider hover:bg-surface-2"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={handleClearHistory}
+                            className="text-[11px] text-red-600 hover:text-red-500 font-bold uppercase font-mono"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2 pt-2 border-t border-border-themed max-h-48 overflow-y-auto custom-scrollbar">
+                    {jobs.length === 0 ? (
+                      <div className="text-center py-6 text-[11px] text-text-muted font-mono">
+                        No active/historical export jobs queued.
+                      </div>
+                    ) : (
+                      jobs.map((job) => (
+                        <div
+                          key={job.jobId}
+                          className="p-3 rounded-lg bg-surface-2 border border-border-themed flex items-center justify-between animate-fade-in"
+                        >
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-xs font-bold text-text-primary truncate leading-tight">
+                              {job.title}
+                            </span>
+                            <span className="text-[10px] font-mono text-text-muted uppercase mt-0.5">
+                              {job.format} format
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {job.status === 'queued' && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-surface-3 border border-border-themed rounded font-bold text-text-secondary">
+                                Queued ({jobProgress[job.jobId] || 0}%)
+                              </span>
+                            )}
+                            {job.status === 'processing' && (
+                              <div className="flex items-center gap-1">
+                                <Loader2 size={10} className="animate-spin text-accent" />
+                                <span className="text-[10px] text-accent font-bold">Rendering ({jobProgress[job.jobId] || 30}%)</span>
+                              </div>
+                            )}
+                            {job.status === 'completed' && job.downloadUrl && (
+                              <a
+                                href={baseUrl + job.downloadUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded transition flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider focus-ring"
+                                title="Download Animation Output"
+                              >
+                                <Download size={11} />
+                              </a>
+                            )}
+                            {job.status === 'failed' && (
+                              <span
+                                className="p-1.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider"
+                                title={job.errorMessage || 'Failed render pipeline'}
+                              >
+                                <AlertTriangle size={11} />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 };

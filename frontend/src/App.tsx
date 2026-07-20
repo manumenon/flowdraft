@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { Canvas } from './components/Canvas';
 import { defaultSpec } from './assets/defaultSpec';
 import { useClockHook } from './hooks/useClockHook';
+import { useUndoRedo } from './hooks/useUndoRedo';
 import type { FlowSpec, ElementSpec } from './types/spec';
 import { FileJson, Sun, Moon, Check, AlertCircle, HelpCircle, X, PanelLeftClose, PanelLeft, PanelRightClose, PanelRight, Command } from 'lucide-react';
 import { AuthModal } from './components/AuthModal';
 import { ProjectSidebar } from './components/ProjectSidebar';
 import { PropertyEditor } from './components/PropertyEditor';
-import { ExportPanel } from './components/ExportPanel';
 import { Toast } from './components/Toast';
 import type { ToastMessage } from './components/Toast';
 import { CommandPalette } from './components/CommandPalette';
@@ -36,11 +36,13 @@ function App() {
   // Activate clock hook in render-box mode for Playwright automation
   useClockHook(isRenderBox);
 
-  // 1. Determine initial spec
-  const [spec, setSpec] = useState<FlowSpec>(() => {
+  // 1. Determine initial spec & history
+  const [spec] = useState<FlowSpec>(() => {
     const querySpec = parseSpecFromQuery();
     return querySpec || defaultSpec;
   });
+
+  const { state: currentSpec, setState: setSpecState, undo, redo, resetHistory } = useUndoRedo(spec);
 
   // 2. Determine initial theme
   const [theme, setTheme] = useState<string>(() => {
@@ -48,13 +50,13 @@ function App() {
     const queryTheme = params.get('theme');
     if (queryTheme) return queryTheme;
     
-    if (spec.theme && typeof spec.theme === 'string') {
-      return spec.theme;
+    if (currentSpec.theme && typeof currentSpec.theme === 'string') {
+      return currentSpec.theme;
     }
     return 'dark';
   });
 
-  const [jsonInput, setJsonInput] = useState(() => JSON.stringify(spec, null, 2));
+  const [jsonInput, setJsonInput] = useState(() => JSON.stringify(currentSpec, null, 2));
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -67,9 +69,54 @@ function App() {
   const [activeDiagramId, setActiveDiagramId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
 
-  // Premium Sidebars collapsing
+  // Premium Sidebars collapsing and resizing
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
+  const [leftSidebarWidth, setLeftSidebarWidth] = useState(320); // default 320px
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(320); // default 320px
+  const [isResizing, setIsResizing] = useState(false);
+
+  const handleLeftResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    const startX = e.clientX;
+    const startWidth = leftSidebarWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(200, Math.min(480, startWidth + (moveEvent.clientX - startX)));
+      setLeftSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleRightResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    const startX = e.clientX;
+    const startWidth = rightSidebarWidth;
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newWidth = Math.max(200, Math.min(480, startWidth + (startX - moveEvent.clientX)));
+      setRightSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
 
   // Premium Toast System
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -83,30 +130,169 @@ function App() {
   // Premium Command Palette trigger
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [snapToGrid, setSnapToGrid] = useState(false);
+  
+  // Premium Onboarding Tour state
+  const [tourStep, setTourStep] = useState<number | null>(() => {
+    const isFirstTime = !localStorage.getItem('flowdraft_onboarded_v2');
+    return isFirstTime ? 1 : null;
+  });
 
   // Keep jsonInput updated when spec changes
   useEffect(() => {
-    setJsonInput(JSON.stringify(spec, null, 2));
-  }, [spec]);
+    setJsonInput(JSON.stringify(currentSpec, null, 2));
+  }, [currentSpec]);
 
   // Watch for theme in spec if it changes
   useEffect(() => {
-    if (spec.theme && typeof spec.theme === 'string') {
-      setTheme(spec.theme);
+    if (currentSpec.theme && typeof currentSpec.theme === 'string') {
+      setTheme(currentSpec.theme);
     }
-  }, [spec]);
+  }, [currentSpec]);
 
-  // Keyboard shortcut listener for Ctrl+K
+  // Auto-collapse sidebars under 1280px viewport width
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1280) {
+        setLeftSidebarCollapsed(true);
+        setRightSidebarCollapsed(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Keyboard shortcut listener for Ctrl+K, Undo/Redo, Delete/Backspace, Escape, and Arrow nudging
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      // 1. Ctrl+K (Command Palette)
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         setShowCommandPalette((prev) => !prev);
+        return;
+      }
+
+      // Ignore shortcuts if focusing an input/textarea
+      const activeEl = document.activeElement;
+      const isInput = activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.getAttribute('contenteditable') === 'true'
+      );
+      if (isInput) return;
+
+      // 2. Undo/Redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+          showToast('info', 'Redo', 'Redid last action');
+        } else {
+          undo();
+          showToast('info', 'Undo', 'Undid last action');
+        }
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        redo();
+        showToast('info', 'Redo', 'Redid last action');
+        return;
+      }
+
+      // 3. Escape key (Deselect)
+      if (e.key === 'Escape') {
+        setSelectedElementId(null);
+        setSelectedEdge(null);
+        return;
+      }
+
+      // 4. Delete / Backspace key
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedElementId) {
+          e.preventDefault();
+          setSpecState((prev) => {
+            const removeRecursive = (elements: ElementSpec[]): ElementSpec[] => {
+              return elements
+                .filter((el) => el.id !== selectedElementId)
+                .map((el) => {
+                  if (el.children) {
+                    return {
+                      ...el,
+                      children: removeRecursive(el.children),
+                    };
+                  }
+                  return el;
+                });
+            };
+            const cleanConns = (prev.connections || []).filter(
+              (conn) => conn.from !== selectedElementId && conn.to !== selectedElementId
+            );
+            return {
+              ...prev,
+              connections: cleanConns,
+              elements: removeRecursive(prev.elements),
+            };
+          });
+          setSelectedElementId(null);
+          showToast('info', 'Component Removed', 'Deleted selected component card.');
+        } else if (selectedEdge) {
+          e.preventDefault();
+          setSpecState((prev) => {
+            const cleanConns = (prev.connections || []).filter(
+              (conn, idx) => !(conn.from === selectedEdge.from && conn.to === selectedEdge.to && idx === selectedEdge.index)
+            );
+            return {
+              ...prev,
+              connections: cleanConns,
+            };
+          });
+          setSelectedEdge(null);
+          showToast('info', 'Connection Removed', 'Deleted selected connection line.');
+        }
+        return;
+      }
+
+      // 5. Arrow Key Nudging
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selectedElementId) {
+        e.preventDefault();
+        const step = e.shiftKey ? 40 : 10;
+        let dx = 0;
+        let dy = 0;
+        if (e.key === 'ArrowUp') dy = -step;
+        if (e.key === 'ArrowDown') dy = step;
+        if (e.key === 'ArrowLeft') dx = -step;
+        if (e.key === 'ArrowRight') dx = step;
+
+        setSpecState((prev) => {
+          const updateRecursive = (elements: ElementSpec[]): ElementSpec[] => {
+            return elements.map((el) => {
+              if (el.id === selectedElementId) {
+                return {
+                  ...el,
+                  x: (el.x || 0) + dx,
+                  y: (el.y || 0) + dy,
+                };
+              }
+              if (el.children) {
+                return {
+                  ...el,
+                  children: updateRecursive(el.children),
+                };
+              }
+              return el;
+            });
+          };
+          return {
+            ...prev,
+            elements: updateRecursive(prev.elements),
+          };
+        });
       }
     };
     window.addEventListener('keydown', handleGlobalShortcuts);
     return () => window.removeEventListener('keydown', handleGlobalShortcuts);
-  }, []);
+  }, [selectedElementId, selectedEdge, undo, redo, setSpecState]);
 
   const handleApplySpec = () => {
     try {
@@ -114,7 +300,7 @@ function App() {
       if (!parsed.elements || !Array.isArray(parsed.elements)) {
         throw new Error("Invalid Spec: 'elements' must be a valid list.");
       }
-      setSpec(parsed);
+      setSpecState(parsed);
       setValidationError(null);
       setIsSidebarOpen(false);
       showToast('success', 'Spec Loaded', 'Diagram specification applied successfully!');
@@ -158,7 +344,7 @@ function App() {
   };
 
   const handleSelectDiagramSpec = (loadedSpec: FlowSpec, loadedTheme: string, id?: string) => {
-    setSpec(loadedSpec);
+    resetHistory(loadedSpec);
     setTheme(loadedTheme);
     if (id) {
       setActiveDiagramId(id);
@@ -175,7 +361,7 @@ function App() {
     const finalX = snapToGrid ? Math.round(x / snapValue) * snapValue : x;
     const finalY = snapToGrid ? Math.round(y / snapValue) * snapValue : y;
 
-    setSpec((prev) => {
+    setSpecState((prev) => {
       const updateRecursive = (elements: ElementSpec[]): ElementSpec[] => {
         return elements.map((el) => {
           let newX = el.x;
@@ -239,7 +425,7 @@ function App() {
   };
 
   const handleConnect = (from: string, to: string, exitPort: string, entryPort: string) => {
-    setSpec((prev) => {
+    setSpecState((prev) => {
       const newConnection = {
         from,
         to,
@@ -253,6 +439,33 @@ function App() {
       };
     });
     showToast('success', 'Connection Drawn', `Linked ${from} to ${to}`);
+  };
+
+  const handleDropTemplate = (template: any, x: number, y: number) => {
+    const slug = template.title.toLowerCase().replace(/\s+/g, '-');
+    const newId = `${slug}-${Date.now().toString().slice(-4)}`;
+
+    const newElement: ElementSpec = {
+      id: newId,
+      type: template.type as any,
+      title: template.title,
+      body: 'Active data node...',
+      icon: template.icon,
+      x,
+      y,
+      style: {
+        color: template.color,
+        strokeColor: template.color,
+        cornerRadius: 12,
+        strokeWidth: 2,
+      },
+    };
+
+    setSpecState((prev) => ({
+      ...prev,
+      elements: [...prev.elements, newElement],
+    }));
+    showToast('success', 'Component Added', `Dropped ${template.title} on canvas`);
   };
 
   const handleClearSelection = () => {
@@ -318,7 +531,7 @@ function App() {
     const bgColor = theme === 'dark' ? '#0f172a' : '#ffffff';
     return (
       <div className="w-screen h-screen overflow-hidden relative" style={{ backgroundColor: bgColor }}>
-        <Canvas spec={spec} theme={theme} isPureRender={true} />
+        <Canvas spec={currentSpec} theme={theme} isPureRender={true} />
       </div>
     );
   }
@@ -326,11 +539,16 @@ function App() {
   return (
     <div className="flex h-screen w-screen bg-surface-0 text-text-primary overflow-hidden font-sans">
       {/* Project Space Sidebar */}
-      <div className={`transition-all duration-300 ${leftSidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80'} h-full`}>
+      <div
+        style={{ width: leftSidebarCollapsed ? 56 : leftSidebarWidth }}
+        className={`h-full flex-shrink-0 z-30 border-r border-border-themed bg-surface-1 relative ${
+          isResizing ? '' : 'transition-[width] duration-300'
+        }`}
+      >
         <ProjectSidebar
           token={token}
           currentUser={currentUser}
-          spec={spec}
+          spec={currentSpec}
           theme={theme}
           onSelectSpec={handleSelectDiagramSpec}
           onTriggerAuth={() => setShowAuthModal(true)}
@@ -339,48 +557,64 @@ function App() {
           onSaveComplete={() => {
             showToast('success', 'Work Saved', 'Diagram changes written to database successfully.');
           }}
+          isCollapsed={leftSidebarCollapsed}
+          onToggleCollapse={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
         />
+        {!leftSidebarCollapsed && (
+          <div
+            onMouseDown={handleLeftResizeStart}
+            className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize hover:bg-accent/40 active:bg-accent z-40 transition-colors"
+          />
+        )}
       </div>
 
       {/* JSON Import Overlay Sidebar */}
       {isSidebarOpen && (
-        <div className="w-96 bg-surface-1 border-r border-border-themed flex flex-col z-50 flex-shrink-0 animate-slide-in-left">
-          <div className="p-4 border-b border-border-themed flex items-center justify-between">
-            <span className="font-semibold flex items-center gap-2 text-[11px] uppercase tracking-wider text-text-muted">
-              <FileJson size={18} className="text-accent" /> Import Spec JSON
-            </span>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="text-xs px-2.5 py-1 bg-surface-2 hover:bg-surface-3 rounded transition text-text-secondary focus-ring"
-            >
-              Close
-            </button>
-          </div>
+        <>
+          {/* Backdrop Overlay */}
+          <div
+            className="fixed inset-0 bg-surface-0/60 backdrop-blur-sm z-[45] cursor-pointer animate-fade-in"
+            onClick={() => setIsSidebarOpen(false)}
+          />
+          {/* Sidebar Panel */}
+          <div className="fixed left-0 top-0 bottom-0 w-96 bg-surface-1 border-r border-border-themed flex flex-col z-50 animate-slide-in-left shadow-2xl">
+            <div className="p-4 border-b border-border-themed flex items-center justify-between">
+              <span className="font-semibold flex items-center gap-2 text-[11px] uppercase tracking-wider text-text-muted">
+                <FileJson size={18} className="text-accent" /> Import Spec JSON
+              </span>
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="text-xs px-2.5 py-1 bg-surface-2 hover:bg-surface-3 rounded transition text-text-secondary focus-ring"
+              >
+                Close
+              </button>
+            </div>
 
-          <div className="p-4 flex-grow flex flex-col gap-3 min-h-0">
-            <textarea
-              value={jsonInput}
-              onChange={(e) => setJsonInput(e.target.value)}
-              placeholder="Paste spec JSON here..."
-              className="w-full flex-grow p-3 bg-surface-0 border border-border-themed rounded font-mono text-xs text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-border-strong resize-none min-h-0 focus-ring"
-            />
-            {validationError && (
-              <div className="p-3 bg-red-50/40 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 rounded flex gap-2 items-start text-xs text-red-600 dark:text-red-300">
-                <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
-                <span>{validationError}</span>
-              </div>
-            )}
-          </div>
+            <div className="p-4 flex-grow flex flex-col gap-3 min-h-0">
+              <textarea
+                value={jsonInput}
+                onChange={(e) => setJsonInput(e.target.value)}
+                placeholder="Paste spec JSON here..."
+                className="w-full flex-grow p-3 bg-surface-0 border border-border-themed rounded font-mono text-xs text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-border-strong resize-none min-h-0 focus-ring"
+              />
+              {validationError && (
+                <div className="p-3 bg-red-50/40 dark:bg-red-950/40 border border-red-200 dark:border-red-800/80 rounded flex gap-2 items-start text-xs text-red-600 dark:text-red-300">
+                  <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                  <span>{validationError}</span>
+                </div>
+              )}
+            </div>
 
-          <div className="p-4 border-t border-border-themed">
-            <button
-              onClick={handleApplySpec}
-              className="w-full py-2 bg-accent hover:opacity-90 font-semibold rounded text-sm transition flex items-center justify-center gap-1.5 text-white shadow-md focus-ring"
-            >
-              <Check size={16} /> Apply Spec
-            </button>
+            <div className="p-4 border-t border-border-themed">
+              <button
+                onClick={handleApplySpec}
+                className="w-full py-2 bg-accent hover:opacity-90 font-semibold rounded text-sm transition flex items-center justify-center gap-1.5 text-white shadow-md focus-ring"
+              >
+                <Check size={16} /> Apply Spec
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Main content area */}
@@ -490,9 +724,9 @@ function App() {
         </header>
 
         {/* Workspace Canvas */}
-        <div className="flex-grow min-h-0 w-full relative">
+        <div className={`flex-grow min-h-0 w-full relative ${isResizing ? 'pointer-events-none' : ''}`}>
           <Canvas
-            spec={spec}
+            spec={currentSpec}
             theme={theme}
             isPureRender={false}
             onNodeSelect={setSelectedElementId}
@@ -505,28 +739,37 @@ function App() {
             }}
             onNodeDragStop={handleNodeDragStop}
             onConnect={handleConnect}
+            onDropTemplate={handleDropTemplate}
             snapToGrid={snapToGrid}
             onToggleSnap={() => setSnapToGrid(!snapToGrid)}
-          />
-
-          {/* Export Panel overlay */}
-          <ExportPanel
-            token={token}
-            spec={spec}
-            activeDiagramId={activeDiagramId}
-            onTriggerAuth={() => setShowAuthModal(true)}
           />
         </div>
       </div>
 
       {/* Right Property & Configuration Editor */}
-      <div className={`transition-all duration-300 ${rightSidebarCollapsed ? 'w-0 overflow-hidden' : 'w-80'} h-full`}>
+      <div
+        style={{ width: rightSidebarCollapsed ? 56 : rightSidebarWidth }}
+        className={`h-full flex-shrink-0 z-30 border-l border-border-themed bg-surface-1 relative ${
+          isResizing ? '' : 'transition-[width] duration-300'
+        }`}
+      >
+        {!rightSidebarCollapsed && (
+          <div
+            onMouseDown={handleRightResizeStart}
+            className="absolute top-0 left-0 bottom-0 w-1.5 cursor-col-resize hover:bg-accent/40 active:bg-accent z-40 transition-colors"
+          />
+        )}
         <PropertyEditor
-          spec={spec}
+          spec={currentSpec}
           selectedElementId={selectedElementId}
           selectedEdge={selectedEdge}
-          onUpdateSpec={(updater) => setSpec((prev) => updater(prev))}
+          onUpdateSpec={(updater) => setSpecState((prev) => updater(prev))}
           onClearSelection={handleClearSelection}
+          isCollapsed={rightSidebarCollapsed}
+          onToggleCollapse={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+          token={token}
+          activeDiagramId={activeDiagramId}
+          onTriggerAuth={() => setShowAuthModal(true)}
         />
       </div>
 
@@ -585,12 +828,104 @@ function App() {
                 <p>Save diagrams inside the left Diagram Explorer sidebar. Submit render tasks via the bottom-right Export Animator widget overlay to query download links.</p>
               </div>
             </div>
+            
+            <button
+              onClick={() => {
+                setShowHelp(false);
+                setTourStep(1);
+              }}
+              className="mt-4 w-full py-2 bg-accent-soft hover:bg-accent-soft/80 text-accent font-bold rounded-lg text-xs transition focus-ring border border-accent/20"
+            >
+              Start Interactive Tour
+            </button>
+
             <button
               onClick={() => setShowHelp(false)}
-              className="mt-6 w-full py-2 bg-accent hover:opacity-90 font-semibold rounded-lg text-xs text-white transition focus-ring"
+              className="mt-2 w-full py-2 bg-accent hover:opacity-90 font-semibold rounded-lg text-xs text-white transition focus-ring"
             >
               Got it
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Tour Overlay */}
+      {tourStep !== null && (
+        <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-[99] w-full max-w-sm px-4 select-none animate-zoom-in">
+          <div className="glass-panel p-5 rounded-2xl shadow-premium border border-accent/25 bg-surface-1/95 text-text-primary flex flex-col gap-4">
+            {/* Header / Close */}
+            <div className="flex items-center justify-between pb-2 border-b border-border-themed">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-accent font-mono">
+                FlowDraft Tour ({tourStep}/5)
+              </span>
+              <button
+                onClick={() => {
+                  setTourStep(null);
+                  localStorage.setItem('flowdraft_onboarded_v2', 'true');
+                }}
+                className="p-1 hover:bg-surface-3 rounded text-text-muted hover:text-text-primary transition"
+                title="Skip Tour"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Tour step details */}
+            <div className="flex flex-col gap-1">
+              <h4 className="text-sm font-extrabold text-text-primary">
+                {tourStep === 1 && "🚀 Welcome to FlowDraft!"}
+                {tourStep === 2 && "📦 Spawn Library Components"}
+                {tourStep === 3 && "🎨 Inspect & Style Nodes"}
+                {tourStep === 4 && "⏱️ Timeline & Layout Engine"}
+                {tourStep === 5 && "🎥 Render & Download Video"}
+              </h4>
+              <p className="text-[11px] leading-relaxed text-text-secondary">
+                {tourStep === 1 && "Your professional toolkit for crafting gorgeous architecture diagrams with real-time dynamic timeline animations. Let's take a quick 1-minute walk through the interface."}
+                {tourStep === 2 && "Spawn template components by clicking them in the right-hand panel, or drag-and-drop cards directly onto the canvas to place them exactly where you need them."}
+                {tourStep === 3 && "Click on any node, label, or path connector in the layout canvas to edit properties, tweak colors, adjust outline weights, corner radius, and text details."}
+                {tourStep === 4 && "Control and playback the diagram state timeline using the bottom controller. Toggle the layout mode, edit titles, and watch nodes animate dynamically."}
+                {tourStep === 5 && "Under the Export tab, submit render jobs to compile high-quality MP4 video outputs or animated GIF assets in the background, ready for download."}
+              </p>
+            </div>
+
+            {/* Step indicator dots & buttons */}
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex gap-1">
+                {[1, 2, 3, 4, 5].map((step) => (
+                  <span
+                    key={step}
+                    className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                      tourStep === step ? 'w-4 bg-accent' : 'bg-border-strong'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {tourStep > 1 && (
+                  <button
+                    onClick={() => setTourStep(tourStep - 1)}
+                    className="px-2.5 py-1 text-[11px] font-bold text-text-secondary hover:text-text-primary transition"
+                  >
+                    Back
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    if (tourStep === 5) {
+                      setTourStep(null);
+                      localStorage.setItem('flowdraft_onboarded_v2', 'true');
+                      showToast('info', 'Tour Finished', 'You are ready to create diagram animations!');
+                    } else {
+                      setTourStep(tourStep + 1);
+                    }
+                  }}
+                  className="px-3 py-1.5 bg-accent hover:opacity-90 text-[11px] font-bold text-white rounded-lg transition"
+                >
+                  {tourStep === 5 ? 'Done' : 'Next'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
