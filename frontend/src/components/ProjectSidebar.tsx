@@ -45,8 +45,8 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   const [titleInput, setTitleInput] = useState('New Diagram');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
-  const baseUrl = window.location.origin === 'http://localhost:3000' || window.location.origin === 'http://127.0.0.1:3000' 
-    ? 'http://localhost:8000' 
+  const baseUrl = window.location.origin.includes(':3000')
+    ? window.location.origin.replace(':3000', ':8000')
     : window.location.origin;
 
   const fetchDiagrams = async () => {
@@ -90,7 +90,9 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       const emptySpec: FlowSpec = {
         title: { prefix: 'NEW', highlight: titleInput, subtitle: 'Interactive Flowchart' },
         canvas: { mode: 'dynamic', width: 1200, height: 800 },
-        elements: [],
+        elements: [
+          { id: 'node_1', type: 'card', title: 'Start Node', body: 'Initialize structure' }
+        ],
         connections: [],
         theme: theme,
       };
@@ -243,7 +245,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
 
   if (isCollapsed) {
     return (
-      <div className="w-14 bg-surface-1 border-r border-border-themed flex flex-col items-center py-4 justify-between h-full flex-shrink-0 text-text-primary font-sans shadow-premium z-30">
+      <div className="w-full bg-surface-1 border-r border-border-themed flex flex-col items-center py-4 justify-between h-full flex-shrink-0 text-text-primary font-sans shadow-premium z-30">
         <div className="flex flex-col items-center gap-6 w-full">
           {/* Logo FD button to trigger toggle */}
           <button
@@ -312,7 +314,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   }
 
   return (
-    <div className="w-80 bg-surface-1 border-r border-border-themed flex flex-col h-full flex-shrink-0 text-text-primary font-sans shadow-premium">
+    <div className="w-full bg-surface-1 border-r border-border-themed flex flex-col h-full flex-shrink-0 text-text-primary font-sans shadow-premium">
       {/* User Header Section */}
       <div className="p-4 border-b border-border-themed flex items-center justify-between bg-surface-2/55">
         <div className="flex items-center gap-3 min-w-0">
@@ -351,6 +353,8 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         <div className="p-4 border-b border-border-themed flex flex-col gap-3 bg-surface-2/20">
           <div className="relative">
             <input
+              id="new-diagram-title-input"
+              name="new-diagram-title-input"
               type="text"
               placeholder="New diagram title..."
               value={titleInput}
@@ -400,7 +404,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         ) : diagrams.length === 0 ? (
           <div className="text-center py-10 text-xs text-text-muted border border-dashed border-border-themed rounded-xl bg-surface-2/20 px-4 leading-relaxed flex flex-col items-center gap-2">
             <Compass className="text-text-muted w-8 h-8 animate-pulse" />
-            <span>No saved architecture configurations. Login to store blueprints.</span>
+            <span>No saved architecture configurations. {token ? "Create a blueprint to get started." : "Login to store blueprints."}</span>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -487,6 +491,8 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
           <label className="flex-grow py-1.5 bg-surface-2 hover:bg-surface-3 border border-border-themed hover:border-border-strong text-[10px] uppercase font-bold tracking-wider rounded-lg flex items-center justify-center gap-1 text-text-secondary hover:text-text-primary cursor-pointer text-center select-none focus-ring transition duration-200">
             Import Spec
             <input
+              id="import-spec-file"
+              name="import-spec-file"
               type="file"
               accept=".json"
               onChange={handleImportLocalJSON}

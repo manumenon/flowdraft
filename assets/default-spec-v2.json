@@ -147,7 +147,7 @@
           "id": "core_2",
           "type": "card",
           "title": "Vector Embedding",
-          "body": "Chunk long forms\nGenerate embeddings\nCompute cosine similarity",
+          "body": "Chunk long forms\nGenerate embeddings\nValidate dimensions",
           "icon": "layers",
           "style": {
             "color": "#a855f7",
@@ -441,43 +441,43 @@
     {
       "from": "input_0",
       "to": "core_0",
-      "exitPort": "bottom",
-      "entryPort": "top"
+      "exitPort": "right",
+      "entryPort": "left"
     },
     {
       "from": "input_1",
       "to": "core_0",
-      "exitPort": "bottom",
-      "entryPort": "top"
+      "exitPort": "right",
+      "entryPort": "left"
     },
     {
       "from": "input_2",
       "to": "core_0",
-      "exitPort": "bottom",
-      "entryPort": "top"
+      "exitPort": "right",
+      "entryPort": "left"
     },
     {
       "from": "input_3",
       "to": "core_0",
-      "exitPort": "bottom",
-      "entryPort": "top"
+      "exitPort": "right",
+      "entryPort": "left"
     },
     {
       "from": "input_4",
       "to": "core_0",
-      "exitPort": "bottom",
-      "entryPort": "top"
+      "exitPort": "right",
+      "entryPort": "left"
     },
     {
       "from": "core_0",
       "to": "core_1",
-      "exitPort": "left",
-      "entryPort": "right"
+      "exitPort": "right",
+      "entryPort": "left"
     },
     {
       "from": "core_1",
       "to": "core_2",
-      "exitPort": "top",
+      "exitPort": "right",
       "entryPort": "left"
     },
     {
@@ -495,20 +495,20 @@
     {
       "from": "core_4",
       "to": "decision",
-      "exitPort": "left",
-      "entryPort": "top"
+      "exitPort": "right",
+      "entryPort": "left"
     },
     {
       "from": "decision",
       "to": "output",
-      "exitPort": "bottom",
+      "exitPort": "right",
       "entryPort": "left"
     },
     {
       "from": "decision",
       "to": "core_0",
-      "exitPort": "top",
-      "entryPort": "top"
+      "exitPort": "left",
+      "entryPort": "bottom"
     },
     {
       "from": "output",
@@ -525,14 +525,14 @@
     {
       "from": "core_2",
       "to": "store_2",
-      "exitPort": "top",
-      "entryPort": "bottom"
+      "exitPort": "bottom",
+      "entryPort": "top"
     },
     {
       "from": "core_3",
       "to": "store_3",
-      "exitPort": "top",
-      "entryPort": "bottom"
+      "exitPort": "bottom",
+      "entryPort": "top"
     },
     {
       "from": "store_3",
@@ -609,6 +609,18 @@
       "text": "Feedback Loop",
       "from": "right_0",
       "to": "decision",
+      "position": "midpoint"
+    },
+    {
+      "text": "Yes / Pass",
+      "from": "decision",
+      "to": "output",
+      "position": "midpoint"
+    },
+    {
+      "text": "No / Fail (Retry)",
+      "from": "decision",
+      "to": "core_0",
       "position": "midpoint"
     }
   ]

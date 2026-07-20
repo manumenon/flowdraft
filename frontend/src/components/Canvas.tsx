@@ -158,7 +158,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   }, [isPureRender, setNodes, setEdges]);
 
   // Timeline Player States
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(() => !gsap.globalTimeline.paused());
   const [progress, setProgress] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(false);
@@ -167,9 +167,11 @@ export const Canvas: React.FC<CanvasProps> = ({
   useEffect(() => {
     if (isPureRender) return;
     let active = true;
+    const cycleDuration = (spec.canvas?.frames || 90) / (spec.canvas?.fps || 30);
     const updateProgress = () => {
       if (!active) return;
-      const p = gsap.globalTimeline.progress() || 0;
+      const time = gsap.globalTimeline.time();
+      const p = (time % cycleDuration) / cycleDuration;
       setProgress(p * 100);
       requestAnimationFrame(updateProgress);
     };
@@ -177,12 +179,13 @@ export const Canvas: React.FC<CanvasProps> = ({
     return () => {
       active = false;
     };
-  }, [isPureRender]);
+  }, [isPureRender, spec.canvas?.frames, spec.canvas?.fps]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
+    const cycleDuration = (spec.canvas?.frames || 90) / (spec.canvas?.fps || 30);
     setProgress(val);
-    gsap.globalTimeline.progress(val / 100);
+    gsap.globalTimeline.time(val / 100 * cycleDuration);
   };
 
   const togglePlay = () => {
@@ -227,7 +230,7 @@ export const Canvas: React.FC<CanvasProps> = ({
       return;
     }
     try {
-      const { positionedNodes, canvasWidth, canvasHeight } = await runLayout(
+      const { positionedNodes, positionedEdges, canvasWidth, canvasHeight } = await runLayout(
         compiled.flatElements,
         spec.connections || [],
         spec.title,
@@ -255,10 +258,26 @@ export const Canvas: React.FC<CanvasProps> = ({
         })
       );
 
+      setEdges((currentEdges) =>
+        currentEdges.map((edge) => {
+          const match = positionedEdges.find((pe) => pe.id === edge.id);
+          if (match) {
+            return {
+              ...edge,
+              data: {
+                ...edge.data,
+                points: match.points,
+              },
+            };
+          }
+          return edge;
+        })
+      );
+
       setCanvasSize({ width: canvasWidth, height: canvasHeight });
       (window as any).__LAYOUT_COMPLETE__ = true;
       setTimeout(() => {
-        fitView({ duration: 800, padding: 0.1 });
+        fitView({ duration: 800, padding: 0.2 });
       }, 50);
     } catch (err) {
       console.error('Failed to calculate layout:', err);
@@ -432,7 +451,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     const observer = new ResizeObserver(() => {
       setTimeout(() => {
-        fitView({ duration: 400, padding: 0.1 });
+        fitView({ duration: 400, padding: 0.2 });
       }, 50);
     });
 
@@ -531,6 +550,8 @@ export const Canvas: React.FC<CanvasProps> = ({
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        snapToGrid={snapToGrid}
+        snapGrid={[20, 20]}
         onNodesChange={isPureRender ? undefined : onNodesChange}
         onEdgesChange={isPureRender ? undefined : onEdgesChange}
         onNodeClick={isPureRender ? undefined : (_, node) => {
@@ -554,11 +575,13 @@ export const Canvas: React.FC<CanvasProps> = ({
         }}
         onConnect={isPureRender ? undefined : (conn) => {
           if (conn.source && conn.target) {
+            const exitPortClean = (conn.sourceHandle || 'bottom').replace('source-', '');
+            const entryPortClean = (conn.targetHandle || 'top').replace('target-', '');
             onConnect?.(
               conn.source,
               conn.target,
-              conn.sourceHandle || 'bottom',
-              conn.targetHandle || 'top'
+              exitPortClean,
+              entryPortClean
             );
           }
         }}
@@ -693,6 +716,8 @@ export const Canvas: React.FC<CanvasProps> = ({
 
               <div className="flex items-center gap-2">
                 <input
+                  id="timeline-progress-slider"
+                  name="timeline-progress-slider"
                   type="range"
                   min="0"
                   max="100"

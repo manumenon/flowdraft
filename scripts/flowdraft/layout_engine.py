@@ -747,8 +747,19 @@ def layout_panel_children(
             ref_w = max(content_w, max_manual_x - origin_x)
 
         footer_node = nodes_map[footer_id]
+        footer_w = max(200.0, ref_w)
+        footer_node["width"] = footer_w
+
+        # Re-measure footer card at final width to recalculate text wrap and height
+        from scripts.flowdraft.compiler import _measure_card
+        from PIL import Image, ImageDraw
+        img_temp = Image.new("RGB", (1, 1))
+        draw_temp = ImageDraw.Draw(img_temp)
+        res = _measure_card(footer_node, draw_temp, footer_node.get("_resolved_style", {}))
+        footer_node["height"] = res["height"]
+        footer_node["layout_offsets"] = res["layout_offsets"]
+
         footer_top = origin_y + content_h + _FOOTER_GAP
-        footer_w = footer_node["width"]
         footer_x = origin_x + max(0.0, (ref_w - footer_w) / 2.0)
         footer_node["x"] = footer_x
         footer_node["y"] = footer_top

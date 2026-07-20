@@ -55,17 +55,17 @@ export const CardNode: React.FC<NodeProps> = (props) => {
       )}
 
       {/* Handles for connections on all 4 ports */}
-      <Handle type="target" position={Position.Top} id="top" style={handleStyle} />
-      <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
+      <Handle type="target" position={Position.Top} id="target-top" style={handleStyle} />
+      <Handle type="source" position={Position.Top} id="source-top" style={handleStyle} />
 
-      <Handle type="target" position={Position.Bottom} id="bottom" style={handleStyle} />
-      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
+      <Handle type="target" position={Position.Bottom} id="target-bottom" style={handleStyle} />
+      <Handle type="source" position={Position.Bottom} id="source-bottom" style={handleStyle} />
 
-      <Handle type="target" position={Position.Left} id="left" style={handleStyle} />
-      <Handle type="source" position={Position.Left} id="left" style={handleStyle} />
+      <Handle type="target" position={Position.Left} id="target-left" style={handleStyle} />
+      <Handle type="source" position={Position.Left} id="source-left" style={handleStyle} />
 
-      <Handle type="target" position={Position.Right} id="right" style={handleStyle} />
-      <Handle type="source" position={Position.Right} id="right" style={handleStyle} />
+      <Handle type="target" position={Position.Right} id="target-right" style={handleStyle} />
+      <Handle type="source" position={Position.Right} id="source-right" style={handleStyle} />
 
       {/* Node Content */}
       <div className="flex items-center gap-2 mb-1.5 mt-1">
@@ -75,7 +75,7 @@ export const CardNode: React.FC<NodeProps> = (props) => {
           </div>
         )}
         <span
-          className="text-xs font-bold tracking-wide truncate"
+          className="text-xs font-bold tracking-wide whitespace-normal break-words"
           style={{
             color: accentColor,
             fontWeight: isBold ? 'bold' : '700',

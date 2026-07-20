@@ -3,6 +3,7 @@ import sys
 import uuid
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -150,9 +151,8 @@ async def get_export_job_status(
 
     download_url = None
     if job.status == "completed":
-        storage = MinioStorage()
-        download_url = storage.get_download_url(f"{job_id}.{job.format}")
-        # Update the download url in DB
+        # Return backend download proxy URL instead of presigned S3 url to avoid Host header signature mismatch
+        download_url = f"/api/v1/export/{job_id}/download"
         job.download_url = download_url
         await db.commit()
     else:
@@ -164,3 +164,48 @@ async def get_export_job_status(
         "download_url": download_url,
         "error_message": job.error_message
     }
+
+@router.get("/{job_id}/download")
+async def download_export_file(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Backend download proxy: Streams the exported video/GIF from MinIO.
+    Allows anonymous downloads based on secure UUIDv4.
+    """
+    stmt = select(ExportJob).where(ExportJob.id == job_id)
+    result = await db.execute(stmt)
+    job = result.scalar_one_or_none()
+    
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Export job not found")
+        
+    if job.status != "completed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Export job is not completed yet"
+        )
+        
+    storage = MinioStorage()
+    try:
+        minio_response = storage.get_object(f"{job_id}.{job.format}")
+        
+        media_type = "video/mp4"
+        if job.format == "gif":
+            media_type = "image/gif"
+        elif job.format == "png":
+            media_type = "image/png"
+            
+        return StreamingResponse(
+            minio_response,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{job_id}.{job.format}"'
+            }
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to stream file from storage: {str(e)}"
+        )

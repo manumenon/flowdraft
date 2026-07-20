@@ -53,20 +53,20 @@ export const InputNode: React.FC<NodeProps> = (props) => {
       )}
 
       {/* Handles */}
-      <Handle type="target" position={Position.Top} id="top" style={handleStyle} />
-      <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
+      <Handle type="target" position={Position.Top} id="target-top" style={handleStyle} />
+      <Handle type="source" position={Position.Top} id="source-top" style={handleStyle} />
 
-      <Handle type="target" position={Position.Bottom} id="bottom" style={handleStyle} />
-      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
+      <Handle type="target" position={Position.Bottom} id="target-bottom" style={handleStyle} />
+      <Handle type="source" position={Position.Bottom} id="source-bottom" style={handleStyle} />
 
-      <Handle type="target" position={Position.Left} id="left" style={handleStyle} />
-      <Handle type="source" position={Position.Left} id="left" style={handleStyle} />
+      <Handle type="target" position={Position.Left} id="target-left" style={handleStyle} />
+      <Handle type="source" position={Position.Left} id="source-left" style={handleStyle} />
 
-      <Handle type="target" position={Position.Right} id="right" style={handleStyle} />
-      <Handle type="source" position={Position.Right} id="right" style={handleStyle} />
+      <Handle type="target" position={Position.Right} id="target-right" style={handleStyle} />
+      <Handle type="source" position={Position.Right} id="source-right" style={handleStyle} />
 
       {data.icon && <Icon name={data.icon as string} color={accentColor} size={15} className="flex-shrink-0 ml-1" />}
-      <span className="text-xs font-semibold tracking-wide truncate flex-grow text-text-primary">
+      <span className="text-xs font-semibold tracking-wide whitespace-normal break-words flex-grow text-text-primary">
         {data.title || ''}
       </span>
     </div>

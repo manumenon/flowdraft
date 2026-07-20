@@ -18,8 +18,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
     setLoading(true);
     setError(null);
 
-    const baseUrl = window.location.origin === 'http://localhost:3000' || window.location.origin === 'http://127.0.0.1:3000' 
-      ? 'http://localhost:8000' 
+    const baseUrl = window.location.origin.includes(':3000')
+      ? window.location.origin.replace(':3000', ':8000')
       : window.location.origin;
 
     try {
@@ -141,8 +141,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
                 </span>
                 <input
                   id="auth-email"
+                  name="email"
                   type="email"
                   required
+                  autoComplete="email"
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -159,8 +161,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
                 </span>
                 <input
                   id="auth-password"
+                  name="password"
                   type="password"
                   required
+                  autoComplete={isLogin ? "current-password" : "new-password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

@@ -52,17 +52,17 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
         />
       )}
       {/* Handles */}
-      <Handle type="target" position={Position.Top} id="top" style={handleStyle} />
-      <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
+      <Handle type="target" position={Position.Top} id="target-top" style={handleStyle} />
+      <Handle type="source" position={Position.Top} id="source-top" style={handleStyle} />
 
-      <Handle type="target" position={Position.Bottom} id="bottom" style={handleStyle} />
-      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
+      <Handle type="target" position={Position.Bottom} id="target-bottom" style={handleStyle} />
+      <Handle type="source" position={Position.Bottom} id="source-bottom" style={handleStyle} />
 
-      <Handle type="target" position={Position.Left} id="left" style={handleStyle} />
-      <Handle type="source" position={Position.Left} id="left" style={handleStyle} />
+      <Handle type="target" position={Position.Left} id="target-left" style={handleStyle} />
+      <Handle type="source" position={Position.Left} id="source-left" style={handleStyle} />
 
-      <Handle type="target" position={Position.Right} id="right" style={handleStyle} />
-      <Handle type="source" position={Position.Right} id="right" style={handleStyle} />
+      <Handle type="target" position={Position.Right} id="target-right" style={handleStyle} />
+      <Handle type="source" position={Position.Right} id="source-right" style={handleStyle} />
 
       {/* Premium Header Title & Subtitle Badge */}
       <div className="absolute top-4 left-4 right-4 flex items-start justify-between pointer-events-none select-none">

@@ -63,17 +63,17 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
       </svg>
 
       {/* Handles at the vertices */}
-      <Handle type="target" position={Position.Top} id="top" style={handleStyle} />
-      <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
+      <Handle type="target" position={Position.Top} id="target-top" style={handleStyle} />
+      <Handle type="source" position={Position.Top} id="source-top" style={handleStyle} />
 
-      <Handle type="target" position={Position.Bottom} id="bottom" style={handleStyle} />
-      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
+      <Handle type="target" position={Position.Bottom} id="target-bottom" style={handleStyle} />
+      <Handle type="source" position={Position.Bottom} id="source-bottom" style={handleStyle} />
 
-      <Handle type="target" position={Position.Left} id="left" style={handleStyle} />
-      <Handle type="source" position={Position.Left} id="left" style={handleStyle} />
+      <Handle type="target" position={Position.Left} id="target-left" style={handleStyle} />
+      <Handle type="source" position={Position.Left} id="source-left" style={handleStyle} />
 
-      <Handle type="target" position={Position.Right} id="right" style={handleStyle} />
-      <Handle type="source" position={Position.Right} id="right" style={handleStyle} />
+      <Handle type="target" position={Position.Right} id="target-right" style={handleStyle} />
+      <Handle type="source" position={Position.Right} id="source-right" style={handleStyle} />
 
       {/* Centered text container */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-5 pointer-events-none">
@@ -85,7 +85,7 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
         </span>
         {data.body && (
           <span 
-            className="leading-normal opacity-70 whitespace-pre-wrap font-mono mt-1.5 max-w-[68%] text-text-secondary overflow-hidden text-ellipsis break-all"
+            className="leading-normal opacity-70 whitespace-pre-wrap font-mono mt-1.5 max-w-[68%] text-text-secondary break-words"
             style={{ fontSize: bodyFontSize }}
           >
             {data.body}

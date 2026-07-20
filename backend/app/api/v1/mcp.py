@@ -151,4 +151,9 @@ def make_mcp_asgi_app(prefix: str) -> FastAPI:
     sub_app = FastAPI()
     sub_app.add_route("/sse", handle_sse, methods=["GET"])
     sub_app.mount("/messages/", sse.handle_post_message)
+
+    @sub_app.get("/health")
+    async def mcp_health():
+        return {"status": "healthy"}
+
     return sub_app

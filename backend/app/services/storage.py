@@ -70,3 +70,19 @@ class MinioStorage:
         except Exception as e:
             logger.error(f"Failed to get presigned GET URL for file '{file_name}': {e}")
             return ""
+
+    def get_object(self, file_name: str):
+        """
+        Retrieves the object data stream from the exports bucket.
+        """
+        if self.client is None:
+            raise RuntimeError("MinIO client is not initialized")
+        try:
+            response = self.client.get_object(
+                bucket_name=self.bucket_name,
+                object_name=file_name
+            )
+            return response
+        except Exception as e:
+            logger.error(f"Failed to get object '{file_name}': {e}")
+            raise e

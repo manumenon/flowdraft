@@ -61,26 +61,26 @@ export const CloudNode: React.FC<NodeProps> = (props) => {
       </svg>
 
       {/* Handles */}
-      <Handle type="target" position={Position.Top} id="top" style={handleStyle} />
-      <Handle type="source" position={Position.Top} id="top" style={handleStyle} />
+      <Handle type="target" position={Position.Top} id="target-top" style={handleStyle} />
+      <Handle type="source" position={Position.Top} id="source-top" style={handleStyle} />
 
-      <Handle type="target" position={Position.Bottom} id="bottom" style={handleStyle} />
-      <Handle type="source" position={Position.Bottom} id="bottom" style={handleStyle} />
+      <Handle type="target" position={Position.Bottom} id="target-bottom" style={handleStyle} />
+      <Handle type="source" position={Position.Bottom} id="source-bottom" style={handleStyle} />
 
-      <Handle type="target" position={Position.Left} id="left" style={handleStyle} />
-      <Handle type="source" position={Position.Left} id="left" style={handleStyle} />
+      <Handle type="target" position={Position.Left} id="target-left" style={handleStyle} />
+      <Handle type="source" position={Position.Left} id="source-left" style={handleStyle} />
 
-      <Handle type="target" position={Position.Right} id="right" style={handleStyle} />
-      <Handle type="source" position={Position.Right} id="right" style={handleStyle} />
+      <Handle type="target" position={Position.Right} id="target-right" style={handleStyle} />
+      <Handle type="source" position={Position.Right} id="source-right" style={handleStyle} />
 
       {/* Text Content overlay */}
       <div className="z-10 flex flex-col items-center justify-center p-4 text-center mt-2 max-w-[70%]">
         {data.icon && <Icon name={data.icon as string} color={accentColor} size={16} className="mb-1" />}
-        <span className="text-xs font-extrabold tracking-wide text-text-primary truncate max-w-full">
+        <span className="text-xs font-extrabold tracking-wide text-text-primary whitespace-normal break-words max-w-full">
           {data.title || ''}
         </span>
         {data.body && (
-          <span className="text-[10px] opacity-75 font-mono text-text-secondary mt-0.5 truncate max-w-full">
+          <span className="text-[10px] opacity-75 font-mono text-text-secondary mt-0.5 whitespace-normal break-words max-w-full">
             {data.body}
           </span>
         )}

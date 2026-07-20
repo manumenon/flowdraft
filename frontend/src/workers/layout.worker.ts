@@ -108,6 +108,9 @@ self.onmessage = async (event: MessageEvent) => {
     const elkNodes: Record<string, any> = {};
     elements.forEach((node: any) => {
       const nid = node.id;
+      if (nid.endsWith('_footer') || node.data?.role === 'footer') {
+        return;
+      }
       const ntype = node.type;
       const elkNode: any = { id: nid, children: [], edges: [] };
 
@@ -126,43 +129,95 @@ self.onmessage = async (event: MessageEvent) => {
             padRight = p.right ?? 20;
           }
         }
+        const footerNode = elements.find(
+          (el: any) => el.parent === nid && (el.id.endsWith('_footer') || el.data?.role === 'footer')
+        );
+        if (footerNode) {
+          const footerW = 260.0;
+          const titleText = footerNode.title || footerNode.body || '';
+          const lineCount = Math.max(1, Math.ceil((titleText.length * 7) / (footerW - 40)));
+          const footerH = Math.max(48, 32 + lineCount * 18);
+          padBottom += footerH + 16.0;
+        }
         elkNode.layoutOptions = {
-          'elk.algorithm': 'layered',
-          'elk.direction': direction === 'column' ? 'DOWN' : 'RIGHT',
-          'elk.spacing.nodeNode': String(gap),
-          'elk.layered.spacing.nodeNodeBetweenLayers': String(gap),
-          'elk.spacing.edgeNode': '20',
-          'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-          'elk.edgeRouting': 'ORTHOGONAL',
-          'elk.padding': `[top=${topPad},left=${padLeft},bottom=${padBottom},right=${padRight}]`
+          'org.eclipse.elk.algorithm': 'layered',
+          'org.eclipse.elk.direction': direction === 'column' ? 'DOWN' : 'RIGHT',
+          'org.eclipse.elk.spacing.nodeNode': String(gap),
+          'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': String(gap),
+          'org.eclipse.elk.spacing.edgeNode': '20',
+          'org.eclipse.elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+          'org.eclipse.elk.edgeRouting': 'ORTHOGONAL',
+          'org.eclipse.elk.portConstraints': 'FIXED_SIDE',
+          'org.eclipse.elk.padding': `[top=${topPad},left=${padLeft},bottom=${padBottom},right=${padRight}]`
         };
 
       } else {
-        elkNode.width = node.width || 200;
-        elkNode.height = node.height || 80;
+        const W = node.width || 200;
+        const H = node.height || 80;
+        elkNode.width = W;
+        elkNode.height = H;
+        
+        elkNode.layoutOptions = {
+          'org.eclipse.elk.portConstraints': 'FIXED_SIDE'
+        };
+        
+        elkNode.ports = [
+          {
+            id: `${nid}-port-top`,
+            width: 1,
+            height: 1,
+            x: W / 2,
+            y: 0,
+            layoutOptions: { 'org.eclipse.elk.port.side': 'NORTH' }
+          },
+          {
+            id: `${nid}-port-bottom`,
+            width: 1,
+            height: 1,
+            x: W / 2,
+            y: H,
+            layoutOptions: { 'org.eclipse.elk.port.side': 'SOUTH' }
+          },
+          {
+            id: `${nid}-port-left`,
+            width: 1,
+            height: 1,
+            x: 0,
+            y: H / 2,
+            layoutOptions: { 'org.eclipse.elk.port.side': 'WEST' }
+          },
+          {
+            id: `${nid}-port-right`,
+            width: 1,
+            height: 1,
+            x: W,
+            y: H / 2,
+            layoutOptions: { 'org.eclipse.elk.port.side': 'EAST' }
+          }
+        ];
       }
       elkNodes[nid] = elkNode;
     });
 
-    const topRootPad = title ? 200 : 80;
+    const topRootPad = title ? 150 : 60;
     const rootAlgorithm = layoutAlgorithm || 'layered';
-    const rootDirection = layoutDirection === 'horizontal' ? 'RIGHT' : 'DOWN';
+    const rootDirection = layoutDirection === 'vertical' ? 'DOWN' : 'RIGHT';
 
     const elkRoot: any = {
       id: 'root',
       layoutOptions: {
-        'elk.algorithm': rootAlgorithm,
-        'elk.direction': rootDirection,
-        'elk.spacing.nodeNode': '80',
-        'elk.layered.spacing.nodeNodeBetweenLayers': '90',
-        'elk.spacing.edgeNode': '30',
-        'elk.spacing.edgeEdge': '15',
-        'elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
-        'elk.cycleBreaking.strategy': 'GREEDY',
-        'elk.edgeRouting': 'ORTHOGONAL',
-        'elk.hierarchyHandling': 'SEPARATE_CHILDREN',
-        'elk.layered.crossingMinimization.strategy': 'INTERACTIVE',
-        'elk.padding': `[top=${topRootPad},left=50,bottom=50,right=50]`
+        'org.eclipse.elk.algorithm': rootAlgorithm,
+        'org.eclipse.elk.direction': rootDirection,
+        'org.eclipse.elk.spacing.nodeNode': '60',
+        'org.eclipse.elk.layered.spacing.nodeNodeBetweenLayers': '70',
+        'org.eclipse.elk.spacing.edgeNode': '25',
+        'org.eclipse.elk.spacing.edgeEdge': '12',
+        'org.eclipse.elk.layered.nodePlacement.strategy': 'BRANDES_KOEPF',
+        'org.eclipse.elk.cycleBreaking.strategy': 'GREEDY',
+        'org.eclipse.elk.edgeRouting': 'ORTHOGONAL',
+        'org.eclipse.elk.hierarchyHandling': 'INCLUDE_CHILDREN',
+        'org.eclipse.elk.portConstraints': 'FIXED_SIDE',
+        'org.eclipse.elk.padding': `[top=${topRootPad},left=40,bottom=40,right=40]`
       },
       children: [],
       edges: []
@@ -265,17 +320,22 @@ self.onmessage = async (event: MessageEvent) => {
 
       const edgeOpts: any = {};
       if (isFeedback(srcId, tgtId)) {
-        edgeOpts['elk.layered.feedback'] = 'true';
+        edgeOpts['org.eclipse.elk.layered.feedback'] = 'true';
       }
 
       const src = getTopParent(srcId);
       const tgt = getTopParent(tgtId);
+      const exitPort = conn.exitPort || conn.fromPort || 'bottom';
+      const entryPort = conn.entryPort || conn.toPort || 'top';
+      const srcPortId = `${srcId}-port-${exitPort}`;
+      const tgtPortId = `${tgtId}-port-${entryPort}`;
+
       if (src !== tgt) {
         edgeCounter++;
         const edge: any = {
-          id: `edge_${edgeCounter}_${srcId}_${tgtId}`,
-          sources: [srcId],
-          targets: [tgtId]
+          id: `edge-${srcId}-${tgtId}-${i}`,
+          sources: [srcPortId],
+          targets: [tgtPortId]
         };
         if (Object.keys(edgeOpts).length > 0) {
           edge.layoutOptions = edgeOpts;
@@ -283,9 +343,9 @@ self.onmessage = async (event: MessageEvent) => {
         elkRoot.edges.push(edge);
       } else {
         const edge: any = {
-          id: `edge_internal_${i}_${srcId}_${tgtId}`,
-          sources: [srcId],
-          targets: [tgtId]
+          id: `edge-${srcId}-${tgtId}-${i}`,
+          sources: [srcPortId],
+          targets: [tgtPortId]
         };
         if (Object.keys(edgeOpts).length > 0) {
           edge.layoutOptions = edgeOpts;
@@ -298,11 +358,14 @@ self.onmessage = async (event: MessageEvent) => {
       }
     });
 
-    // Run layout synchronously using GWT dispatcher
-    let layoutResult: any = null;
-    (self as any).postMessage = (msg: any) => {
-      layoutResult = msg;
-    };
+    // Run layout asynchronously using GWT dispatcher
+    const layoutPromise = new Promise<any>((resolve) => {
+      (self as any).postMessage = (msg: any) => {
+        if (msg && msg.id === 42) {
+          resolve(msg);
+        }
+      };
+    });
 
     console.log("WORKER: Dispatching graph to GWT...");
     if (gwtDispatcher) {
@@ -315,11 +378,96 @@ self.onmessage = async (event: MessageEvent) => {
       } as any);
     }
 
+    const layoutResult = await layoutPromise;
     console.log("WORKER: GWT execution completed. layoutResult:", JSON.stringify(layoutResult));
 
     (self as any).postMessage = originalPostMessage;
 
     if (layoutResult && !layoutResult.error && layoutResult.data) {
+      const flatResultNodes: any[] = [];
+      const collectNodes = (node: any) => {
+        flatResultNodes.push(node);
+        node.children?.forEach(collectNodes);
+      };
+      collectNodes(layoutResult.data);
+      const resultMap = new Map<string, any>();
+      flatResultNodes.forEach((n) => resultMap.set(n.id, n));
+
+      // Post-process manually positioned panel footers
+      elements.forEach((node: any) => {
+        if (node.type === 'panel') {
+          const panelId = node.id;
+          const resultPanel = resultMap.get(panelId);
+          if (!resultPanel) return;
+
+          // Find the footer child node in the input elements list
+          const footerNode = elements.find(
+            (el: any) => el.parent === panelId && (el.id.endsWith('_footer') || el.data?.role === 'footer')
+          );
+          if (!footerNode) return;
+
+          // Find all other child nodes of the panel in layoutResult
+          const otherChildren = flatResultNodes.filter(
+            (n) => nodesMap.get(n.id)?.parent === panelId && n.id !== footerNode.id
+          );
+
+          let maxY = resultPanel.y + 40;
+
+          if (otherChildren.length > 0) {
+            maxY = Math.max(...otherChildren.map((c) => c.y + (c.height || 80)));
+          }
+
+          // Padding of the panel
+          let padLeft = 20, padBottom = 20, padRight = 20;
+          if (node.layout?.padding) {
+            const p = node.layout.padding;
+            if (typeof p === 'number') {
+              padLeft = p; padBottom = p; padRight = p;
+            } else {
+              padLeft = p.left ?? 20;
+              padBottom = p.bottom ?? 20;
+              padRight = p.right ?? 20;
+            }
+          }
+
+          // Footer width is the inner width of the panel
+          const footerW = Math.max(200.0, resultPanel.width - padLeft - padRight);
+          
+          // Re-measure height of footer text based on width
+          const titleText = footerNode.title || footerNode.body || '';
+          const lineCount = Math.max(1, Math.ceil((titleText.length * 7) / (footerW - 40)));
+          const footerH = Math.max(48, 32 + lineCount * 18);
+
+          // Get the original input elements reference to write layout values
+          const inputFooter = elements.find((el: any) => el.id === footerNode.id);
+          if (inputFooter) {
+            inputFooter.width = footerW;
+            inputFooter.height = footerH;
+          }
+
+          // Now create the positioned footer node to return to the canvas
+          const footerX = padLeft + (resultPanel.width - padLeft - padRight - footerW) / 2.0;
+          const footerY = maxY + 16.0;
+
+          const resultFooter: any = {
+            id: footerNode.id,
+            x: footerX,
+            y: footerY,
+            width: footerW,
+            height: footerH
+          };
+
+          if (!resultPanel.children) {
+            resultPanel.children = [];
+          }
+          resultPanel.children.push(resultFooter);
+
+          // Update panel height to fit the footer
+          const neededPanelH = footerY + footerH + padBottom;
+          resultPanel.height = Math.max(resultPanel.height, neededPanelH);
+        }
+      });
+
       self.postMessage({ success: true, graph: layoutResult.data });
     } else {
       console.error("WORKER: Layout failed, layoutResult error:", layoutResult?.error);

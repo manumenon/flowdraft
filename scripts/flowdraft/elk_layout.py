@@ -71,6 +71,9 @@ def route_with_elk(ir: dict) -> bool:
     elk_nodes = {}
     for node in nodes:
         nid = node["id"]
+        # Skip placing panel footers in the ELK graph layout
+        if nid.endswith("_footer") or node.get("_role") == "footer":
+            continue
         ntype = node.get("type", "card")
         
         elk_node = {
@@ -129,6 +132,8 @@ def route_with_elk(ir: dict) -> bool:
     # Assemble hierarchy
     for node in nodes:
         nid = node["id"]
+        if nid.endswith("_footer") or node.get("_role") == "footer":
+            continue
         elk_node = elk_nodes[nid]
         parent_id = node.get("parent")
         if parent_id and parent_id in elk_nodes:
@@ -287,10 +292,74 @@ def route_with_elk(ir: dict) -> bool:
             apply_absolute_coords(child, next_abs_x, next_abs_y)
 
     apply_absolute_coords(positioned_graph, 0.0, 0.0)
+
+    # 7. Position panel footers manually centered at the bottom of the panel content
+    for node in nodes:
+        if node.get("type") == "panel":
+            panel_id = node["id"]
+            # Find footer node of this panel
+            footer_node = None
+            for child_id in node.get("children", []):
+                child = nodes_map.get(child_id)
+                if child and (child_id.endswith("_footer") or child.get("_role") == "footer"):
+                    footer_node = child
+                    break
+            
+            if footer_node:
+                # Find all non-footer in-flow children to get bounding box
+                other_children = [
+                    nodes_map[cid] for cid in node.get("children", [])
+                    if cid in nodes_map and cid != footer_node["id"] and not nodes_map[cid].get("out_of_flow")
+                ]
+                
+                pad = node.get("style", {}).get("padding", {"left": 12, "right": 12, "top": 36, "bottom": 12})
+                pad_l = pad.get("left", 12)
+                pad_r = pad.get("right", 12)
+                pad_t = pad.get("top", 36)
+                pad_b = pad.get("bottom", 12)
+                
+                if other_children:
+                    min_x = min(c["x"] for c in other_children)
+                    max_x = max(c["x"] + c["width"] for c in other_children)
+                    max_y = max(c["y"] + c["height"] for c in other_children)
+                else:
+                    min_x = node["x"] + pad_l
+                    max_x = node["x"] + pad_l
+                    max_y = node["y"] + pad_t
+                
+                content_w = max_x - min_x
+                # Make the footer span the full panel width (minus padding)
+                footer_w = max(200.0, node["width"] - pad_l - pad_r)
+                footer_node["width"] = footer_w
+                
+                # Re-measure using PIL temp draw
+                from scripts.flowdraft.compiler import _measure_card
+                from PIL import Image, ImageDraw
+                img_temp = Image.new("RGB", (1, 1))
+                draw_temp = ImageDraw.Draw(img_temp)
+                
+                res = _measure_card(footer_node, draw_temp, footer_node.get("_resolved_style", {}))
+                footer_node["height"] = res["height"]
+                footer_node["layout_offsets"] = res["layout_offsets"]
+                
+                # Place footer centered horizontally, and 16px below max_y
+                footer_node["x"] = node["x"] + pad_l + (node["width"] - pad_l - pad_r - footer_w) / 2.0
+                footer_node["y"] = max_y + 16.0
+                
+                # Update panel height to fit the footer
+                needed_panel_h = (footer_node["y"] - node["y"]) + footer_node["height"] + pad_b
+                node["height"] = max(node["height"], needed_panel_h)
     
     # Store dynamic canvas size
-    root_w = positioned_graph.get("width", 1000)
-    root_h = positioned_graph.get("height", 1000)
+    max_node_r = 1000.0
+    max_node_b = 1000.0
+    for node in nodes:
+        if node.get("parent") is None:
+            max_node_r = max(max_node_r, node["x"] + node["width"] + 50.0)
+            max_node_b = max(max_node_b, node["y"] + node["height"] + 50.0)
+            
+    root_w = max(positioned_graph.get("width", 1000), max_node_r)
+    root_h = max(positioned_graph.get("height", 1000), max_node_b)
     if "canvas" not in ir:
         ir["canvas"] = {}
     ir["canvas"]["width"] = int(root_w)

@@ -1,0 +1,417 @@
+{
+  "id": "root",
+  "layoutOptions": {
+    "elk.algorithm": "layered",
+    "elk.direction": "DOWN",
+    "elk.spacing.nodeNode": "80",
+    "elk.layered.spacing.nodeNodeBetweenLayers": "90",
+    "elk.spacing.edgeNode": "30",
+    "elk.spacing.edgeEdge": "15",
+    "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+    "elk.cycleBreaking.strategy": "GREEDY",
+    "elk.edgeRouting": "ORTHOGONAL",
+    "elk.hierarchyHandling": "SEPARATE_CHILDREN",
+    "elk.layered.crossingMinimization.strategy": "INTERACTIVE",
+    "elk.padding": "[top=200,left=50,bottom=50,right=50]"
+  },
+  "children": [
+    {
+      "id": "input_panel",
+      "children": [
+        {
+          "id": "input_0",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 50
+        },
+        {
+          "id": "input_1",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 64.5
+        },
+        {
+          "id": "input_2",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 52.0
+        },
+        {
+          "id": "input_3",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 50
+        },
+        {
+          "id": "input_4",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 52.0
+        }
+      ],
+      "edges": [],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.spacing.nodeNode": "20",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "20",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=64.0,left=20,bottom=20,right=20]"
+      }
+    },
+    {
+      "id": "left_panel",
+      "children": [
+        {
+          "id": "left_0",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 92.0
+        },
+        {
+          "id": "left_1",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 89.5
+        },
+        {
+          "id": "left_2",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 93.0
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge_internal_18_left_0_left_1",
+          "sources": [
+            "left_0"
+          ],
+          "targets": [
+            "left_1"
+          ]
+        },
+        {
+          "id": "edge_internal_19_left_1_left_2",
+          "sources": [
+            "left_1"
+          ],
+          "targets": [
+            "left_2"
+          ]
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.spacing.nodeNode": "17",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "17",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=64.0,left=20,bottom=20,right=20]"
+      }
+    },
+    {
+      "id": "core_panel",
+      "children": [
+        {
+          "id": "core_0",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 95.5
+        },
+        {
+          "id": "core_1",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 92.0
+        },
+        {
+          "id": "core_2",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 93.5
+        },
+        {
+          "id": "core_3",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 95.5
+        },
+        {
+          "id": "core_4",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 92.0
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge_internal_5_core_0_core_1",
+          "sources": [
+            "core_0"
+          ],
+          "targets": [
+            "core_1"
+          ]
+        },
+        {
+          "id": "edge_internal_6_core_1_core_2",
+          "sources": [
+            "core_1"
+          ],
+          "targets": [
+            "core_2"
+          ]
+        },
+        {
+          "id": "edge_internal_7_core_2_core_3",
+          "sources": [
+            "core_2"
+          ],
+          "targets": [
+            "core_3"
+          ]
+        },
+        {
+          "id": "edge_internal_8_core_3_core_4",
+          "sources": [
+            "core_3"
+          ],
+          "targets": [
+            "core_4"
+          ]
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "RIGHT",
+        "elk.spacing.nodeNode": "20",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "20",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=83.0,left=20,bottom=20,right=20]"
+      }
+    },
+    {
+      "id": "decision",
+      "children": [],
+      "edges": [],
+      "width": 264.0,
+      "height": 155.0
+    },
+    {
+      "id": "center_panel",
+      "children": [
+        {
+          "id": "store_0",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 87.5
+        },
+        {
+          "id": "store_1",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 87.5
+        },
+        {
+          "id": "store_2",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 90.5
+        },
+        {
+          "id": "store_3",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 96.0
+        }
+      ],
+      "edges": [],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "RIGHT",
+        "elk.spacing.nodeNode": "28",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "28",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=83.0,left=20,bottom=20,right=20]"
+      }
+    },
+    {
+      "id": "output",
+      "children": [],
+      "edges": [],
+      "width": 200,
+      "height": 80
+    },
+    {
+      "id": "right_panel",
+      "children": [
+        {
+          "id": "right_0",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 91.5
+        },
+        {
+          "id": "right_1",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 91.5
+        },
+        {
+          "id": "right_2",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 95.5
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge_internal_20_right_0_right_1",
+          "sources": [
+            "right_0"
+          ],
+          "targets": [
+            "right_1"
+          ]
+        },
+        {
+          "id": "edge_internal_21_right_1_right_2",
+          "sources": [
+            "right_1"
+          ],
+          "targets": [
+            "right_2"
+          ]
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.spacing.nodeNode": "14",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "14",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=64.0,left=20,bottom=20,right=20]"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_1_input_panel_core_panel",
+      "sources": [
+        "input_panel"
+      ],
+      "targets": [
+        "core_panel"
+      ]
+    },
+    {
+      "id": "edge_2_core_panel_decision",
+      "sources": [
+        "core_panel"
+      ],
+      "targets": [
+        "decision"
+      ]
+    },
+    {
+      "id": "edge_3_decision_output",
+      "sources": [
+        "decision"
+      ],
+      "targets": [
+        "output"
+      ]
+    },
+    {
+      "id": "edge_4_decision_core_panel",
+      "sources": [
+        "decision"
+      ],
+      "targets": [
+        "core_panel"
+      ],
+      "layoutOptions": {
+        "elk.layered.feedback": "true"
+      }
+    },
+    {
+      "id": "edge_5_output_right_panel",
+      "sources": [
+        "output"
+      ],
+      "targets": [
+        "right_panel"
+      ]
+    },
+    {
+      "id": "edge_6_left_panel_core_panel",
+      "sources": [
+        "left_panel"
+      ],
+      "targets": [
+        "core_panel"
+      ]
+    },
+    {
+      "id": "edge_7_core_panel_center_panel",
+      "sources": [
+        "core_panel"
+      ],
+      "targets": [
+        "center_panel"
+      ]
+    },
+    {
+      "id": "edge_8_center_panel_right_panel",
+      "sources": [
+        "center_panel"
+      ],
+      "targets": [
+        "right_panel"
+      ]
+    },
+    {
+      "id": "edge_9_right_panel_decision",
+      "sources": [
+        "right_panel"
+      ],
+      "targets": [
+        "decision"
+      ],
+      "layoutOptions": {
+        "elk.layered.feedback": "true"
+      }
+    }
+  ]
+}

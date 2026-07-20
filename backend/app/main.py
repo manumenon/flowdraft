@@ -40,9 +40,16 @@ app = FastAPI(
 )
 
 # CORS middleware setup
+origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+if settings.FRONTEND_URL:
+    for url in settings.FRONTEND_URL.split(","):
+        url = url.strip()
+        if url and url not in origins:
+            origins.append(url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,17 +59,32 @@ app.add_middleware(
 @app.middleware("http")
 async def mcp_auth_middleware(request: Request, call_next):
     if request.url.path.startswith(("/api/v1/mcp", "/api/mcp")):
+        # Let preflight CORS requests pass through to CORSMiddleware
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         api_key = request.headers.get("X-MCP-API-Key") or request.query_params.get("api_key")
+        
+        origin = request.headers.get("origin")
+        headers = {}
+        if origin:
+            headers["Access-Control-Allow-Origin"] = origin
+            headers["Access-Control-Allow-Credentials"] = "true"
+            headers["Access-Control-Allow-Headers"] = "*"
+            headers["Access-Control-Allow-Methods"] = "*"
+
         if not api_key:
             return JSONResponse(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                content={"detail": "MCP API Key is missing"}
+                content={"detail": "MCP API Key is missing"},
+                headers=headers
             )
         allowed_keys = [k.strip() for k in settings.MCP_API_KEYS.split(",") if k.strip()]
         if api_key not in allowed_keys:
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
-                content={"detail": "Invalid MCP API Key"}
+                content={"detail": "Invalid MCP API Key"},
+                headers=headers
             )
     return await call_next(request)
 

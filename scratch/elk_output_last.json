@@ -1,0 +1,861 @@
+{
+  "id": "root",
+  "layoutOptions": {
+    "elk.algorithm": "layered",
+    "elk.direction": "DOWN",
+    "elk.spacing.nodeNode": "80",
+    "elk.layered.spacing.nodeNodeBetweenLayers": "90",
+    "elk.spacing.edgeNode": "30",
+    "elk.spacing.edgeEdge": "15",
+    "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+    "elk.cycleBreaking.strategy": "GREEDY",
+    "elk.edgeRouting": "ORTHOGONAL",
+    "elk.hierarchyHandling": "SEPARATE_CHILDREN",
+    "elk.layered.crossingMinimization.strategy": "INTERACTIVE",
+    "elk.padding": "[top=200,left=50,bottom=50,right=50]"
+  },
+  "children": [
+    {
+      "id": "input_panel",
+      "children": [
+        {
+          "id": "input_0",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 50,
+          "$H": 279,
+          "x": 20,
+          "y": 64
+        },
+        {
+          "id": "input_1",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 64.5,
+          "$H": 281,
+          "x": 20,
+          "y": 206
+        },
+        {
+          "id": "input_2",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 52,
+          "$H": 283,
+          "x": 20,
+          "y": 134
+        },
+        {
+          "id": "input_3",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 50,
+          "$H": 285,
+          "x": 150,
+          "y": 64
+        },
+        {
+          "id": "input_4",
+          "children": [],
+          "edges": [],
+          "width": 110,
+          "height": 52,
+          "$H": 287,
+          "x": 150,
+          "y": 134
+        }
+      ],
+      "edges": [],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.spacing.nodeNode": "20",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "20",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=64.0,left=20,bottom=20,right=20]"
+      },
+      "$H": 277,
+      "x": 755.5333333333333,
+      "y": 302,
+      "width": 280,
+      "height": 290.5
+    },
+    {
+      "id": "left_panel",
+      "children": [
+        {
+          "id": "left_0",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 92,
+          "$H": 291,
+          "x": 20,
+          "y": 64
+        },
+        {
+          "id": "left_1",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 89.5,
+          "$H": 293,
+          "x": 20,
+          "y": 173
+        },
+        {
+          "id": "left_2",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 93,
+          "$H": 295,
+          "x": 20,
+          "y": 279.5
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge_internal_18_left_0_left_1",
+          "sources": [
+            "left_0"
+          ],
+          "targets": [
+            "left_1"
+          ],
+          "sections": [
+            {
+              "id": "edge_internal_18_left_0_left_1_s0",
+              "startPoint": {
+                "x": 120,
+                "y": 156
+              },
+              "endPoint": {
+                "x": 120,
+                "y": 173
+              },
+              "incomingShape": "left_0",
+              "outgoingShape": "left_1"
+            }
+          ],
+          "container": "left_panel"
+        },
+        {
+          "id": "edge_internal_19_left_1_left_2",
+          "sources": [
+            "left_1"
+          ],
+          "targets": [
+            "left_2"
+          ],
+          "sections": [
+            {
+              "id": "edge_internal_19_left_1_left_2_s0",
+              "startPoint": {
+                "x": 120,
+                "y": 262.5
+              },
+              "endPoint": {
+                "x": 120,
+                "y": 279.5
+              },
+              "incomingShape": "left_1",
+              "outgoingShape": "left_2"
+            }
+          ],
+          "container": "left_panel"
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.spacing.nodeNode": "17",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "17",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=64.0,left=20,bottom=20,right=20]"
+      },
+      "$H": 289,
+      "x": 435.5333333333333,
+      "y": 200,
+      "width": 240,
+      "height": 392.5
+    },
+    {
+      "id": "core_panel",
+      "children": [
+        {
+          "id": "core_0",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 95.5,
+          "$H": 299,
+          "x": 20,
+          "y": 83
+        },
+        {
+          "id": "core_1",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 92,
+          "$H": 301,
+          "x": 240,
+          "y": 84.75
+        },
+        {
+          "id": "core_2",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 93.5,
+          "$H": 303,
+          "x": 460,
+          "y": 84
+        },
+        {
+          "id": "core_3",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 95.5,
+          "$H": 305,
+          "x": 680,
+          "y": 83
+        },
+        {
+          "id": "core_4",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 92,
+          "$H": 307,
+          "x": 900,
+          "y": 84.75
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge_internal_5_core_0_core_1",
+          "sources": [
+            "core_0"
+          ],
+          "targets": [
+            "core_1"
+          ],
+          "sections": [
+            {
+              "id": "edge_internal_5_core_0_core_1_s0",
+              "startPoint": {
+                "x": 220,
+                "y": 130.75
+              },
+              "endPoint": {
+                "x": 240,
+                "y": 130.75
+              },
+              "incomingShape": "core_0",
+              "outgoingShape": "core_1"
+            }
+          ],
+          "container": "core_panel"
+        },
+        {
+          "id": "edge_internal_6_core_1_core_2",
+          "sources": [
+            "core_1"
+          ],
+          "targets": [
+            "core_2"
+          ],
+          "sections": [
+            {
+              "id": "edge_internal_6_core_1_core_2_s0",
+              "startPoint": {
+                "x": 440,
+                "y": 130.75
+              },
+              "endPoint": {
+                "x": 460,
+                "y": 130.75
+              },
+              "incomingShape": "core_1",
+              "outgoingShape": "core_2"
+            }
+          ],
+          "container": "core_panel"
+        },
+        {
+          "id": "edge_internal_7_core_2_core_3",
+          "sources": [
+            "core_2"
+          ],
+          "targets": [
+            "core_3"
+          ],
+          "sections": [
+            {
+              "id": "edge_internal_7_core_2_core_3_s0",
+              "startPoint": {
+                "x": 660,
+                "y": 130.75
+              },
+              "endPoint": {
+                "x": 680,
+                "y": 130.75
+              },
+              "incomingShape": "core_2",
+              "outgoingShape": "core_3"
+            }
+          ],
+          "container": "core_panel"
+        },
+        {
+          "id": "edge_internal_8_core_3_core_4",
+          "sources": [
+            "core_3"
+          ],
+          "targets": [
+            "core_4"
+          ],
+          "sections": [
+            {
+              "id": "edge_internal_8_core_3_core_4_s0",
+              "startPoint": {
+                "x": 880,
+                "y": 130.75
+              },
+              "endPoint": {
+                "x": 900,
+                "y": 130.75
+              },
+              "incomingShape": "core_3",
+              "outgoingShape": "core_4"
+            }
+          ],
+          "container": "core_panel"
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "RIGHT",
+        "elk.spacing.nodeNode": "20",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "20",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=83.0,left=20,bottom=20,right=20]"
+      },
+      "$H": 297,
+      "x": 522.2,
+      "y": 682.5,
+      "width": 1120,
+      "height": 198.5
+    },
+    {
+      "id": "decision",
+      "children": [],
+      "edges": [],
+      "width": 264,
+      "height": 155,
+      "$H": 309,
+      "x": 50,
+      "y": 1848
+    },
+    {
+      "id": "center_panel",
+      "children": [
+        {
+          "id": "store_0",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 87.5,
+          "$H": 313,
+          "x": 20,
+          "y": 83
+        },
+        {
+          "id": "store_1",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 87.5,
+          "$H": 315,
+          "x": 240,
+          "y": 83
+        },
+        {
+          "id": "store_2",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 90.5,
+          "$H": 317,
+          "x": 20,
+          "y": 190.5
+        },
+        {
+          "id": "store_3",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 96,
+          "$H": 319,
+          "x": 240,
+          "y": 190.5
+        }
+      ],
+      "edges": [],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "RIGHT",
+        "elk.spacing.nodeNode": "28",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "28",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=83.0,left=20,bottom=20,right=20]"
+      },
+      "$H": 311,
+      "x": 572.2,
+      "y": 971,
+      "width": 460,
+      "height": 306.5
+    },
+    {
+      "id": "output",
+      "children": [],
+      "edges": [],
+      "width": 200,
+      "height": 80,
+      "$H": 321,
+      "x": 292.2,
+      "y": 1197.5
+    },
+    {
+      "id": "right_panel",
+      "children": [
+        {
+          "id": "right_0",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 91.5,
+          "$H": 325,
+          "x": 20,
+          "y": 64
+        },
+        {
+          "id": "right_1",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 91.5,
+          "$H": 327,
+          "x": 20,
+          "y": 169.5
+        },
+        {
+          "id": "right_2",
+          "children": [],
+          "edges": [],
+          "width": 200,
+          "height": 95.5,
+          "$H": 329,
+          "x": 20,
+          "y": 275
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge_internal_20_right_0_right_1",
+          "sources": [
+            "right_0"
+          ],
+          "targets": [
+            "right_1"
+          ],
+          "sections": [
+            {
+              "id": "edge_internal_20_right_0_right_1_s0",
+              "startPoint": {
+                "x": 120,
+                "y": 155.5
+              },
+              "endPoint": {
+                "x": 120,
+                "y": 169.5
+              },
+              "incomingShape": "right_0",
+              "outgoingShape": "right_1"
+            }
+          ],
+          "container": "right_panel"
+        },
+        {
+          "id": "edge_internal_21_right_1_right_2",
+          "sources": [
+            "right_1"
+          ],
+          "targets": [
+            "right_2"
+          ],
+          "sections": [
+            {
+              "id": "edge_internal_21_right_1_right_2_s0",
+              "startPoint": {
+                "x": 120,
+                "y": 261
+              },
+              "endPoint": {
+                "x": 120,
+                "y": 275
+              },
+              "incomingShape": "right_1",
+              "outgoingShape": "right_2"
+            }
+          ],
+          "container": "right_panel"
+        }
+      ],
+      "layoutOptions": {
+        "elk.algorithm": "layered",
+        "elk.direction": "DOWN",
+        "elk.spacing.nodeNode": "14",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "14",
+        "elk.spacing.edgeNode": "20",
+        "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.padding": "[top=64.0,left=20,bottom=20,right=20]"
+      },
+      "$H": 323,
+      "x": 642.2,
+      "y": 1367.5,
+      "width": 240,
+      "height": 390.5
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_1_input_panel_core_panel",
+      "sources": [
+        "input_panel"
+      ],
+      "targets": [
+        "core_panel"
+      ],
+      "sections": [
+        {
+          "id": "edge_1_input_panel_core_panel_s0",
+          "startPoint": {
+            "x": 895.5333333333333,
+            "y": 592.5
+          },
+          "endPoint": {
+            "x": 895.5333333333333,
+            "y": 682.5
+          },
+          "incomingShape": "input_panel",
+          "outgoingShape": "core_panel"
+        }
+      ],
+      "container": "root"
+    },
+    {
+      "id": "edge_2_core_panel_decision",
+      "sources": [
+        "core_panel"
+      ],
+      "targets": [
+        "decision"
+      ],
+      "sections": [
+        {
+          "id": "edge_2_core_panel_decision_s0",
+          "startPoint": {
+            "x": 1082.2,
+            "y": 881
+          },
+          "endPoint": {
+            "x": 208.39999999999998,
+            "y": 1848
+          },
+          "bendPoints": [
+            {
+              "x": 1082.2,
+              "y": 891
+            },
+            {
+              "x": 245.2,
+              "y": 891
+            },
+            {
+              "x": 245.2,
+              "y": 1788
+            },
+            {
+              "x": 208.39999999999998,
+              "y": 1788
+            }
+          ],
+          "incomingShape": "core_panel",
+          "outgoingShape": "decision"
+        }
+      ],
+      "container": "root"
+    },
+    {
+      "id": "edge_3_decision_output",
+      "sources": [
+        "decision"
+      ],
+      "targets": [
+        "output"
+      ],
+      "sections": [
+        {
+          "id": "edge_3_decision_output_s0",
+          "startPoint": {
+            "x": 155.6,
+            "y": 1848
+          },
+          "endPoint": {
+            "x": 425.5333333333333,
+            "y": 1277.5
+          },
+          "bendPoints": [
+            {
+              "x": 155.59999999999997,
+              "y": 1768
+            },
+            {
+              "x": 229.2,
+              "y": 1768
+            },
+            {
+              "x": 229.2,
+              "y": 1287.5
+            },
+            {
+              "x": 425.5333333333333,
+              "y": 1287.5
+            }
+          ],
+          "incomingShape": "decision",
+          "outgoingShape": "output"
+        }
+      ],
+      "container": "root"
+    },
+    {
+      "id": "edge_4_decision_core_panel",
+      "sources": [
+        "decision"
+      ],
+      "targets": [
+        "core_panel"
+      ],
+      "layoutOptions": {
+        "elk.layered.feedback": "true"
+      },
+      "sections": [
+        {
+          "id": "edge_4_decision_core_panel_s0",
+          "startPoint": {
+            "x": 261.2,
+            "y": 1848
+          },
+          "endPoint": {
+            "x": 1362.2,
+            "y": 881
+          },
+          "bendPoints": [
+            {
+              "x": 261.2,
+              "y": 901
+            },
+            {
+              "x": 1362.2,
+              "y": 901
+            }
+          ],
+          "incomingShape": "decision",
+          "outgoingShape": "core_panel"
+        }
+      ],
+      "container": "root"
+    },
+    {
+      "id": "edge_5_output_right_panel",
+      "sources": [
+        "output"
+      ],
+      "targets": [
+        "right_panel"
+      ],
+      "sections": [
+        {
+          "id": "edge_5_output_right_panel_s0",
+          "startPoint": {
+            "x": 358.8666666666667,
+            "y": 1277.5
+          },
+          "endPoint": {
+            "x": 722.2,
+            "y": 1367.5
+          },
+          "bendPoints": [
+            {
+              "x": 358.8666666666667,
+              "y": 1297.5
+            },
+            {
+              "x": 722.2,
+              "y": 1297.5
+            }
+          ],
+          "incomingShape": "output",
+          "outgoingShape": "right_panel"
+        }
+      ],
+      "container": "root"
+    },
+    {
+      "id": "edge_6_left_panel_core_panel",
+      "sources": [
+        "left_panel"
+      ],
+      "targets": [
+        "core_panel"
+      ],
+      "sections": [
+        {
+          "id": "edge_6_left_panel_core_panel_s0",
+          "startPoint": {
+            "x": 555.5333333333333,
+            "y": 592.5
+          },
+          "endPoint": {
+            "x": 1268.8666666666666,
+            "y": 682.5
+          },
+          "bendPoints": [
+            {
+              "x": 555.5333333333333,
+              "y": 602.5
+            },
+            {
+              "x": 1268.8666666666666,
+              "y": 602.5
+            }
+          ],
+          "incomingShape": "left_panel",
+          "outgoingShape": "core_panel"
+        }
+      ],
+      "container": "root"
+    },
+    {
+      "id": "edge_7_core_panel_center_panel",
+      "sources": [
+        "core_panel"
+      ],
+      "targets": [
+        "center_panel"
+      ],
+      "sections": [
+        {
+          "id": "edge_7_core_panel_center_panel_s0",
+          "startPoint": {
+            "x": 802.2,
+            "y": 881
+          },
+          "endPoint": {
+            "x": 802.2,
+            "y": 971
+          },
+          "incomingShape": "core_panel",
+          "outgoingShape": "center_panel"
+        }
+      ],
+      "container": "root"
+    },
+    {
+      "id": "edge_8_center_panel_right_panel",
+      "sources": [
+        "center_panel"
+      ],
+      "targets": [
+        "right_panel"
+      ],
+      "sections": [
+        {
+          "id": "edge_8_center_panel_right_panel_s0",
+          "startPoint": {
+            "x": 802.2,
+            "y": 1277.5
+          },
+          "endPoint": {
+            "x": 802.2,
+            "y": 1367.5
+          },
+          "incomingShape": "center_panel",
+          "outgoingShape": "right_panel"
+        }
+      ],
+      "container": "root"
+    },
+    {
+      "id": "edge_9_right_panel_decision",
+      "sources": [
+        "right_panel"
+      ],
+      "targets": [
+        "decision"
+      ],
+      "layoutOptions": {
+        "elk.layered.feedback": "true"
+      },
+      "sections": [
+        {
+          "id": "edge_9_right_panel_decision_s0",
+          "startPoint": {
+            "x": 762.2,
+            "y": 1758
+          },
+          "endPoint": {
+            "x": 102.8,
+            "y": 1848
+          },
+          "bendPoints": [
+            {
+              "x": 762.2,
+              "y": 1778
+            },
+            {
+              "x": 102.80000000000001,
+              "y": 1778
+            }
+          ],
+          "incomingShape": "right_panel",
+          "outgoingShape": "decision"
+        }
+      ],
+      "container": "root"
+    }
+  ],
+  "$H": 13,
+  "x": 0,
+  "y": 0,
+  "width": 1692.2,
+  "height": 2053
+}

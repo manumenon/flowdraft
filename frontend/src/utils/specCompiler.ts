@@ -88,6 +88,14 @@ export function adjustColor(color?: string | null, theme: string = 'dark'): stri
       '#04200f': '#dcfce7',
       '#17091d': '#ede9fe',
       '#052515': '#dcfce7',
+      '#14b8a6': '#0f766e', // Teal preset
+      '#10b981': '#047857', // Emerald preset
+      '#3b82f6': '#1d4ed8', // Blue preset
+      '#6366f1': '#4338ca', // Indigo preset
+      '#f59e0b': '#b45309', // Amber preset
+      '#f43f5e': '#be185d', // Rose preset
+      '#a855f7': '#6d28d9', // Purple preset
+      '#64748b': '#475569', // Slate preset
     };
     const colorLower = color.toLowerCase();
     return mappings[colorLower] || color;
@@ -156,20 +164,31 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
     if (clonedEl.type === 'card') {
       const bodyText = clonedEl.body || '';
       const lineCount = bodyText.split('\n').length;
-      clonedEl.width = 240;
+      clonedEl.width = 260;
       clonedEl.height = Math.max(110, 80 + lineCount * 18);
     } else if (clonedEl.type === 'input') {
-      clonedEl.width = 180;
+      clonedEl.width = 220;
       clonedEl.height = 42;
     } else if (clonedEl.type === 'diamond') {
-      clonedEl.width = 180;
-      clonedEl.height = 180;
+      const text = `${clonedEl.title || ''}\n${clonedEl.body || ''}`;
+      const lines = text.split('\n').filter(Boolean);
+      clonedEl.width = 200;
+      clonedEl.height = Math.max(200, 100 + lines.length * 28);
     } else if (clonedEl.type === 'label') {
       clonedEl.width = 150;
       clonedEl.height = 36;
     } else if (clonedEl.type === 'group') {
       clonedEl.width = 220;
       clonedEl.height = 220;
+    } else if (clonedEl.type === 'cylinder') {
+      clonedEl.width = 120;
+      clonedEl.height = 100;
+    } else if (clonedEl.type === 'cloud') {
+      clonedEl.width = 140;
+      clonedEl.height = 90;
+    } else if (clonedEl.type === 'ellipse') {
+      clonedEl.width = 150;
+      clonedEl.height = 80;
     }
 
     flatElements.push(clonedEl);
@@ -208,12 +227,16 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
     if (el.width) style.width = el.width;
     if (el.height) style.height = el.height;
 
+    const isPanel = el.type === 'panel';
+    const nodeZIndex = isPanel ? 1 : 5;
+
     return {
       id: el.id,
       type: el.type,
       position: { x: el.x || 0, y: el.y || 0 },
       parentId: el.parent || undefined,
       extent: el.parent ? 'parent' : undefined,
+      zIndex: nodeZIndex,
       style,
       data: {
         title: el.title,
@@ -320,6 +343,16 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
 
   const shouldAutoColor = uniqueSources.length >= 3;
 
+  // Build annotation lookup map to attach to edge labels
+  const annotationMap: Record<string, string> = {};
+  if (Array.isArray(spec.annotations)) {
+    spec.annotations.forEach((ann: any) => {
+      if (ann.from && ann.to && ann.text) {
+        annotationMap[`${ann.from}->${ann.to}`] = ann.text;
+      }
+    });
+  }
+
   const rfEdges = rawConnections.map((conn, idx) => {
     const u = conn.from;
     const v = conn.to;
@@ -346,14 +379,18 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
     let edgeColor = conn.color || autoColor || themeColors.muted;
     edgeColor = adjustColor(edgeColor, theme);
 
+    // Resolve label
+    const annotationLabel = annotationMap[`${conn.from}->${conn.to}`];
+    const edgeLabel = conn.label || (conn as any).text || annotationLabel;
+
     return {
       id: `edge-${conn.from}-${conn.to}-${idx}`,
       source: conn.from,
       target: conn.to,
-      sourceHandle: exitPort,
-      targetHandle: entryPort,
+      sourceHandle: `source-${exitPort}`,
+      targetHandle: `target-${entryPort}`,
       type: 'routed',
-      zIndex: 10,
+      zIndex: 3,
       markerEnd: {
         type: MarkerType.ArrowClosed,
         color: edgeColor,
@@ -363,7 +400,7 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
       data: {
         color: edgeColor,
         style: conn.style || 'solid',
-        label: conn.label,
+        label: edgeLabel,
         parallelIndex,
         parallelCount,
         sourceIndex,

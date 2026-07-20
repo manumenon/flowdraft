@@ -360,7 +360,7 @@ def _measure_card(
         title_x = pad_l
 
     title_max_w = base_w - title_x - pad_r
-    title_max_h = 30.0  # initial budget
+    title_max_h = 60.0  # initial budget
     title_start_size = 20
     title_min_size = 12
 
@@ -476,8 +476,8 @@ def _measure_diamond(
     inner_w = base_w * 0.50
     inner_h = base_h * 0.50
 
-    title_max_h = inner_h * 0.45
-    body_max_h = inner_h * 0.55
+    title_max_h = 100.0
+    body_max_h = 150.0
 
     _, t_size, t_w, t_h = _measure_text(
         draw, title, inner_w, title_max_h, 18,
@@ -561,7 +561,7 @@ def _measure_input(
     # Label below icon
     label_y = icon_area_h + 6
     label_max_w = base_w
-    label_max_h = max(20.0, base_h - label_y)
+    label_max_h = 60.0
 
     _, l_size, l_w, l_h = _measure_text(
         draw, label, label_max_w, label_max_h, 13,

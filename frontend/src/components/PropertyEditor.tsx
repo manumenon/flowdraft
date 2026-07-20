@@ -100,6 +100,21 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   const findElementRecursive = (elements: ElementSpec[], id: string): ElementSpec | null => {
     for (const el of elements) {
       if (el.id === id) return el;
+      if (el.type === 'panel' && el.footer) {
+        const footerId = el.footer.id || `${el.id}_footer`;
+        if (footerId === id) {
+          return {
+            id: footerId,
+            type: el.footer.type || 'card',
+            title: el.footer.title || '',
+            body: el.footer.body || '',
+            icon: el.footer.icon,
+            style: el.footer.style || {},
+            _role: 'footer',
+            parent: el.id,
+          };
+        }
+      }
       if (el.children) {
         const found = findElementRecursive(el.children, id);
         if (found) return found;
@@ -136,6 +151,30 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
               ...el,
               [key]: value,
             };
+          }
+          if (el.type === 'panel' && el.footer) {
+            const footerId = el.footer.id || `${el.id}_footer`;
+            if (footerId === selectedElementId) {
+              if (isStyle) {
+                return {
+                  ...el,
+                  footer: {
+                    ...el.footer,
+                    style: {
+                      ...(el.footer.style || {}),
+                      [key]: value,
+                    },
+                  },
+                };
+              }
+              return {
+                ...el,
+                footer: {
+                  ...el.footer,
+                  [key]: value,
+                },
+              };
+            }
           }
           if (el.children) {
             return {
@@ -181,6 +220,14 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         return elements
           .filter((el) => el.id !== selectedElementId)
           .map((el) => {
+            if (el.type === 'panel' && el.footer) {
+              const footerId = el.footer.id || `${el.id}_footer`;
+              if (footerId === selectedElementId) {
+                const copy = { ...el };
+                delete copy.footer;
+                return copy;
+              }
+            }
             if (el.children) {
               return {
                 ...el,
@@ -316,7 +363,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
 
   if (isCollapsed) {
     return (
-      <div className="w-14 bg-surface-1 border-l border-border-themed flex flex-col items-center py-4 justify-between h-full flex-shrink-0 text-text-primary font-sans shadow-premium z-30 select-none">
+      <div className="w-full bg-surface-1 border-l border-border-themed flex flex-col items-center py-4 justify-between h-full flex-shrink-0 text-text-primary font-sans shadow-premium z-30 select-none">
         <div className="flex flex-col items-center gap-6 w-full">
           {/* Toggle sidebar button */}
           <button
@@ -393,7 +440,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   ] as const;
 
   return (
-    <div className="w-80 bg-surface-1 border-l border-border-themed flex flex-col h-full flex-shrink-0 text-text-primary font-sans shadow-premium select-none">
+    <div className="w-full bg-surface-1 border-l border-border-themed flex flex-col h-full flex-shrink-0 text-text-primary font-sans shadow-premium select-none">
       {/* Tabs list */}
       <div className="flex border-b border-border-themed bg-surface-2/45 p-1 gap-1 flex-shrink-0">
         {tabs.map((t) => (
@@ -594,9 +641,9 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                     type="range"
                     min="1"
                     max="8"
-                    step="1"
+                    step="0.5"
                     value={selectedNode.style?.strokeWidth ?? 2}
-                    onChange={(e) => updateNodeProperty('strokeWidth', parseInt(e.target.value), true)}
+                    onChange={(e) => updateNodeProperty('strokeWidth', parseFloat(e.target.value), true)}
                     className="w-full accent-accent bg-surface-2 h-1 rounded focus-ring cursor-pointer"
                   />
                 </div>
@@ -995,6 +1042,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                 <input
                   id="canvas-dim-width"
                   type="number"
+                  min={500}
+                  max={10000}
                   value={spec.canvas?.width ?? 1920}
                   onChange={(e) => updateCanvasConfig('width', parseInt(e.target.value) || 1920)}
                   className="w-full px-3 py-2 bg-surface-0 border border-border-themed rounded-lg text-xs text-text-primary focus:outline-none focus:border-accent transition focus-ring font-mono"
@@ -1005,6 +1054,8 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                 <input
                   id="canvas-dim-height"
                   type="number"
+                  min={500}
+                  max={10000}
                   value={spec.canvas?.height ?? 1440}
                   onChange={(e) => updateCanvasConfig('height', parseInt(e.target.value) || 1440)}
                   className="w-full px-3 py-2 bg-surface-0 border border-border-themed rounded-lg text-xs text-text-primary focus:outline-none focus:border-accent transition focus-ring font-mono"
@@ -1066,7 +1117,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
               <label htmlFor="canvas-layout-dir" className="block text-[11px] font-semibold text-text-muted uppercase tracking-wider mb-1.5 font-mono">Layout Flow Direction</label>
               <select
                 id="canvas-layout-dir"
-                value={spec.canvas?.layoutDirection || 'vertical'}
+                value={spec.canvas?.layoutDirection || 'horizontal'}
                 onChange={(e) => updateCanvasConfig('layoutDirection', e.target.value)}
                 className="w-full px-3 py-2 bg-surface-0 border border-border-themed rounded-lg text-xs text-text-primary focus:outline-none focus:border-accent transition focus-ring font-medium"
               >

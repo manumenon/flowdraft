@@ -68,57 +68,8 @@ function App() {
   const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string; index: number } | null>(null);
   const [activeDiagramId, setActiveDiagramId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
-
-  // Premium Sidebars collapsing and resizing
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false);
-  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
-  const [leftSidebarWidth, setLeftSidebarWidth] = useState(320); // default 320px
-  const [rightSidebarWidth, setRightSidebarWidth] = useState(320); // default 320px
-  const [isResizing, setIsResizing] = useState(false);
-
-  const handleLeftResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-    const startX = e.clientX;
-    const startWidth = leftSidebarWidth;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const newWidth = Math.max(200, Math.min(480, startWidth + (moveEvent.clientX - startX)));
-      setLeftSidebarWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  const handleRightResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-    const startX = e.clientX;
-    const startWidth = rightSidebarWidth;
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const newWidth = Math.max(200, Math.min(480, startWidth + (startX - moveEvent.clientX)));
-      setRightSidebarWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  // Premium Toast System
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);  // Premium Toast System
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const showToast = (type: ToastMessage['type'], title: string, message: string) => {
     setToasts((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, type, title, message }]);
@@ -161,6 +112,15 @@ function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Auto-expand sidebars during interactive onboarding tour steps
+  useEffect(() => {
+    if (tourStep === 1) {
+      setLeftSidebarCollapsed(false);
+    } else if (tourStep === 2 || tourStep === 3) {
+      setRightSidebarCollapsed(false);
+    }
+  }, [tourStep]);
 
   // Keyboard shortcut listener for Ctrl+K, Undo/Redo, Delete/Backspace, Escape, and Arrow nudging
   useEffect(() => {
@@ -537,40 +497,191 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-surface-0 text-text-primary overflow-hidden font-sans">
-      {/* Project Space Sidebar */}
-      <div
-        id="tour-explorer"
-        style={{ width: leftSidebarCollapsed ? 56 : leftSidebarWidth }}
-        className={`h-full flex-shrink-0 z-30 border-r border-border-themed bg-surface-1 relative ${
-          isResizing ? '' : 'transition-[width] duration-300'
-        } ${tourStep === 1 ? 'ring-4 ring-indigo-500 shadow-glow-indigo z-50' : ''}`}
-      >
-        <ProjectSidebar
-          token={token}
-          currentUser={currentUser}
-          spec={currentSpec}
-          theme={theme}
-          onSelectSpec={handleSelectDiagramSpec}
-          onTriggerAuth={() => setShowAuthModal(true)}
-          onLogout={handleLogout}
-          activeDiagramId={activeDiagramId}
-          onSaveComplete={() => {
-            showToast('success', 'Work Saved', 'Diagram changes written to database successfully.');
-          }}
-          isCollapsed={leftSidebarCollapsed}
-          onToggleCollapse={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
-          onShowToast={showToast}
-        />
-        {!leftSidebarCollapsed && (
-          <div
-            onMouseDown={handleLeftResizeStart}
-            className="absolute top-0 right-0 bottom-0 w-1.5 cursor-col-resize hover:bg-accent/40 active:bg-accent z-40 transition-colors"
+    <div className="flex flex-col h-screen w-screen bg-surface-0 text-text-primary overflow-hidden font-sans">
+      {/* Docked Header */}
+      <header className="h-14 bg-surface-1 border-b border-border-themed px-4 flex items-center justify-between z-40 shadow-sm flex-shrink-0">
+        <div className="flex items-center gap-3">
+          {/* Sidebar toggle buttons */}
+          <button
+            onClick={() => setLeftSidebarCollapsed((prev) => !prev)}
+            className={`p-1.5 hover:bg-surface-2 text-text-muted hover:text-text-primary rounded-lg transition focus-ring ${
+              !leftSidebarCollapsed ? 'bg-surface-2 text-accent' : ''
+            }`}
+            title={leftSidebarCollapsed ? "Open Explorer" : "Collapse Explorer"}
+            aria-label={leftSidebarCollapsed ? "Open Explorer" : "Collapse Explorer"}
+          >
+            {leftSidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg flex items-center justify-center font-extrabold text-xs text-white shadow-glow-blue select-none" style={{ backgroundColor: 'var(--accent)' }}>
+              FD
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold tracking-wide text-xs text-text-primary uppercase">FlowDraft</span>
+              <span className="text-[10px] bg-surface-3 border border-border-themed text-text-secondary px-1.5 py-0.5 rounded-md uppercase font-mono font-medium">
+                Editor
+              </span>
+            </div>
+          </div>
+
+          {/* Context Breadcrumbs */}
+          <div className="hidden md:flex items-center gap-1.5 text-[11px] text-text-muted font-medium ml-4">
+            <span>diagrams</span>
+            <span>/</span>
+            <span className="text-text-secondary truncate max-w-[120px] font-mono">{activeDiagramId || 'unsaved-sandbox'}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {/* Command Palette Indicator */}
+          <button
+            onClick={() => setShowCommandPalette(true)}
+            className="hidden lg:flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface-2 border border-border-themed px-2.5 py-1.5 rounded-lg transition focus-ring"
+            aria-label="Open Command Palette"
+          >
+            <Command size={11} />
+            <span>Search Actions</span>
+            <span className="text-[10px] text-text-muted bg-surface-3 border border-border-themed px-1 py-0.5 rounded font-mono">Ctrl+K</span>
+          </button>
+
+          {/* Pill-shaped segmented theme controller */}
+          <div className="flex items-center bg-surface-3 border border-border-themed rounded-lg p-0.5 relative">
+            <button
+              onClick={() => setTheme('dark')}
+              className={`p-1.5 rounded-md transition text-xs flex items-center gap-1 ${theme === 'dark' ? 'bg-surface-1 text-accent font-semibold shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              title="Dark Theme"
+              aria-label="Switch to Dark Theme"
+            >
+              <Moon size={13} />
+            </button>
+            <button
+              onClick={() => setTheme('light')}
+              className={`p-1.5 rounded-md transition text-xs flex items-center gap-1 ${theme === 'light' ? 'bg-surface-1 text-accent font-semibold shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              title="Light Theme"
+              aria-label="Switch to Light Theme"
+            >
+              <Sun size={13} />
+            </button>
+            <button
+              onClick={() => setTheme('white')}
+              className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition ${theme === 'white' ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
+              title="White Contrast Theme"
+              aria-label="Switch to White Contrast Theme"
+            >
+              White
+            </button>
+          </div>
+
+          {/* Help Manual Button */}
+          <button
+            onClick={() => setShowHelp(true)}
+            className="p-1.5 hover:bg-surface-2 text-text-muted hover:text-text-primary rounded-lg transition focus-ring"
+            title="Help Workspace Manual"
+            aria-label="Help Workspace Manual"
+          >
+            <HelpCircle size={16} />
+          </button>
+
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="px-3 py-1.5 bg-surface-2 hover:bg-surface-3 text-text-primary text-xs font-semibold rounded-lg border border-border-themed transition flex items-center gap-1.5 focus-ring"
+          >
+            <FileJson size={13} />
+            Import Spec
+          </button>
+
+          <button
+            onClick={() => setRightSidebarCollapsed((prev) => !prev)}
+            className={`p-1.5 hover:bg-surface-2 text-text-muted hover:text-text-primary rounded-lg transition focus-ring ${
+              !rightSidebarCollapsed ? 'bg-surface-2 text-accent' : ''
+            }`}
+            title={rightSidebarCollapsed ? "Open Properties" : "Collapse Properties"}
+            aria-label={rightSidebarCollapsed ? "Open Properties" : "Collapse Properties"}
+          >
+            {rightSidebarCollapsed ? <PanelRight size={16} /> : <PanelRightClose size={16} />}
+          </button>
+        </div>
+      </header>
+
+      {/* Main Workspace container */}
+      <div className="flex flex-1 w-full min-h-0 relative z-10 overflow-hidden">
+        {/* Docked Left Sidebar */}
+        <div
+          id="tour-explorer"
+          className={`h-full flex flex-col flex-shrink-0 z-30 transition-all duration-300 relative overflow-hidden ${
+            leftSidebarCollapsed ? 'w-14' : 'w-80'
+          } ${
+            tourStep === 1 ? 'ring-4 ring-indigo-500 shadow-glow-indigo z-40' : ''
+          }`}
+        >
+          <ProjectSidebar
+            token={token}
+            currentUser={currentUser}
+            spec={currentSpec}
+            theme={theme}
+            onSelectSpec={handleSelectDiagramSpec}
+            onTriggerAuth={() => setShowAuthModal(true)}
+            onLogout={handleLogout}
+            activeDiagramId={activeDiagramId}
+            onSaveComplete={() => {
+              showToast('success', 'Work Saved', 'Diagram changes written to database successfully.');
+            }}
+            isCollapsed={leftSidebarCollapsed}
+            onToggleCollapse={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
+            onShowToast={showToast}
           />
-        )}
+        </div>
+
+        {/* Workspace Canvas (Full Bleed Background in the center flex area) */}
+        <div className="flex-grow h-full min-w-0 relative z-10">
+          <Canvas
+            spec={currentSpec}
+            theme={theme}
+            isPureRender={false}
+            onNodeSelect={setSelectedElementId}
+            onEdgeSelect={(from, to, index) => {
+              if (from === '' && to === '' && index === -1) {
+                setSelectedEdge(null);
+              } else {
+                setSelectedEdge({ from, to, index });
+              }
+            }}
+            onNodeDragStop={handleNodeDragStop}
+            onConnect={handleConnect}
+            onDropTemplate={handleDropTemplate}
+            snapToGrid={snapToGrid}
+            onToggleSnap={() => setSnapToGrid(!snapToGrid)}
+            tourStep={tourStep}
+          />
+        </div>
+
+        {/* Docked Right Sidebar */}
+        <div
+          id="tour-properties"
+          className={`h-full flex flex-col flex-shrink-0 z-30 transition-all duration-300 relative overflow-hidden ${
+            rightSidebarCollapsed ? 'w-14' : 'w-80'
+          } ${
+            (tourStep === 2 || tourStep === 3) ? 'ring-4 ring-indigo-500 shadow-glow-indigo z-40' : ''
+          }`}
+        >
+          <PropertyEditor
+            spec={currentSpec}
+            selectedElementId={selectedElementId}
+            selectedEdge={selectedEdge}
+            onUpdateSpec={(updater) => setSpecState((prev) => updater(prev))}
+            onClearSelection={handleClearSelection}
+            isCollapsed={rightSidebarCollapsed}
+            onToggleCollapse={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
+            token={token}
+            activeDiagramId={activeDiagramId}
+            onTriggerAuth={() => setShowAuthModal(true)}
+            tourStep={tourStep}
+          />
+        </div>
       </div>
 
-      {/* JSON Import Overlay Sidebar */}
+      {/* Floating JSON Import Overlay Sidebar */}
       {isSidebarOpen && (
         <>
           {/* Backdrop Overlay */}
@@ -579,7 +690,7 @@ function App() {
             onClick={() => setIsSidebarOpen(false)}
           />
           {/* Sidebar Panel */}
-          <div className="fixed left-0 top-0 bottom-0 w-96 bg-surface-1 border-r border-border-themed flex flex-col z-50 animate-slide-in-left shadow-2xl">
+          <div className="fixed left-4 top-[76px] bottom-4 w-96 bg-surface-1/95 border border-border-themed rounded-2xl flex flex-col z-50 animate-slide-in-left shadow-2xl backdrop-blur-md">
             <div className="p-4 border-b border-border-themed flex items-center justify-between">
               <span className="font-semibold flex items-center gap-2 text-[11px] uppercase tracking-wider text-text-muted">
                 <FileJson size={18} className="text-accent" /> Import Spec JSON
@@ -618,164 +729,6 @@ function App() {
           </div>
         </>
       )}
-
-      {/* Main content area */}
-      <div className="flex-grow flex flex-col min-w-0 h-full relative">
-        {/* Navbar */}
-        <header className="h-14 bg-surface-1 border-b border-border-themed px-6 flex items-center justify-between z-40 flex-shrink-0 relative shadow-sm dark:shadow-premium">
-          <div className="absolute bottom-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-accent via-indigo-500 to-emerald-500" />
-          
-          <div className="flex items-center gap-3">
-            {/* Sidebar toggle buttons */}
-            <button
-              onClick={() => setLeftSidebarCollapsed((prev) => !prev)}
-              className="p-1.5 hover:bg-surface-2 text-text-muted hover:text-text-primary rounded transition focus-ring"
-              title={leftSidebarCollapsed ? "Open Explorer" : "Collapse Explorer"}
-              aria-label={leftSidebarCollapsed ? "Open Explorer" : "Collapse Explorer"}
-            >
-              {leftSidebarCollapsed ? <PanelLeft size={16} /> : <PanelLeftClose size={16} />}
-            </button>
-
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg flex items-center justify-center font-extrabold text-xs text-white shadow-glow-blue select-none" style={{ backgroundColor: 'var(--accent)' }}>
-                FD
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold tracking-wide text-xs text-text-primary uppercase">FlowDraft</span>
-                <span className="text-[10px] bg-surface-3 border border-border-themed text-text-secondary px-1.5 py-0.5 rounded-md uppercase font-mono font-medium">
-                  Editor
-                </span>
-              </div>
-            </div>
-
-            {/* Context Breadcrumbs */}
-            <div className="hidden md:flex items-center gap-1.5 text-[11px] text-text-muted font-medium ml-4">
-              <span>diagrams</span>
-              <span>/</span>
-              <span className="text-text-secondary truncate max-w-[120px] font-mono">{activeDiagramId || 'unsaved-sandbox'}</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Command Palette Indicator */}
-            <button
-              onClick={() => setShowCommandPalette(true)}
-              className="hidden lg:flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface-2 border border-border-themed px-2.5 py-1.5 rounded-lg transition focus-ring"
-              aria-label="Open Command Palette"
-            >
-              <Command size={11} />
-              <span>Search Actions</span>
-              <span className="text-[10px] text-text-muted bg-surface-3 border border-border-themed px-1 py-0.5 rounded font-mono">Ctrl+K</span>
-            </button>
-
-            {/* Pill-shaped segmented theme controller */}
-            <div className="flex items-center bg-surface-3 border border-border-themed rounded-lg p-0.5 relative">
-              <button
-                onClick={() => setTheme('dark')}
-                className={`p-1.5 rounded-md transition text-xs flex items-center gap-1 ${theme === 'dark' ? 'bg-surface-1 text-accent font-semibold shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
-                title="Dark Theme"
-                aria-label="Switch to Dark Theme"
-              >
-                <Moon size={13} />
-              </button>
-              <button
-                onClick={() => setTheme('light')}
-                className={`p-1.5 rounded-md transition text-xs flex items-center gap-1 ${theme === 'light' ? 'bg-surface-1 text-accent font-semibold shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
-                title="Light Theme"
-                aria-label="Switch to Light Theme"
-              >
-                <Sun size={13} />
-              </button>
-              <button
-                onClick={() => setTheme('white')}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition ${theme === 'white' ? 'bg-surface-1 text-accent shadow-sm' : 'text-text-muted hover:text-text-primary'}`}
-                title="White Contrast Theme"
-                aria-label="Switch to White Contrast Theme"
-              >
-                White
-              </button>
-            </div>
-
-            {/* Help Manual Button */}
-            <button
-              onClick={() => setShowHelp(true)}
-              className="p-1.5 hover:bg-surface-2 text-text-muted hover:text-text-primary rounded transition focus-ring"
-              title="Help Workspace Manual"
-              aria-label="Help Workspace Manual"
-            >
-              <HelpCircle size={16} />
-            </button>
-
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="px-3 py-1.5 bg-surface-2 hover:bg-surface-3 text-text-primary text-xs font-semibold rounded-lg border border-border-themed transition flex items-center gap-1.5 focus-ring"
-            >
-              <FileJson size={13} />
-              Import Spec
-            </button>
-
-            <button
-              onClick={() => setRightSidebarCollapsed((prev) => !prev)}
-              className="p-1.5 hover:bg-surface-2 text-text-muted hover:text-text-primary rounded transition focus-ring"
-              title={rightSidebarCollapsed ? "Open Properties" : "Collapse Properties"}
-              aria-label={rightSidebarCollapsed ? "Open Properties" : "Collapse Properties"}
-            >
-              {rightSidebarCollapsed ? <PanelRight size={16} /> : <PanelRightClose size={16} />}
-            </button>
-          </div>
-        </header>
-
-        {/* Workspace Canvas */}
-        <div className={`flex-grow min-h-0 w-full relative ${isResizing ? 'pointer-events-none' : ''}`}>
-          <Canvas
-            spec={currentSpec}
-            theme={theme}
-            isPureRender={false}
-            onNodeSelect={setSelectedElementId}
-            onEdgeSelect={(from, to, index) => {
-              if (from === '' && to === '' && index === -1) {
-                setSelectedEdge(null);
-              } else {
-                setSelectedEdge({ from, to, index });
-              }
-            }}
-            onNodeDragStop={handleNodeDragStop}
-            onConnect={handleConnect}
-            onDropTemplate={handleDropTemplate}
-            snapToGrid={snapToGrid}
-            onToggleSnap={() => setSnapToGrid(!snapToGrid)}
-            tourStep={tourStep}
-          />
-        </div>
-      </div>
-
-      {/* Right Property & Configuration Editor */}
-      <div
-        style={{ width: rightSidebarCollapsed ? 56 : rightSidebarWidth }}
-        className={`h-full flex-shrink-0 z-30 border-l border-border-themed bg-surface-1 relative ${
-          isResizing ? '' : 'transition-[width] duration-300'
-        } ${(tourStep === 2 || tourStep === 3) ? 'ring-4 ring-indigo-500 shadow-glow-indigo z-50' : ''}`}
-      >
-        {!rightSidebarCollapsed && (
-          <div
-            onMouseDown={handleRightResizeStart}
-            className="absolute top-0 left-0 bottom-0 w-1.5 cursor-col-resize hover:bg-accent/40 active:bg-accent z-40 transition-colors"
-          />
-        )}
-        <PropertyEditor
-          spec={currentSpec}
-          selectedElementId={selectedElementId}
-          selectedEdge={selectedEdge}
-          onUpdateSpec={(updater) => setSpecState((prev) => updater(prev))}
-          onClearSelection={handleClearSelection}
-          isCollapsed={rightSidebarCollapsed}
-          onToggleCollapse={() => setRightSidebarCollapsed(!rightSidebarCollapsed)}
-          token={token}
-          activeDiagramId={activeDiagramId}
-          onTriggerAuth={() => setShowAuthModal(true)}
-          tourStep={tourStep}
-        />
-      </div>
 
       {/* Authentication Modal */}
       {showAuthModal && (

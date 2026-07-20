@@ -38,9 +38,21 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
   });
   const [jobProgress, setJobProgress] = useState<Record<string, number>>({});
 
-  const baseUrl = window.location.origin === 'http://localhost:3000' || window.location.origin === 'http://127.0.0.1:3000' 
-    ? 'http://localhost:8000' 
+  const baseUrl = window.location.origin.includes(':3000')
+    ? window.location.origin.replace(':3000', ':8000')
     : window.location.origin;
+
+  const resolveDownloadUrl = (url: string | null) => {
+    if (!url) return '';
+    let resolved = url;
+    if (resolved.includes('minio:9000')) {
+      resolved = resolved.replace('minio:9000', 'localhost:9000');
+    }
+    if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+      return resolved;
+    }
+    return baseUrl + resolved;
+  };
 
   // Persist jobs list
   useEffect(() => {
@@ -275,7 +287,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                     )}
                     {job.status === 'completed' && job.downloadUrl && (
                       <a
-                        href={baseUrl + job.downloadUrl}
+                        href={resolveDownloadUrl(job.downloadUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded transition flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider focus-ring"
@@ -446,7 +458,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                             )}
                             {job.status === 'completed' && job.downloadUrl && (
                               <a
-                                href={baseUrl + job.downloadUrl}
+                                href={resolveDownloadUrl(job.downloadUrl)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="p-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded transition flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider focus-ring"

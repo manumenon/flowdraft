@@ -13,6 +13,11 @@ export interface PositionedNodeInfo {
   parent: string | null;
 }
 
+export interface PositionedEdgeInfo {
+  id: string;
+  points: [number, number][];
+}
+
 export function useFlowLayout() {
   const [isLayoutRunning, setIsLayoutRunning] = useState(false);
   const [isWorkerReady, setIsWorkerReady] = useState(false);
@@ -49,7 +54,7 @@ export function useFlowLayout() {
     title: any,
     layoutDirection?: 'vertical' | 'horizontal',
     layoutAlgorithm?: string
-  ): Promise<{ positionedNodes: PositionedNodeInfo[]; canvasWidth: number; canvasHeight: number }> => {
+  ): Promise<{ positionedNodes: PositionedNodeInfo[]; positionedEdges: PositionedEdgeInfo[]; canvasWidth: number; canvasHeight: number }> => {
     return new Promise((resolve, reject) => {
       if (!workerRef.current) {
         reject(new Error('Layout worker not initialized'));
@@ -66,6 +71,7 @@ export function useFlowLayout() {
 
           if (success && graph) {
              const positionedNodes: PositionedNodeInfo[] = [];
+             const positionedEdges: PositionedEdgeInfo[] = [];
 
              const collectNodes = (elkNode: any, parentId: string | null = null) => {
                if (elkNode.id !== 'root') {
@@ -85,9 +91,46 @@ export function useFlowLayout() {
                }
              };
 
+             const collectEdges = (elkNode: any, absX: number, absY: number) => {
+               const nodeAbsX = absX + (elkNode.x || 0);
+               const nodeAbsY = absY + (elkNode.y || 0);
+
+               if (elkNode.edges) {
+                 elkNode.edges.forEach((edge: any) => {
+                   const points: [number, number][] = [];
+                   if (edge.sections) {
+                     edge.sections.forEach((sec: any) => {
+                       points.push([sec.startPoint.x + nodeAbsX, sec.startPoint.y + nodeAbsY]);
+                       if (sec.bendPoints) {
+                         sec.bendPoints.forEach((bp: any) => {
+                           points.push([bp.x + nodeAbsX, bp.y + nodeAbsY]);
+                         });
+                       }
+                       points.push([sec.endPoint.x + nodeAbsX, sec.endPoint.y + nodeAbsY]);
+                     });
+                   }
+                   positionedEdges.push({
+                     id: edge.id,
+                     points,
+                   });
+                 });
+               }
+
+               if (elkNode.children) {
+                 elkNode.children.forEach((child: any) => {
+                   const parentX = elkNode.id === 'root' ? 0 : nodeAbsX;
+                   const parentY = elkNode.id === 'root' ? 0 : nodeAbsY;
+                   collectEdges(child, parentX, parentY);
+                 });
+               }
+             };
+
              collectNodes(graph, null);
+             collectEdges(graph, 0, 0);
+
              resolve({
                positionedNodes,
+               positionedEdges,
                canvasWidth: graph.width || 1920,
                canvasHeight: graph.height || 1440,
              });

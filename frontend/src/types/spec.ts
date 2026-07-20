@@ -1,4 +1,4 @@
-export type ElementType = 'card' | 'diamond' | 'panel' | 'input' | 'label' | 'group' | 'cylinder' | 'cloud';
+export type ElementType = 'card' | 'diamond' | 'panel' | 'input' | 'label' | 'group' | 'cylinder' | 'cloud' | 'ellipse';
 export type PortType = 'top' | 'bottom' | 'left' | 'right';
 export type ConnectionStyle = 'solid' | 'dashed' | 'dotted';
 export type AnnotationPosition =
@@ -84,6 +84,7 @@ export interface AnnotationSpec {
   from?: string;
   to?: string;
   position?: AnnotationPosition;
+  style?: any;
 }
 
 export interface CanvasConfig {
