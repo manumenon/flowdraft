@@ -88,6 +88,40 @@ function App() {
     return isFirstTime ? 1 : null;
   });
 
+  const [isLoadingSpec, setIsLoadingSpec] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return !!params.get('job_id');
+  });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const jobId = params.get('job_id');
+    if (!jobId) return;
+
+    const fetchSpec = async () => {
+      try {
+        const backendBaseUrl = window.location.origin.includes(':3000')
+          ? window.location.origin.replace(':3000', ':8000')
+          : window.location.origin;
+
+        const res = await fetch(`${backendBaseUrl}/api/v1/export/${jobId}/spec`);
+        if (res.ok) {
+          const data = await res.json();
+          resetHistory(data);
+          setJsonInput(JSON.stringify(data, null, 2));
+        } else {
+          console.error('Failed to load spec for job_id: ' + jobId);
+        }
+      } catch (err) {
+        console.error('Error fetching job spec', err);
+      } finally {
+        setIsLoadingSpec(false);
+      }
+    };
+
+    fetchSpec();
+  }, [resetHistory]);
+
   // Keep jsonInput updated when spec changes
   useEffect(() => {
     setJsonInput(JSON.stringify(currentSpec, null, 2));
@@ -488,6 +522,15 @@ function App() {
 
   // Pure Render Mode (Viewer only, no grid, no handles, no controls)
   if (isRenderBox) {
+    if (isLoadingSpec) {
+      const bgColor = theme === 'dark' ? '#0f172a' : '#ffffff';
+      const textColor = theme === 'dark' ? '#94a3b8' : '#475569';
+      return (
+        <div className="w-screen h-screen overflow-hidden flex items-center justify-center font-sans text-xs" style={{ backgroundColor: bgColor, color: textColor }}>
+          Loading diagram spec...
+        </div>
+      );
+    }
     const bgColor = theme === 'dark' ? '#0f172a' : '#ffffff';
     return (
       <div className="w-screen h-screen overflow-hidden relative" style={{ backgroundColor: bgColor }}>

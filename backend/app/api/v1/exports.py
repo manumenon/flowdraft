@@ -209,3 +209,34 @@ async def download_export_file(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to stream file from storage: {str(e)}"
         )
+
+@router.get("/{job_id}/spec")
+async def get_export_job_spec(
+    job_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retrieve spec of an export job.
+    Accessible publicly to support worker rendering (avoids 414 URI Too Long).
+    """
+    stmt = select(ExportJob).where(ExportJob.id == job_id)
+    result = await db.execute(stmt)
+    job = result.scalar_one_or_none()
+    
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Export job not found")
+        
+    if job.spec_override:
+        return job.spec_override
+        
+    if job.diagram_id:
+        stmt_diag = select(Diagram).where(Diagram.id == job.diagram_id)
+        result_diag = await db.execute(stmt_diag)
+        diagram = result_diag.scalar_one_or_none()
+        if diagram:
+            return diagram.spec
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Spec cannot be resolved for this export job"
+    )

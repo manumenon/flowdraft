@@ -42,8 +42,12 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
     ? window.location.origin.replace(':3000', ':8000')
     : window.location.origin;
 
-  const resolveDownloadUrl = (url: string | null) => {
+  const resolveDownloadUrl = (url: string | null, jobId?: string) => {
     if (!url) return '';
+    // If it is a direct MinIO/S3 link or contains MinIO hostnames/ports, redirect to proxy download route
+    if (jobId && (url.includes('/exports/') || url.includes(':9000/'))) {
+      return `${baseUrl}/api/v1/export/${jobId}/download`;
+    }
     let resolved = url;
     if (resolved.includes('minio:9000')) {
       resolved = resolved.replace('minio:9000', 'localhost:9000');
@@ -114,6 +118,13 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                 };
                 hasUpdates = true;
               }
+            } else if (res.status === 403 || res.status === 404) {
+              updatedJobs[i] = {
+                ...job,
+                status: 'failed',
+                errorMessage: res.status === 403 ? 'Access denied (belongs to another user)' : 'Job not found',
+              };
+              hasUpdates = true;
             }
           } catch (err) {
             console.error('Error polling status for job ' + job.jobId, err);
@@ -287,7 +298,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                     )}
                     {job.status === 'completed' && job.downloadUrl && (
                       <a
-                        href={resolveDownloadUrl(job.downloadUrl)}
+                        href={resolveDownloadUrl(job.downloadUrl, job.jobId)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded transition flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider focus-ring"
@@ -458,7 +469,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                             )}
                             {job.status === 'completed' && job.downloadUrl && (
                               <a
-                                href={resolveDownloadUrl(job.downloadUrl)}
+                                href={resolveDownloadUrl(job.downloadUrl, job.jobId)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="p-1.5 bg-emerald-600/10 text-emerald-500 border border-emerald-500/20 rounded transition flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider focus-ring"

@@ -93,10 +93,7 @@ async def resolve_spec(job_id: str, payload_spec: Optional[dict]) -> Tuple[dict,
 
         raise ValueError(f"No spec could be resolved for job {job_id}.")
 
-async def render_frames(spec: dict, theme: str, format: str) -> List[bytes]:
-    spec_json = json.dumps(spec)
-    base64_spec = base64.b64encode(spec_json.encode('utf-8')).decode('utf-8')
-
+async def render_frames(spec: dict, theme: str, format: str, job_id: Optional[str] = None) -> List[bytes]:
     canvas_spec = spec.get("canvas", {}) or {}
     width = canvas_spec.get("width", 1920) or 1920
     height = canvas_spec.get("height", 1080) or 1080
@@ -117,7 +114,13 @@ async def render_frames(spec: dict, theme: str, format: str) -> List[bytes]:
         frames_count = 1
 
     frontend_url = settings.FRONTEND_URL.rstrip("/")
-    url = f"{frontend_url}/render-box?spec={base64_spec}&theme={theme}"
+    if job_id:
+        url = f"{frontend_url}/render-box?job_id={job_id}&theme={theme}"
+    else:
+        spec_json = json.dumps(spec)
+        base64_spec = base64.b64encode(spec_json.encode('utf-8')).decode('utf-8')
+        url = f"{frontend_url}/render-box?spec={base64_spec}&theme={theme}"
+
     logger.info(f"Navigating to: {url}")
     logger.info(f"Viewport: {width}x{height}, FPS: {fps}, Frames to capture: {frames_count}")
 
@@ -283,7 +286,7 @@ async def process_job(payload: dict) -> None:
         is_static = (target_format == "png") or (frames_count <= 0)
 
         # Render frames
-        frames = await render_frames(spec, theme, target_format)
+        frames = await render_frames(spec, theme, target_format, job_id)
         if not frames:
             raise RuntimeError("No frames captured by browser.")
 
