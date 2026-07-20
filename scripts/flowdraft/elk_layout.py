@@ -226,8 +226,10 @@ def route_with_elk(ir: dict) -> bool:
 
     try:
         json_input = json.dumps(elk_root, indent=2)
+        os.makedirs("scratch", exist_ok=True)
         with open("scratch/elk_input_last.json", "w") as f:
             f.write(json_input)
+
             
         proc = subprocess.run(
             [node_exe, bridge_path],
