@@ -465,6 +465,12 @@ self.onmessage = async (event: MessageEvent) => {
           // Update panel height to fit the footer
           const neededPanelH = footerY + footerH + padBottom;
           resultPanel.height = Math.max(resultPanel.height, neededPanelH);
+
+          // Enforce panel width encloses max child right edge
+          if (otherChildren.length > 0) {
+            const maxRight = Math.max(...otherChildren.map((c) => (c.x || 0) + (c.width || 200)));
+            resultPanel.width = Math.max(resultPanel.width, maxRight + padRight);
+          }
         }
       });
 

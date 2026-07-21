@@ -137,6 +137,16 @@ export function getRoundedPath(points: [number, number][], radius: number): stri
 /**
  * Computes an orthogonal Manhattan path between two points.
  */
+export interface RectObstacle {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Computes an orthogonal Manhattan path between two points with obstacle avoidance capability.
+ */
 export function getManhattanPath(
   startX: number,
   startY: number,
@@ -144,7 +154,8 @@ export function getManhattanPath(
   endX: number,
   endY: number,
   endDir: string,
-  midpointOffset: number = 0
+  midpointOffset: number = 0,
+  obstacles?: RectObstacle[]
 ): [number, number][] {
   const points: [number, number][] = [];
   points.push([startX, startY]);
@@ -175,12 +186,38 @@ export function getManhattanPath(
   const isStartHorizontal = startDir.toLowerCase() === 'left' || startDir.toLowerCase() === 'right';
   const isEndHorizontal = endDir.toLowerCase() === 'left' || endDir.toLowerCase() === 'right';
 
+  let midX = (p1x + p2x) / 2 + midpointOffset;
+  let midY = (p1y + p2y) / 2 + midpointOffset;
+
+  // Obstacle detour adjustment if obstacle bounding boxes are provided
+  if (obstacles && obstacles.length > 0) {
+    const buffer = 16;
+    for (const obs of obstacles) {
+      const obsLeft = obs.x - buffer;
+      const obsRight = obs.x + obs.width + buffer;
+      const obsTop = obs.y - buffer;
+      const obsBottom = obs.y + obs.height + buffer;
+
+      if (isStartHorizontal && isEndHorizontal) {
+        if (midX >= obsLeft && midX <= obsRight) {
+          const distToLeft = Math.abs(midX - obsLeft);
+          const distToRight = Math.abs(midX - obsRight);
+          midX = distToLeft < distToRight ? obsLeft : obsRight;
+        }
+      } else if (!isStartHorizontal && !isEndHorizontal) {
+        if (midY >= obsTop && midY <= obsBottom) {
+          const distToTop = Math.abs(midY - obsTop);
+          const distToBottom = Math.abs(midY - obsBottom);
+          midY = distToTop < distToBottom ? obsTop : obsBottom;
+        }
+      }
+    }
+  }
+
   if (isStartHorizontal && isEndHorizontal) {
-    const midX = (p1x + p2x) / 2 + midpointOffset;
     points.push([midX, p1y]);
     points.push([midX, p2y]);
   } else if (!isStartHorizontal && !isEndHorizontal) {
-    const midY = (p1y + p2y) / 2 + midpointOffset;
     points.push([p1x, midY]);
     points.push([p2x, midY]);
   } else {

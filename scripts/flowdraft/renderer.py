@@ -656,21 +656,23 @@ def render_all(
 
     nodes_map: dict[str, dict] = {n["id"]: n for n in nodes}
 
-    # Pass 1: Top-level panel container shapes
+    # Pass 1: Node & Panel Background Shapes
     for node in nodes:
         if node.get("type") == "panel" and not node.get("parent"):
             render_panel_shape(ex, draw, node, nodes_map)
+        elif not node.get("parent"):
+            render_node_shape(ex, draw, node, nodes_map)
 
-    # Pass 2: Complete node elements (shapes + text/icons rendered together)
+    # Pass 2: Connections & arrowheads
+    for conn in connections:
+        render_connection(ex, draw, conn, nodes_map)
+
+    # Pass 3: Node Content & Typography (Titles, Body text, Badges, Icons)
     for node in nodes:
         if node.get("type") == "panel" and not node.get("parent"):
             render_panel_content(ex, draw, node, nodes_map)
         elif not node.get("parent"):
-            render_node(ex, draw, node, nodes_map)
-
-    # Pass 3: Connections & arrowheads (routed around complete nodes)
-    for conn in connections:
-        render_connection(ex, draw, conn, nodes_map)
+            render_node_content(ex, draw, node, nodes_map)
 
     # Pass 4: Floating annotations
     for ann in annotations:

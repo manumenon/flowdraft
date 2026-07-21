@@ -149,14 +149,21 @@ async def get_export_job_status(
             detail="Not authorized to access this export job"
         )
 
-    download_url = None
+    download_url = ""
     if job.status == "completed":
-        # Return backend download proxy URL instead of presigned S3 url to avoid Host header signature mismatch
-        download_url = f"/api/v1/export/{job_id}/download"
+        try:
+            storage = MinioStorage()
+            # Test presigned URL / storage access
+            if hasattr(storage.client, "presigned_get_object"):
+                storage.client.presigned_get_object(storage.bucket_name, f"{job_id}.{job.format}")
+            download_url = f"/api/v1/export/{job_id}/download"
+        except Exception as e:
+            logger.warning(f"MinIO storage unavailable for job {job_id}: {e}")
+            download_url = ""
         job.download_url = download_url
         await db.commit()
     else:
-        download_url = job.download_url
+        download_url = job.download_url or ""
 
     return {
         "job_id": str(job.id),

@@ -211,6 +211,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   useEffect(() => {
     const rfNodesWithFlags = compiled.rfNodes.map((node) => ({
       ...node,
+      zIndex: node.type === 'panel' ? 0 : node.type === 'group' ? 1 : 10,
       data: {
         ...node.data,
         isPureRender,
@@ -570,6 +571,17 @@ export const Canvas: React.FC<CanvasProps> = ({
         }}
         onNodeDrag={isPureRender ? undefined : (_, node) => {
           if (node.position) {
+            setEdges((eds) =>
+              eds.map((edge) => {
+                if (edge.source === node.id || edge.target === node.id) {
+                  return {
+                    ...edge,
+                    data: { ...edge.data, isDragging: true },
+                  };
+                }
+                return edge;
+              })
+            );
             if ((window as any).__DRAG_RAF__) {
               cancelAnimationFrame((window as any).__DRAG_RAF__);
             }
@@ -582,6 +594,17 @@ export const Canvas: React.FC<CanvasProps> = ({
           if ((window as any).__DRAG_RAF__) {
             cancelAnimationFrame((window as any).__DRAG_RAF__);
           }
+          setEdges((eds) =>
+            eds.map((edge) => {
+              if (edge.source === node.id || edge.target === node.id) {
+                return {
+                  ...edge,
+                  data: { ...edge.data, isDragging: false },
+                };
+              }
+              return edge;
+            })
+          );
           if (node.position) {
             onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes);
           }

@@ -777,6 +777,20 @@ def _normalise_annotations(
     ]
 
 
+def _normalise_decision_branches(elements: list[dict], connections: list[dict]) -> None:
+    decision_ids = {e["id"] for e in elements if e.get("type") == "diamond"}
+    for d_id in decision_ids:
+        outgoing = [
+            c for c in connections 
+            if c.get("from") == d_id or (isinstance(c.get("path"), list) and len(c.get("path")) > 0 and c.get("path")[0] == d_id)
+        ]
+        if len(outgoing) > 1:
+            default_labels = ["Yes", "No", "Branch 3", "Branch 4"]
+            for idx, conn in enumerate(outgoing):
+                if not conn.get("label"):
+                    conn["label"] = default_labels[idx] if idx < len(default_labels) else f"Branch {idx+1}"
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Public API
 # ──────────────────────────────────────────────────────────────────────
@@ -861,6 +875,7 @@ def validate_spec(spec: dict) -> dict:
         element_ids=element_ids,
         path="connections",
     )
+    _normalise_decision_branches(elements, connections)
     result["connections"] = connections
 
     # ── annotations (optional) ────────────────────────────────────────

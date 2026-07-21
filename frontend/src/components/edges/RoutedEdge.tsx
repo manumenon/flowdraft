@@ -210,18 +210,21 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
       if (otherId === id) return;
 
       segments.forEach((seg, sIdx) => {
-        if (!seg.isHorizontal) return;
-        const xMin = Math.min(seg.x1, seg.x2);
-        const xMax = Math.max(seg.x1, seg.x2);
-
         (otherSegs as Segment[]).forEach((oSeg) => {
-          if (oSeg.isHorizontal) return;
-          const yMin = Math.min(oSeg.y1, oSeg.y2);
-          const yMax = Math.max(oSeg.y1, oSeg.y2);
+          if (seg.isHorizontal !== oSeg.isHorizontal) {
+            const horiz = seg.isHorizontal ? seg : oSeg;
+            const vert = seg.isHorizontal ? oSeg : seg;
 
-          if (oSeg.x1 > xMin + R_jump && oSeg.x1 < xMax - R_jump) {
-            if (seg.y1 > yMin + R_jump && seg.y1 < yMax - R_jump) {
-              intersections.push({ x: oSeg.x1, y: seg.y1, segIdx: sIdx });
+            const xMin = Math.min(horiz.x1, horiz.x2);
+            const xMax = Math.max(horiz.x1, horiz.x2);
+            const yMin = Math.min(vert.y1, vert.y2);
+            const yMax = Math.max(vert.y1, vert.y2);
+
+            if (vert.x1 > xMin + R_jump && vert.x1 < xMax - R_jump &&
+                horiz.y1 > yMin + R_jump && horiz.y1 < yMax - R_jump) {
+              if (seg.isHorizontal && id < otherId) {
+                intersections.push({ x: vert.x1, y: horiz.y1, segIdx: sIdx });
+              }
             }
           }
         });

@@ -765,14 +765,13 @@ def layout_panel_children(
         footer_node["y"] = footer_top
 
     # ── Update panel dimensions to enclose all children ─────────────
-    # Ignored primitives (having out_of_flow == True) do not contribute to parent bounds calculation.
-    in_flow_child_nodes = [
+    all_child_nodes = [
         nodes_map[cid] for cid in children_ids 
-        if cid in nodes_map and not nodes_map[cid].get("out_of_flow")
+        if cid in nodes_map
     ]
-    if in_flow_child_nodes:
-        max_child_x = max(n["x"] + n["width"] for n in in_flow_child_nodes)
-        max_child_y = max(n["y"] + n["height"] for n in in_flow_child_nodes)
+    if all_child_nodes:
+        max_child_x = max(n.get("x", 0.0) + n.get("width", 0.0) for n in all_child_nodes)
+        max_child_y = max(n.get("y", 0.0) + n.get("height", 0.0) for n in all_child_nodes)
         panel["width"] = max(panel.get("width", 0.0), max_child_x + pad["right"])
         panel["height"] = max(panel.get("height", 0.0), max_child_y + pad["bottom"])
     else:

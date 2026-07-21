@@ -258,21 +258,25 @@ def fit_text(
     if tw <= effective_max_width and (th <= effective_max_height or allow_grow):
         return fallback_text, emergency_min, fallback_font
 
-    for i in range(len(raw_text) - 1, -1, -1):
-        # Prefer truncating at word boundary first to avoid mid-word slices
-        words = raw_text[:i].split()
-        if words:
-            truncated = " ".join(words) + "..."
-            wrapped_truncated = wrap_text(draw, truncated, fallback_font, effective_max_width) if wrap else truncated
-            tw, th = text_size(draw, wrapped_truncated, fallback_font, spacing=spacing)
-            if tw <= effective_max_width and th <= effective_max_height:
-                return wrapped_truncated, emergency_min, fallback_font
+    # Binary search fallback truncation algorithm for O(log N) font text fitting
+    low_idx, high_idx = 0, len(raw_text)
+    best_truncated = None
 
-        truncated = raw_text[:i] + "..."
-        wrapped_truncated = wrap_text(draw, truncated, fallback_font, effective_max_width) if wrap else truncated
-        tw, th = text_size(draw, wrapped_truncated, fallback_font, spacing=spacing)
+    while low_idx <= high_idx:
+        mid_idx = (low_idx + high_idx) // 2
+        words = raw_text[:mid_idx].split()
+        candidate = (" ".join(words) + "...") if words else (raw_text[:mid_idx] + "...")
+        wrapped_candidate = wrap_text(draw, candidate, fallback_font, effective_max_width) if wrap else candidate
+        tw, th = text_size(draw, wrapped_candidate, fallback_font, spacing=spacing)
+
         if tw <= effective_max_width and th <= effective_max_height:
-            return wrapped_truncated, emergency_min, fallback_font
+            best_truncated = (wrapped_candidate, emergency_min, fallback_font)
+            low_idx = mid_idx + 1
+        else:
+            high_idx = mid_idx - 1
+
+    if best_truncated is not None:
+        return best_truncated
 
     dots = wrap_text(draw, "...", fallback_font, effective_max_width) if wrap else "..."
     return dots, emergency_min, fallback_font
