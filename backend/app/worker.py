@@ -128,7 +128,7 @@ async def render_frames(spec: dict, theme: str, format: str, job_id: Optional[st
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         try:
-            page = await browser.new_page(viewport={"width": width, "height": height})
+            page = await browser.new_page(viewport={"width": width, "height": height}, device_scale_factor=2)
             await page.goto(url, wait_until="networkidle")
 
             # Wait for layout completion
@@ -194,11 +194,11 @@ async def compile_media(frames: List[bytes], format: str, fps: int) -> bytes:
                 "-i", "-",
                 "-c:v", "libx264",
                 "-pix_fmt", "yuv420p",
-                "-crf", "18",
+                "-crf", "17",
                 "-preset", "slow",
                 "-movflags", "+faststart",
                 "-an",
-                "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+                "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=lanczos",
                 temp_output_path
             ]
         else: # gif
@@ -207,7 +207,7 @@ async def compile_media(frames: List[bytes], format: str, fps: int) -> bytes:
                 "-framerate", str(fps),
                 "-f", "image2pipe",
                 "-i", "-",
-                "-filter_complex", "[0:v]split[x][y];[x]palettegen[p];[y][p]paletteuse=dither=none",
+                "-filter_complex", "[0:v]split[x][y];[x]palettegen=stats_mode=full[p];[y][p]paletteuse=dither=sierra2_4a",
                 temp_output_path
             ]
 

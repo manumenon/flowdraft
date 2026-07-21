@@ -632,13 +632,31 @@ def render_connection(
         if lbl_opt and "x" in lbl_opt and "y" in lbl_opt:
             lbl_x = lbl_opt["x"]
             lbl_y = lbl_opt["y"]
-            draw_text(
-                ex, draw, conn_label,
-                lbl_x - 50, lbl_y - 10,
-                100, 20, 12,
-                THEME["white"], "center",
-                scaled=False,
-            )
+        elif len(path_points) >= 2:
+            mid_idx = len(path_points) // 2
+            p1 = path_points[mid_idx - 1]
+            p2 = path_points[mid_idx]
+            lbl_x = (p1[0] + p2[0]) / 2.0
+            lbl_y = (p1[1] + p2[1]) / 2.0
+        else:
+            lbl_x, lbl_y = path_points[0]
+
+        # Draw background mask to prevent line overlay on label text
+        draw_rect(
+            ex, draw,
+            lbl_x - 35, lbl_y - 10,
+            70, 20,
+            THEME["bg"], THEME["bg"],
+            0, 4,
+            scaled=False,
+        )
+        draw_text(
+            ex, draw, conn_label,
+            lbl_x - 50, lbl_y - 10,
+            100, 20, 12,
+            THEME["white"], "center",
+            scaled=False,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

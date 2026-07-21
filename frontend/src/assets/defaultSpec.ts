@@ -134,7 +134,7 @@ export const defaultSpec: FlowSpec = {
           "id": "core_1",
           "type": "card",
           "title": "Privacy Guardrail",
-          "body": "Regex & NER scrubbing\nToken redactor\nHash system secrets",
+          "body": "Regex & NER scrubbing\nToken redactor\nZero PII verified",
           "icon": "shield-check",
           "style": {
             "color": "#10b981",
@@ -196,7 +196,7 @@ export const defaultSpec: FlowSpec = {
       "id": "decision",
       "type": "diamond",
       "title": "State Validated?",
-      "body": "Zero PII detected\nSchema matched\nMerge conflict clear",
+      "body": "Consensus achieved\nSchema matched\nConflict free",
       "style": {
         "color": "#ef4444",
         "strokeWidth": 3
@@ -205,7 +205,7 @@ export const defaultSpec: FlowSpec = {
     {
       "id": "output",
       "type": "card",
-      "title": "Dispatched Context to Fabric",
+      "title": "Dispatched Context",
       "icon": "zap",
       "style": {
         "color": "#10b981",
@@ -307,7 +307,7 @@ export const defaultSpec: FlowSpec = {
           "id": "store_0",
           "type": "card",
           "title": "System WAL",
-          "body": "Write-Ahead Log\nSQLite manifest\nRollback transaction journal",
+          "body": "Write-Ahead Log\nMetadata WAL cluster\nRollback transaction journal",
           "icon": "database",
           "style": {
             "color": "#bd54d3",
@@ -504,13 +504,15 @@ export const defaultSpec: FlowSpec = {
       "from": "decision",
       "to": "output",
       "exitPort": "right",
-      "entryPort": "left"
+      "entryPort": "left",
+      "label": "Yes"
     },
     {
       "from": "decision",
       "to": "core_0",
       "exitPort": "left",
-      "entryPort": "bottom"
+      "entryPort": "bottom",
+      "label": "No"
     },
     {
       "from": "output",

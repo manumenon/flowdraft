@@ -225,7 +225,7 @@ body {
 
 /* Telemetry dashed path flow animation */
 .dashed-edge-flow {
-  animation: dashFlow 1.5s linear infinite !important;
+  animation: dashFlow 3.5s linear infinite !important;
 }
 
 @keyframes dashFlow {

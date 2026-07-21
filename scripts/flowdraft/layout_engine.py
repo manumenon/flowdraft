@@ -1705,16 +1705,16 @@ def layout(
             while curr and curr.get("parent"):
                 excluded_ids.add(curr["parent"])
                 curr = nodes_map.get(curr["parent"])
-        obstacles = [n for n in nodes if n["id"] not in excluded_ids and not n["id"].startswith("decor_")]
+        obstacles = [n for n in nodes if n["id"] not in excluded_ids and not n["id"].startswith("decor_") and n.get("type") != "panel"]
         
         # Run A* or fallback
         soft_cards = [src_node, tgt_node]
-        soft_panels = []
+        soft_panels = [n for n in nodes if n.get("type") == "panel" and n["id"] not in excluded_ids]
         for nid in (src_id, tgt_id):
             curr = nodes_map.get(nid)
             if curr and curr.get("parent"):
                 p_node = nodes_map.get(curr["parent"])
-                if p_node:
+                if p_node and p_node not in soft_panels:
                     soft_panels.append(p_node)
         
         routed_points = route_orthogonal_astar(

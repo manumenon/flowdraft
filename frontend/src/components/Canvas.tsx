@@ -568,6 +568,11 @@ export const Canvas: React.FC<CanvasProps> = ({
           onNodeSelect?.(null);
           onEdgeSelect?.('', '', -1);
         }}
+        onNodeDrag={isPureRender ? undefined : (_, node) => {
+          if (node.position) {
+            onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes);
+          }
+        }}
         onNodeDragStop={isPureRender ? undefined : (_, node) => {
           if (node.position) {
             onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes);

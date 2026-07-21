@@ -228,7 +228,7 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
 
     const tweens: gsap.core.Tween[] = [];
     const speedMultiplier = edgeData.animationSpeed ?? 1.0;
-    const duration = 4.0 / speedMultiplier;
+    const duration = 6.5 / speedMultiplier;
 
     activePackets.forEach((packet, idx) => {
       gsap.set(packet, { offsetDistance: '0%' });

@@ -188,7 +188,7 @@ class TestRenderWorker(unittest.IsolatedAsyncioTestCase):
         
         self.assertEqual(compiled, b"compiled_gif_data")
         mock_subprocess.assert_called_once()
-        self.assertIn("paletteuse=dither=none", mock_subprocess.call_args[0][9])
+        self.assertIn("paletteuse=dither=sierra2_4a", mock_subprocess.call_args[0][9])
         mock_remove.assert_called_once()
 
     @patch("app.worker.asyncio.create_subprocess_exec")
@@ -236,7 +236,7 @@ class TestRenderWorker(unittest.IsolatedAsyncioTestCase):
         
         mock_update_status.assert_any_call(job_id, status="processing")
         mock_resolve.assert_called_once_with(job_id, payload["spec"])
-        mock_render.assert_called_once_with(payload["spec"], "dark", "mp4")
+        mock_render.assert_called_once_with(payload["spec"], "dark", "mp4", job_id)
         mock_compile.assert_called_once_with([b"frame1", b"frame2"], "mp4", 30)
         mock_storage.upload_bytes.assert_called_once_with(f"{job_id}.mp4", b"video_bytes", "video/mp4")
         mock_update_status.assert_any_call(job_id, status="completed", download_url=f"http://minio/{job_id}.mp4")
@@ -262,7 +262,7 @@ class TestRenderWorker(unittest.IsolatedAsyncioTestCase):
         await process_job(payload)
         
         mock_update_status.assert_any_call(job_id, status="processing")
-        mock_render.assert_called_once_with(payload["spec"], "dark", "png")
+        mock_render.assert_called_once_with(payload["spec"], "dark", "png", job_id)
         mock_storage.upload_bytes.assert_called_once_with(f"{job_id}.png", b"png_frame_bytes", "image/png")
         mock_update_status.assert_any_call(job_id, status="completed", download_url=f"http://minio/{job_id}.png", format="png")
 
@@ -288,7 +288,7 @@ class TestRenderWorker(unittest.IsolatedAsyncioTestCase):
         await process_job(payload)
         
         mock_update_status.assert_any_call(job_id, status="processing")
-        mock_render.assert_called_once_with(payload["spec"], "dark", "mp4")
+        mock_render.assert_called_once_with(payload["spec"], "dark", "mp4", job_id)
         mock_storage.upload_bytes.assert_called_once_with(f"{job_id}.png", b"single_frame_bytes", "image/png")
         mock_update_status.assert_any_call(job_id, status="completed", download_url=f"http://minio/{job_id}.png", format="png")
 
