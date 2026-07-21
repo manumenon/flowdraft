@@ -161,7 +161,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [isPlaying, setIsPlaying] = useState(() => !gsap.globalTimeline.paused());
   const [progress, setProgress] = useState(0);
   const [speed, setSpeed] = useState(1);
-  const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(false);
+  const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(true);
 
   // Sync seek bar with GSAP global timeline ticker
   useEffect(() => {
@@ -570,10 +570,18 @@ export const Canvas: React.FC<CanvasProps> = ({
         }}
         onNodeDrag={isPureRender ? undefined : (_, node) => {
           if (node.position) {
-            onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes);
+            if ((window as any).__DRAG_RAF__) {
+              cancelAnimationFrame((window as any).__DRAG_RAF__);
+            }
+            (window as any).__DRAG_RAF__ = requestAnimationFrame(() => {
+              onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes);
+            });
           }
         }}
         onNodeDragStop={isPureRender ? undefined : (_, node) => {
+          if ((window as any).__DRAG_RAF__) {
+            cancelAnimationFrame((window as any).__DRAG_RAF__);
+          }
           if (node.position) {
             onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes);
           }

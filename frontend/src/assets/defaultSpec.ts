@@ -118,11 +118,11 @@ export const defaultSpec: FlowSpec = {
         {
           "id": "core_0",
           "type": "card",
-          "title": "Ingest & Decouple",
-          "body": "Poll memory queues\nParse raw markdown\nResolve sequence IDs",
-          "icon": "activity",
+          "title": "Privacy & Ingress Guardrail",
+          "body": "Regex & NER scrubbing\nToken redactor\nZero PII verified",
+          "icon": "shield-check",
           "style": {
-            "color": "#3b82f6",
+            "color": "#10b981",
             "strokeWidth": 2,
             "cornerRadius": 12,
             "bold": true,
@@ -133,11 +133,11 @@ export const defaultSpec: FlowSpec = {
         {
           "id": "core_1",
           "type": "card",
-          "title": "Privacy Guardrail",
-          "body": "Regex & NER scrubbing\nToken redactor\nZero PII verified",
-          "icon": "shield-check",
+          "title": "Ingest & Decouple",
+          "body": "Poll memory queues\nParse raw markdown\nResolve sequence IDs",
+          "icon": "activity",
           "style": {
-            "color": "#10b981",
+            "color": "#3b82f6",
             "strokeWidth": 2,
             "cornerRadius": 12,
             "bold": true,
@@ -178,8 +178,8 @@ export const defaultSpec: FlowSpec = {
         {
           "id": "core_4",
           "type": "card",
-          "title": "Consensus Lock",
-          "body": "Raft protocol tick\nResolve delta drift\nCommit state update",
+          "title": "State Consensus",
+          "body": "Async lock registry\nResolve delta drift\nCommit state update",
           "icon": "lock",
           "style": {
             "color": "#f59e0b",
@@ -285,7 +285,7 @@ export const defaultSpec: FlowSpec = {
       "id": "center_panel",
       "type": "panel",
       "title": "Persistent State Mesh",
-      "subtitle": "(Distributed, encrypted, multi-model storage tier)",
+      "subtitle": "(Encrypted state persistence & WAL journal tier)",
       "layout": {
         "direction": "row",
         "gap": 28,
@@ -306,8 +306,8 @@ export const defaultSpec: FlowSpec = {
         {
           "id": "store_0",
           "type": "card",
-          "title": "System WAL Cluster",
-          "body": "Distributed WAL cluster\nReplicated log consensus\nRollback transaction journal",
+          "title": "System WAL Storage",
+          "body": "Distributed Raft WAL\nTransactional Raft log\nCommit snapshot journal",
           "icon": "database",
           "style": {
             "color": "#bd54d3",
@@ -335,7 +335,7 @@ export const defaultSpec: FlowSpec = {
           "id": "store_2",
           "type": "card",
           "title": "Vector Database",
-          "body": "pgvector storage\nDynamic HNSW index\nQuantized float weights",
+          "body": "pgvector storage\nDynamic HNSW index\nCompute cosine similarity",
           "icon": "disc",
           "style": {
             "color": "#bd54d3",
@@ -548,7 +548,8 @@ export const defaultSpec: FlowSpec = {
       "from": "right_0",
       "to": "decision",
       "exitPort": "left",
-      "entryPort": "bottom"
+      "entryPort": "bottom",
+      "label": "Feedback Loop"
     },
     {
       "from": "left_0",

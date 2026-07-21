@@ -349,6 +349,41 @@ def route_with_elk(ir: dict) -> bool:
                 # Update panel height to fit the footer
                 needed_panel_h = (footer_node["y"] - node["y"]) + footer_node["height"] + pad_b
                 node["height"] = max(node["height"], needed_panel_h)
+
+    # Enforce parent panel bounds expansion for any overflowing child nodes
+    for node in nodes:
+        if node.get("type") in ("panel", "group"):
+            children = [c for c in nodes if c.get("parent") == node["id"] and not c.get("out_of_flow")]
+            if children:
+                pad = node.get("style", {}).get("padding", {"left": 12, "right": 12, "top": 36, "bottom": 12})
+                pad_r = pad.get("right", 20)
+                pad_b = pad.get("bottom", 20)
+                max_child_r = max(c["x"] + c["width"] for c in children)
+                max_child_b = max(c["y"] + c["height"] for c in children)
+                needed_w = (max_child_r - node["x"]) + pad_r
+                needed_h = (max_child_b - node["y"]) + pad_b
+                if needed_w > node["width"]:
+                    node["width"] = needed_w
+                if needed_h > node["height"]:
+                    node["height"] = needed_h
+
+    # Resolve vertical top-level overlaps if panels expanded
+    toplevel_nodes = [n for n in nodes if n.get("parent") is None]
+    toplevel_nodes.sort(key=lambda n: n["y"])
+    for i in range(len(toplevel_nodes)):
+        for j in range(i):
+            prev = toplevel_nodes[j]
+            curr = toplevel_nodes[i]
+            prev_bottom = prev["y"] + prev["height"]
+            prev_left, prev_right = prev["x"], prev["x"] + prev["width"]
+            curr_left, curr_right = curr["x"], curr["x"] + curr["width"]
+            if min(prev_right, curr_right) > max(prev_left, curr_left):
+                if curr["y"] < prev_bottom + 40.0:
+                    delta_y = (prev_bottom + 40.0) - curr["y"]
+                    curr["y"] += delta_y
+                    for child in nodes:
+                        if child.get("parent") == curr["id"]:
+                            child["y"] += delta_y
     
     # Store dynamic canvas size
     max_node_r = 1000.0

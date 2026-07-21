@@ -46,13 +46,19 @@ def _find_graphviz() -> str | None:
     return shutil.which("dot")
 
 
-def _add_obstacle_box(lines: list[str], obs_id: str, x: float, y: float, w: float, h: float, canvas_h: float):
-    # Center position in Graphviz points, Y-flipped
-    cx = x + w / 2.0
-    cy = canvas_h - (y + h / 2.0)
+def _add_obstacle_box(lines: list[str], obs_id: str, x: float, y: float, w: float, h: float, canvas_h: float, buffer: float = 12.0):
+    # Expand obstacle by clearance buffer so lines clear rounded corners & card edges
+    x_buf = x - buffer / 2.0
+    y_buf = y - buffer / 2.0
+    w_buf = w + buffer
+    h_buf = h + buffer
 
-    w_in = w / _DPI
-    h_in = h / _DPI
+    # Center position in Graphviz points, Y-flipped
+    cx = x_buf + w_buf / 2.0
+    cy = canvas_h - (y_buf + h_buf / 2.0)
+
+    w_in = w_buf / _DPI
+    h_in = h_buf / _DPI
 
     lines.append(
         f'  "{obs_id}" ['
@@ -217,17 +223,25 @@ def _parse_edge_pos(pos_str: str, canvas_h: float) -> list[tuple[float, float]]:
             y = canvas_h - float(coords[1])
             points.append((x, y))
 
-    # For ortho splines, every 4 points is a cubic Bezier segment.
-    # For straight orthogonal lines, p0==p1 and p2==p3.
-    # Extract the actual waypoints by taking every 3rd point starting from 0.
+    # For ortho splines, every 4 points is a cubic Bezier segment (3n+1 points total).
+    # Extract actual waypoints based on length format and deduplicate near-identical points.
     if len(points) >= 4:
-        waypoints = [points[0]]
-        for i in range(3, len(points), 3):
-            waypoints.append(points[i])
-        # Ensure we include the last point
+        if (len(points) - 1) % 3 == 0:
+            waypoints = [points[0]]
+            for i in range(3, len(points), 3):
+                waypoints.append(points[i])
+        else:
+            waypoints = list(points)
         if waypoints[-1] != points[-1]:
             waypoints.append(points[-1])
         points = waypoints
+
+    # Deduplicate consecutive points
+    dedup = []
+    for pt in points:
+        if not dedup or (abs(pt[0] - dedup[-1][0]) > 0.1 or abs(pt[1] - dedup[-1][1]) > 0.1):
+            dedup.append(pt)
+    points = dedup
 
     # Use endpoint/startpoint if available
     if startpoint and points:

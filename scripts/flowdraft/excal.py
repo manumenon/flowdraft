@@ -161,12 +161,13 @@ class Excal:
         color: str,
         align: str = "left",
         bold: bool = False,
-        hand: bool = False,
+        hand: bool = None,
         opacity=None,
     ) -> dict:
         """Append a text element."""
         from . import constants as _c
-        hand = getattr(_c, "HAND", True)
+        if hand is None:
+            hand = getattr(_c, "HAND", True)
 
         element = self.base(
             "text", "text", x, y, w, h, color, "transparent", 1, "solid",

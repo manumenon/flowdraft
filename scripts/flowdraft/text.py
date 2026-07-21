@@ -259,6 +259,15 @@ def fit_text(
         return fallback_text, emergency_min, fallback_font
 
     for i in range(len(raw_text) - 1, -1, -1):
+        # Prefer truncating at word boundary first to avoid mid-word slices
+        words = raw_text[:i].split()
+        if words:
+            truncated = " ".join(words) + "..."
+            wrapped_truncated = wrap_text(draw, truncated, fallback_font, effective_max_width) if wrap else truncated
+            tw, th = text_size(draw, wrapped_truncated, fallback_font, spacing=spacing)
+            if tw <= effective_max_width and th <= effective_max_height:
+                return wrapped_truncated, emergency_min, fallback_font
+
         truncated = raw_text[:i] + "..."
         wrapped_truncated = wrap_text(draw, truncated, fallback_font, effective_max_width) if wrap else truncated
         tw, th = text_size(draw, wrapped_truncated, fallback_font, spacing=spacing)

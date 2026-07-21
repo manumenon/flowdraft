@@ -111,7 +111,10 @@ def _stroke_style(node: dict, default: str = "solid") -> str:
 def _hand_font(node: dict) -> bool:
     style = _get_style(node)
     val = style.get("hand")
-    return val if val is not None else True
+    if val is not None:
+        return val
+    from . import constants as _c
+    return getattr(_c, "HAND", True)
 
 
 def _bold_font(node: dict) -> bool:
@@ -282,11 +285,6 @@ def render_panel_shape(ex: Excal, draw: ImageDraw.ImageDraw, node: dict, nodes_m
     if stroke or fill:
         draw_rect(ex, draw, nx, ny, nw, nh, stroke, fill, sw, cr, style=ss, scaled=False)
 
-    for child_id in node.get("children", []):
-        child = nodes_map.get(child_id)
-        if child is not None:
-            render_node_shape(ex, draw, child, nodes_map)
-
 def render_panel_content(ex: Excal, draw: ImageDraw.ImageDraw, node: dict, nodes_map: dict[str, dict]) -> None:
     nx, ny = node["x"], node["y"]
     nw, nh = node["width"], node["height"]
@@ -318,7 +316,7 @@ def render_panel_content(ex: Excal, draw: ImageDraw.ImageDraw, node: dict, nodes
             sub_opt["w"], sub_opt["h"],
             sub_opt.get("size", 14),
             THEME["muted"],
-            sub_opt.get("align", "left"),
+            sub_opt.get("align", node.get("align", "left")),
             hand=sub_opt.get("hand", _hand_font(node)),
             bold=sub_opt.get("bold", False),
             fit=True,
@@ -354,11 +352,6 @@ def render_panel_content(ex: Excal, draw: ImageDraw.ImageDraw, node: dict, nodes
             bold=True,
             scaled=False,
         )
-
-    for child_id in node.get("children", []):
-        child = nodes_map.get(child_id)
-        if child is not None:
-            render_node_content(ex, draw, child, nodes_map)
 
 def render_panel(ex: Excal, draw: ImageDraw.ImageDraw, node: dict, nodes_map: dict[str, dict]) -> None:
     render_panel_shape(ex, draw, node, nodes_map)
@@ -545,18 +538,28 @@ def render_connection(
         else:
             lbl_x, lbl_y = path_points[0]
 
+        from .fonts import load_font, text_size
+        from .compiler import _scratch_draw
+        from .constants import SCALE
+
+        font_val = load_font(12, hand=False, bold=False)
+        draw_scratch = _scratch_draw()
+        txt_pw, txt_ph = text_size(draw_scratch, conn_label, font_val)
+        txt_w = max(40.0, (txt_pw / SCALE) + 12.0)
+        txt_h = max(20.0, (txt_ph / SCALE) + 6.0)
+
         draw_rect(
             ex, draw,
-            lbl_x - 40, lbl_y - 12,
-            80, 24,
+            lbl_x - txt_w / 2.0, lbl_y - txt_h / 2.0,
+            txt_w, txt_h,
             THEME["bg"], THEME["bg"],
             0, 6,
             scaled=False,
         )
         draw_text(
             ex, draw, conn_label,
-            lbl_x - 50, lbl_y - 10,
-            100, 20, 12,
+            lbl_x - txt_w / 2.0, lbl_y - txt_h / 2.0,
+            txt_w, txt_h, 12,
             THEME["white"], "center",
             scaled=False,
         )
@@ -630,16 +633,26 @@ def render_all(
     draw: ImageDraw.ImageDraw,
     ir: dict,
 ) -> None:
-    """Render the entire compiled IR using a 4-pass decoupled z-index pipeline:
+    """Render the entire compiled IR using a streamlined 4-pass z-index pipeline:
 
-    Pass 1: Top-level panel containers & backgrounds
-    Pass 2: Free element node shape backgrounds (Z_bg)
-    Pass 3: Connections, arrowheads, and polylines (Z_edges)
-    Pass 4: Element node content (icons, titles, body copy) & annotations (Z_labels > Z_edges)
+    Pass 1: Top-level panel container shapes & backgrounds
+    Pass 2: Complete element nodes (shapes + title/body text + icons)
+    Pass 3: Connections, arrowheads, and routed polylines (Z_edges)
+    Pass 4: Floating annotations & connection labels (Z_annotations > Z_edges)
     """
     nodes = ir.get("nodes", [])
     connections = ir.get("connections", [])
     annotations = ir.get("annotations", [])
+
+    # Sort nodes by tree depth and explicit z-index (panels first, then children)
+    nodes = sorted(
+        nodes,
+        key=lambda n: (
+            0 if n.get("type") == "panel" else 1,
+            n.get("depth", 0),
+            n.get("style", {}).get("zIndex", 0)
+        )
+    )
 
     nodes_map: dict[str, dict] = {n["id"]: n for n in nodes}
 
@@ -648,24 +661,17 @@ def render_all(
         if node.get("type") == "panel" and not node.get("parent"):
             render_panel_shape(ex, draw, node, nodes_map)
 
-    # Pass 2: Free element node shape backgrounds
-    for node in nodes:
-        if not node.get("parent") and node.get("type") not in ("panel",):
-            render_node_shape(ex, draw, node, nodes_map)
-
-    # Pass 3: Connections & arrowheads (Z_edges)
-    for conn in connections:
-        render_connection(ex, draw, conn, nodes_map)
-
-    # Pass 4: Node contents (icons, title text, body text) on top of connections
+    # Pass 2: Complete node elements (shapes + text/icons rendered together)
     for node in nodes:
         if node.get("type") == "panel" and not node.get("parent"):
             render_panel_content(ex, draw, node, nodes_map)
+        elif not node.get("parent"):
+            render_node(ex, draw, node, nodes_map)
 
-    for node in nodes:
-        if not node.get("parent") and node.get("type") not in ("panel",):
-            render_node_content(ex, draw, node, nodes_map)
+    # Pass 3: Connections & arrowheads (routed around complete nodes)
+    for conn in connections:
+        render_connection(ex, draw, conn, nodes_map)
 
-    # Pass 5: Floating annotations
+    # Pass 4: Floating annotations
     for ann in annotations:
         render_annotation(ex, draw, ann, nodes_map)

@@ -163,9 +163,18 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
     // Estimate sizes for leaf nodes
     if (clonedEl.type === 'card') {
       const bodyText = clonedEl.body || '';
-      const lineCount = bodyText.split('\n').length;
-      clonedEl.width = 260;
-      clonedEl.height = Math.max(110, 80 + lineCount * 18);
+      const titleText = clonedEl.title || '';
+      const hasIcon = Boolean(clonedEl.icon);
+      const rawLines = bodyText.split('\n');
+      let wrappedBodyLines = 0;
+      rawLines.forEach((l) => {
+        wrappedBodyLines += Math.max(1, Math.ceil(l.length / 26));
+      });
+      const titleHeight = titleText ? (titleText.length > 22 ? 40 : 24) : 0;
+      const bodyHeight = wrappedBodyLines > 0 ? wrappedBodyLines * 18 + 8 : 0;
+      const iconPad = hasIcon ? 10 : 0;
+      clonedEl.width = clonedEl.width || 260;
+      clonedEl.height = Math.max(110, 36 + titleHeight + bodyHeight + iconPad);
     } else if (clonedEl.type === 'input') {
       clonedEl.width = 220;
       clonedEl.height = 42;
@@ -203,7 +212,10 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
     // Process footer shorthand if it exists and type is panel
     if (el.type === 'panel' && el.footer) {
       const footerRaw = el.footer;
-      const footerId = footerRaw.id || `${el.id}_footer`;
+      let footerId = footerRaw.id || `${el.id}_footer`;
+      if (existingIds.has(footerId) && !footerRaw.id) {
+        footerId = `${el.id}_shorthand_footer`;
+      }
       const footerElem: ElementSpec = {
         id: footerId,
         type: (footerRaw.type as any) || 'label',

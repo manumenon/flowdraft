@@ -67,12 +67,11 @@ def excalidraw_to_svg(elements: list, width: int, height: int, bg_color: str) ->
         stroke_w = el.get("strokeWidth", 2)
         style    = el.get("strokeStyle", "solid")
 
-        scale_factor = min(_c.SCALE_X, _c.SCALE_Y)  # read live value set by render_static
         stroke_dash = ""
         if style == "dashed":
-            stroke_dash = f"{8 * scale_factor},{8 * scale_factor}"
+            stroke_dash = "8,8"
         elif style == "dotted":
-            stroke_dash = f"{2 * scale_factor},{7 * scale_factor}"
+            stroke_dash = "2,7"
 
         extra_attrs = {}
         if stroke_dash:
@@ -138,11 +137,11 @@ def excalidraw_to_svg(elements: list, width: int, height: int, bg_color: str) ->
             }
             ET.SubElement(svg, "polygon" if is_closed else "polyline", attrs)
 
-            # Arrow-head polyline
+            # Arrow-head polyline (logical canvas coordinates)
             if el_type == "arrow" and len(absolute_pts) >= 2:
                 ap1, ap2 = absolute_pts[-2], absolute_pts[-1]
                 angle  = math.atan2(ap2[1] - ap1[1], ap2[0] - ap1[0])
-                length = 14 * min(_c.SCALE_X, _c.SCALE_Y) + stroke_w
+                length = 12 + stroke_w
                 spread = 0.52
                 h1x = ap2[0] - length * math.cos(angle - spread)
                 h1y = ap2[1] - length * math.sin(angle - spread)

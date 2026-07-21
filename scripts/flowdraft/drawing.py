@@ -51,15 +51,22 @@ def draw_rect(
     SCALE_X = _c.SCALE_X
     SCALE_Y = _c.SCALE_Y
     if not scaled:
+        lx, ly, lw, lh = x, y, w, h
+        lwidth, lradius = width, radius
         x = x * SCALE_X
         y = y * SCALE_Y
         w = w * SCALE_X
         h = h * SCALE_Y
         width = width * min(SCALE_X, SCALE_Y)
         radius = radius * min(SCALE_X, SCALE_Y)
+    else:
+        scale_f = min(SCALE_X, SCALE_Y) or 1.0
+        lx, ly, lw, lh = x / SCALE_X, y / SCALE_Y, w / SCALE_X, h / SCALE_Y
+        lwidth, lradius = width / scale_f, radius / scale_f
+
     stroke_color = adjust_color(stroke) if stroke else None
     fill_color = adjust_color(fill) if fill else None
-    ex.rect(x, y, w, h, stroke_color or "transparent", fill_color or "transparent", width, style, radius=radius, opacity=opacity)
+    ex.rect(lx, ly, lw, lh, stroke_color or "transparent", fill_color or "transparent", lwidth, style, radius=lradius, opacity=opacity)
     alpha = int(opacity * 255) if opacity is not None else 255
     
     outline_val = hex_rgba(stroke_color, alpha) if (stroke_color and width > 0) else None
@@ -89,14 +96,19 @@ def draw_ellipse(
     SCALE_X = _c.SCALE_X
     SCALE_Y = _c.SCALE_Y
     if not scaled:
+        lx, ly, lw, lh, lwidth = x, y, w, h, width
         x = x * SCALE_X
         y = y * SCALE_Y
         w = w * SCALE_X
         h = h * SCALE_Y
         width = width * min(SCALE_X, SCALE_Y)
+    else:
+        scale_f = min(SCALE_X, SCALE_Y) or 1.0
+        lx, ly, lw, lh, lwidth = x / SCALE_X, y / SCALE_Y, w / SCALE_X, h / SCALE_Y, width / scale_f
+
     stroke = adjust_color(stroke)
     fill = adjust_color(fill)
-    ex.ellipse(x, y, w, h, stroke, fill or "transparent", width, opacity=opacity)
+    ex.ellipse(lx, ly, lw, lh, stroke, fill or "transparent", lwidth, opacity=opacity)
     alpha = int(opacity * 255) if opacity is not None else 255
     draw.ellipse(
         scaled_box(x, y, w, h),
@@ -140,13 +152,18 @@ def draw_line(
     SCALE_X = _c.SCALE_X
     SCALE_Y = _c.SCALE_Y
     if not scaled:
+        lpoints = list(points)
+        lwidth = width
         points = [(px * SCALE_X, py * SCALE_Y) for px, py in points]
         width = width * min(SCALE_X, SCALE_Y)
+    else:
+        scale_f = min(SCALE_X, SCALE_Y) or 1.0
+        lpoints = [(px / SCALE_X, py / SCALE_Y) for px, py in points]
+        lwidth = width / scale_f
+
     stroke = adjust_color(stroke)
     fill = adjust_color(fill)
-    ex.line(points, stroke, width, style, arrow, fill=fill, opacity=opacity)
-
-    # Shorten the last segment of the line for PIL drawing to prevent the line cap from poking through the arrowhead tip
+    # Shorten the last segment of the line for PIL drawing and Excalidraw to prevent line cap poking through arrowhead tip
     line_points = list(points)
     if arrow and len(points) >= 2:
         import math
@@ -158,6 +175,8 @@ def draw_line(
             if dist > shorten_len:
                 line_points[-1] = (b[0] - (dx / dist) * shorten_len, b[1] - (dy / dist) * shorten_len)
 
+    ex.line(lpoints, stroke, lwidth, style, arrow, fill=fill, opacity=opacity)
+
     scaled_pts = [(c(px), c(py)) for px, py in line_points]
     alpha = int(opacity * 255) if opacity is not None else 255
 
@@ -167,19 +186,21 @@ def draw_line(
     if style == "solid":
         draw.line(scaled_pts, fill=hex_rgba(stroke, alpha), width=max(1, c(width)), joint="curve")
     else:
-        total = path_len(line_points)
-        dist = 0.0
+        import math
         dash = 8 * min(SCALE_X, SCALE_Y) if style == "dashed" else 2 * min(SCALE_X, SCALE_Y)
         gap  = 8 * min(SCALE_X, SCALE_Y) if style == "dashed" else 7 * min(SCALE_X, SCALE_Y)
-        while dist < total:
-            start = point_at_distance(line_points, dist)
-            end   = point_at_distance(line_points, min(total, dist + dash))
-            draw.line(
-                [(c(start[0]), c(start[1])), (c(end[0]), c(end[1]))],
-                fill=hex_rgba(stroke, alpha),
-                width=max(1, c(width)),
-            )
-            dist += dash + gap
+        for p1, p2 in zip(line_points, line_points[1:]):
+            seg_len = math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+            if seg_len <= 0:
+                continue
+            dx, dy = (p2[0] - p1[0]) / seg_len, (p2[1] - p1[1]) / seg_len
+            dist = 0.0
+            while dist < seg_len:
+                d_end = min(seg_len, dist + dash)
+                p_start = (p1[0] + dx * dist, p1[1] + dy * dist)
+                p_end   = (p1[0] + dx * d_end, p1[1] + dy * d_end)
+                draw.line([(c(p_start[0]), c(p_start[1])), (c(p_end[0]), c(p_end[1]))], fill=hex_rgba(stroke, alpha), width=max(1, c(width)))
+                dist += dash + gap
 
     if arrow and len(points) >= 2:
         arrow_head(draw, points[-2], points[-1], stroke, width, opacity=opacity)
@@ -200,14 +221,19 @@ def draw_diamond(
     SCALE_X = _c.SCALE_X
     SCALE_Y = _c.SCALE_Y
     if not scaled:
+        lx, ly, lw, lh, lwidth = x, y, w, h, width
         x = x * SCALE_X
         y = y * SCALE_Y
         w = w * SCALE_X
         h = h * SCALE_Y
         width = width * min(SCALE_X, SCALE_Y)
+    else:
+        scale_f = min(SCALE_X, SCALE_Y) or 1.0
+        lx, ly, lw, lh, lwidth = x / SCALE_X, y / SCALE_Y, w / SCALE_X, h / SCALE_Y, width / scale_f
+
     stroke = adjust_color(stroke)
     fill = adjust_color(fill)
-    ex.diamond(x, y, w, h, stroke, fill or "transparent", width, opacity=opacity)
+    ex.diamond(lx, ly, lw, lh, stroke, fill or "transparent", lwidth, opacity=opacity)
     pts = [(x + w / 2, y), (x + w, y + h / 2), (x + w / 2, y + h), (x, y + h / 2)]
     scaled_pts = [(c(px), c(py)) for px, py in pts]
     alpha = int(opacity * 255) if opacity is not None else 255

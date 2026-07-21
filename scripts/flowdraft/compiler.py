@@ -145,6 +145,8 @@ def resolve_style(
     style["padding"] = copy.deepcopy(
         _DEFAULT_PADDING.get(etype, _DEFAULT_PADDING["card"])
     )
+    from . import constants as _c
+    style["hand"] = getattr(_c, "HAND", True)
 
     # Track what is explicitly overridden in the element
     elem_style = element.get("style", {})
@@ -230,7 +232,48 @@ def resolve_style(
         if style.get(ckey) and not _is_valid_hex(style[ckey]):
             style[ckey] = None
 
+    # Remap custom dark hex colors if theme is light or white
+    theme_name = th.get("name", "dark")
+    if theme_name in ("light", "white"):
+        if style.get("fillColor"):
+            style["fillColor"] = adjust_color(style["fillColor"], theme_name)
+        if style.get("strokeColor"):
+            style["strokeColor"] = adjust_color(style["strokeColor"], theme_name)
+
     return style
+
+
+_COLOR_MAPPINGS: dict[str, str] = {
+    '#000000': '#ffffff',
+    '#f4f0ee': '#111827',
+    '#cfc7c5': '#4b5563',
+    '#5c6265': '#6b7280',
+    '#04171e': '#dbeafe',
+    '#1d8be8': '#0284c7',
+    '#22c86f': '#15803d',
+    '#02160a': '#dcfce7',
+    '#bd54d3': '#7c3aed',
+    '#120814': '#ede9fe',
+    '#7ee3d6': '#0891b2',
+    '#081626': '#dbeafe',
+    '#124238': '#99f6e4',
+    '#f4b64e': '#b45309',
+    '#ff7ab6': '#be185d',
+    '#080711': '#ede9fe',
+    '#04180d': '#d1fae5',
+    '#04200f': '#dcfce7',
+    '#17091d': '#ede9fe',
+    '#052515': '#dcfce7',
+}
+
+
+def adjust_color(color: str | None, theme_name: str = "dark") -> str | None:
+    if not color or not isinstance(color, str):
+        return color
+    if theme_name in ("light", "white"):
+        color_lower = color.lower()
+        return _COLOR_MAPPINGS.get(color_lower, color)
+    return color
 
 
 def _apply_color_preset(style: dict, preset: str, th: dict) -> None:

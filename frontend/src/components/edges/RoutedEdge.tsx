@@ -145,8 +145,18 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
 
   const midpointOffset = corridorOffset || sourceFanOffset;
 
-  // 4. Calculate base points
-  const rawPoints = (edgeData.points as [number, number][]) || getManhattanPath(
+  // 4. Calculate base points (invalidate static waypoints if handle coordinates drift during node drag)
+  let staticPoints = edgeData.points as [number, number][] | undefined;
+  if (staticPoints && staticPoints.length >= 2) {
+    const sDist = Math.hypot(staticPoints[0][0] - shiftedSourceX, staticPoints[0][1] - shiftedSourceY);
+    const lastPt = staticPoints[staticPoints.length - 1];
+    const tDist = Math.hypot(lastPt[0] - shiftedTargetX, lastPt[1] - shiftedTargetY);
+    if (sDist > 15 || tDist > 15 || edgeData.isDragging) {
+      staticPoints = undefined;
+    }
+  }
+
+  const rawPoints = staticPoints || getManhattanPath(
     shiftedSourceX,
     shiftedSourceY,
     sourcePosition,
