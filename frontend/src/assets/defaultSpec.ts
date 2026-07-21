@@ -306,8 +306,8 @@ export const defaultSpec: FlowSpec = {
         {
           "id": "store_0",
           "type": "card",
-          "title": "System WAL",
-          "body": "Write-Ahead Log\nMetadata WAL cluster\nRollback transaction journal",
+          "title": "System WAL Cluster",
+          "body": "Distributed WAL cluster\nReplicated log consensus\nRollback transaction journal",
           "icon": "database",
           "style": {
             "color": "#bd54d3",
