@@ -4,6 +4,23 @@ FlowDraft is a high-performance, multi-container system designed to render premi
 
 ---
 
+## 📚 Documentation & Specifications
+
+Comprehensive documentation is available in the **[docs/](docs/README.md)** folder:
+
+| Guide | Description |
+| :--- | :--- |
+| 🏠 **[Documentation Hub](docs/README.md)** | Master index and quick-start guide. |
+| 🏗️ **[System Architecture](docs/architecture.md)** | 6-tier microservices topology, sequence diagrams, and rendering worker pipeline. |
+| 🔌 **[API Reference](docs/api-reference.md)** | FastAPI REST endpoints, JWT auth, Pydantic schemas, and FastMCP tools. |
+| 🤖 **[MCP Server Guide](docs/mcp-server.md)** | FastMCP server tools, resources, prompts, SSE transport, and AI client setup. |
+| 🎨 **[Rendering Engine](docs/rendering-engine.md)** | `scripts/flowdraft` Python engine, JSON Spec V2 schema format, text fitting, and CLI flags. |
+| 💻 **[Frontend Guide](docs/frontend-guide.md)** | React 18 SPA, off-thread ELKjs Web Worker layout (`layout.worker.ts`), and `/render-box` route. |
+| 🚀 **[Deployment & Operations](docs/deployment-and-operations.md)** | Docker Compose setup, environment variables, and `wait_and_init.py` startup hooks. |
+| 🧪 **[Testing & Verification](docs/testing-and-verification.md)** | Unit tests, E2E test suite (mock vs. real modes), and visual verification contracts (`--verify`). |
+
+---
+
 ## 1. Technical Overview
 
 FlowDraft is structured as a decoupled, multi-tier microservices application composed of six main components:
@@ -155,6 +172,7 @@ To execute E2E tests against the real containerized stack:
 
 ## 5. Directory Layout
 
+- `docs/` - System architecture, API reference, FastMCP server guide, rendering engine specs, frontend architecture, and operations guides ([docs/README.md](docs/README.md)).
 - `backend/` - FastAPI gateway codebase, security rules, dependency injection, and MinIO clients.
 - `backend/app/worker.py` - Playwright browser automation, timeline clock manipulation, and FFmpeg media compiler.
 - `frontend/` - React SPA (Vite, TypeScript, React Flow, GSAP).
