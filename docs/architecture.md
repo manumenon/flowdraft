@@ -112,12 +112,24 @@ sequenceDiagram
 
 ## 4. Model Context Protocol (MCP) Architecture
 
-FlowDraft embeds a Model Context Protocol server exposing fast diagram manipulation and compilation tools directly to AI assistants.
+FlowDraft embeds a Model Context Protocol server exposing fast diagram manipulation, template inspection, database persistence, and compilation tools directly to AI assistants.
 
-- **Transport**: Server-Sent Events (SSE) via FastMCP (`SseServerTransport`).
+- **Transport**: Server-Sent Events (SSE) via FastMCP (`SseServerTransport`) mounted at `/api/v1/mcp` and `/api/mcp`.
 - **Auth Middleware**: Inspects `X-MCP-API-Key` header or `api_key` query parameter against `settings.MCP_API_KEYS`.
-- **System Provisioning**: Automatically provisions a default user `mcp_system_user@flowdraft.local` for system-originated exports.
+- **System Provisioning**: Automatically provisions a default user `mcp_system_user@flowdraft.local` for system-originated exports and diagram storage.
 - **Available Tools**:
   - `compile_diagram`: Validates JSON spec against FlowDraft V2 schema.
+  - `validate_diagram_spec`: Performs deep structural validation and returns JSON report with warnings.
+  - `list_templates`: Lists built-in starter templates (`dataflow`, `microservices`, `auth_flow`).
+  - `get_template`: Retrieves complete JSON spec for a starter template.
+  - `list_saved_diagrams`: Lists diagrams stored in PostgreSQL for the MCP system account.
+  - `get_saved_diagram`: Loads diagram spec by UUID from PostgreSQL.
+  - `save_diagram`: Persists a diagram spec into PostgreSQL.
+  - `delete_saved_diagram`: Deletes a diagram by UUID from PostgreSQL.
   - `trigger_export`: Enqueues an export job in Redis and returns the `job_id`.
-  - `get_export_status`: Polls status and returns presigned download URL when complete.
+  - `get_export_status`: Polls status and returns both proxy download link and MinIO presigned URL when complete.
+- **Available Resources**:
+  - `flowdraft://schema/v2`: V2 spec rules, valid node types, ports, themes, and icon set.
+  - `flowdraft://templates/default`: Default real-time dataflow engine diagram spec.
+- **Available Prompts**:
+  - `create_architecture_diagram`: Prompt template guiding AI models on generating V2 specs.

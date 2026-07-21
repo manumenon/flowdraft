@@ -139,7 +139,7 @@ Internal/Worker endpoint returning the resolved JSON spec for headless rendering
 
 ## 4. Model Context Protocol (MCP) Server
 
-Mounted at `/api/v1/mcp`. Provides Server-Sent Events (SSE) protocol access for AI tool execution.
+Mounted at `/api/v1/mcp` and `/api/mcp`. FastMCP framework providing Server-Sent Events (SSE) protocol access for AI tool execution, resources, and prompt templates.
 
 ### Authentication
 Include the `X-MCP-API-Key` HTTP header or `?api_key=` URL parameter matching one of the keys in `settings.MCP_API_KEYS`.
@@ -148,18 +148,58 @@ Include the `X-MCP-API-Key` HTTP header or `?api_key=` URL parameter matching on
 - `GET /api/v1/mcp/sse`: Connects to FastMCP SSE transport stream.
 - `POST /api/v1/mcp/messages/`: Sends MCP tool calls and JSON-RPC messages.
 
+---
+
 ### Available MCP Tools
 
 #### 1. `compile_diagram(spec: dict) -> str`
 Validates a JSON spec against the FlowDraft V2 schema without queueing an export.
-- **Returns**: `"Diagram compiled successfully"` or failure details with path.
+- **Returns**: Summary string with title, element count, connection count, and theme.
 
-#### 2. `trigger_export(spec: dict, format: str = "mp4") -> str`
+#### 2. `validate_diagram_spec(spec: dict) -> str`
+Performs deep structural validation of a spec and returns JSON string with metrics, valid status, and warning array.
+
+#### 3. `list_templates() -> str`
+Lists built-in starter diagram templates (`dataflow`, `microservices`, `auth_flow`).
+
+#### 4. `get_template(name: str) -> str`
+Retrieves the complete JSON spec string for a starter template by name.
+
+#### 5. `list_saved_diagrams(limit: int = 10) -> str`
+Queries saved diagrams stored in PostgreSQL for the MCP system account (`mcp_system_user@flowdraft.local`).
+
+#### 6. `get_saved_diagram(diagram_id: str) -> str`
+Retrieves a stored diagram spec by UUID from the database.
+
+#### 7. `save_diagram(title: str, spec: dict, description: str = None, theme: str = "dark") -> str`
+Validates and persists a diagram specification into PostgreSQL.
+
+#### 8. `delete_saved_diagram(diagram_id: str) -> str`
+Deletes a diagram by UUID from PostgreSQL.
+
+#### 9. `trigger_export(spec: dict, format: str = "mp4") -> str`
 Enqueues an export job for headless rendering under system account `mcp_system_user@flowdraft.local`.
 - **Returns**: `"Export job triggered successfully. job_id: <uuid>"`
 
-#### 3. `get_export_status(job_id: str) -> str`
-Queries execution status and fetches MinIO presigned link upon completion.
+#### 10. `get_export_status(job_id: str) -> str`
+Queries execution status and returns both proxy download link and MinIO presigned URL upon completion.
+
+---
+
+### Available MCP Resources
+
+#### 1. `flowdraft://schema/v2`
+Exposes the FlowDraft V2 schema rules, valid element types (`card`, `diamond`, `panel`, `input`, `label`, `group`, `cylinder`, `cloud`), ports, themes, and icon sets as a readable resource.
+
+#### 2. `flowdraft://templates/default`
+Exposes the default real-time dataflow engine architecture spec JSON.
+
+---
+
+### Available MCP Prompts
+
+#### 1. `create_architecture_diagram(topic: str)`
+Returns a guided prompt template instructing AI models how to structure a valid FlowDraft V2 diagram spec for a given topic.
 
 ---
 
@@ -169,10 +209,3 @@ Queries execution status and fetches MinIO presigned link upon completion.
 Validates connectivity to both Redis and PostgreSQL.
 - **Healthy Response**: `200 OK` `{"status": "healthy"}`
 - **Unhealthy Response**: `500 Internal Server Error`
-  ```json
-  {
-    "status": "unhealthy",
-    "redis": "offline",
-    "database": "offline: connection refused"
-  }
-  ```

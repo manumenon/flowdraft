@@ -1,7 +1,18 @@
+import sys
+import os
 import unittest
 import uuid
 import json
 from unittest.mock import patch, MagicMock, AsyncMock
+
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend"))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -406,5 +417,4 @@ class TestBackendAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         res_json = response.json()
         self.assertEqual(res_json["status"], "completed")
-        self.assertEqual(res_json["download_url"], "http://minio/exports/job.gif?token=xyz")
-        mock_minio.get_download_url.assert_called_once_with(f"{job.id}.gif")
+        self.assertEqual(res_json["download_url"], f"/api/v1/export/{job.id}/download")
