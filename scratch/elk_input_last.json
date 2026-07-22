@@ -16,12 +16,173 @@
   },
   "children": [
     {
-      "id": "card1",
+      "id": "cdn_edge",
+      "children": [],
+      "edges": [],
+      "width": 110,
+      "height": 51.5
+    },
+    {
+      "id": "ingress_alb",
+      "children": [],
+      "edges": [],
+      "width": 110,
+      "height": 50.5
+    },
+    {
+      "id": "auth_svc",
+      "children": [],
+      "edges": [],
+      "width": 200,
+      "height": 80
+    },
+    {
+      "id": "order_svc",
+      "children": [],
+      "edges": [],
+      "width": 200,
+      "height": 80
+    },
+    {
+      "id": "user_db",
+      "children": [],
+      "edges": [],
+      "width": 200,
+      "height": 80
+    },
+    {
+      "id": "dec_fraud",
+      "children": [],
+      "edges": [],
+      "width": 200.0,
+      "height": 140
+    },
+    {
+      "id": "payment_gw",
+      "children": [],
+      "edges": [],
+      "width": 200,
+      "height": 81.0
+    },
+    {
+      "id": "kafka_bus",
+      "children": [],
+      "edges": [],
+      "width": 200,
+      "height": 81.0
+    },
+    {
+      "id": "stream_proc",
+      "children": [],
+      "edges": [],
+      "width": 200,
+      "height": 80
+    },
+    {
+      "id": "notif_svc",
+      "children": [],
+      "edges": [],
+      "width": 200,
+      "height": 80
+    },
+    {
+      "id": "analytics_db",
       "children": [],
       "edges": [],
       "width": 200,
       "height": 80
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "id": "edge_1_cdn_edge_ingress_alb",
+      "sources": [
+        "cdn_edge"
+      ],
+      "targets": [
+        "ingress_alb"
+      ]
+    },
+    {
+      "id": "edge_2_ingress_alb_auth_svc",
+      "sources": [
+        "ingress_alb"
+      ],
+      "targets": [
+        "auth_svc"
+      ]
+    },
+    {
+      "id": "edge_3_auth_svc_user_db",
+      "sources": [
+        "auth_svc"
+      ],
+      "targets": [
+        "user_db"
+      ]
+    },
+    {
+      "id": "edge_4_ingress_alb_order_svc",
+      "sources": [
+        "ingress_alb"
+      ],
+      "targets": [
+        "order_svc"
+      ]
+    },
+    {
+      "id": "edge_5_order_svc_dec_fraud",
+      "sources": [
+        "order_svc"
+      ],
+      "targets": [
+        "dec_fraud"
+      ]
+    },
+    {
+      "id": "edge_6_dec_fraud_payment_gw",
+      "sources": [
+        "dec_fraud"
+      ],
+      "targets": [
+        "payment_gw"
+      ]
+    },
+    {
+      "id": "edge_7_payment_gw_kafka_bus",
+      "sources": [
+        "payment_gw"
+      ],
+      "targets": [
+        "kafka_bus"
+      ]
+    },
+    {
+      "id": "edge_8_kafka_bus_stream_proc",
+      "sources": [
+        "kafka_bus"
+      ],
+      "targets": [
+        "stream_proc"
+      ]
+    },
+    {
+      "id": "edge_9_stream_proc_analytics_db",
+      "sources": [
+        "stream_proc"
+      ],
+      "targets": [
+        "analytics_db"
+      ]
+    },
+    {
+      "id": "edge_10_kafka_bus_notif_svc",
+      "sources": [
+        "kafka_bus"
+      ],
+      "targets": [
+        "notif_svc"
+      ]
+    }
+  ]
 }
