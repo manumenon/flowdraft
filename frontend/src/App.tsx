@@ -108,11 +108,13 @@ function App() {
 
     const fetchSpec = async () => {
       try {
-        const backendBaseUrl = window.location.origin.includes(':3000')
-          ? window.location.origin.replace(':3000', ':8000')
-          : window.location.origin;
-
-        const res = await fetch(`${backendBaseUrl}/api/v1/export/${jobId}/spec`);
+        let res = await fetch(`/api/v1/export/${jobId}/spec`);
+        if (!res.ok) {
+          const backendBaseUrl = window.location.origin.includes(':3000')
+            ? window.location.origin.replace(':3000', ':8000')
+            : window.location.origin;
+          res = await fetch(`${backendBaseUrl}/api/v1/export/${jobId}/spec`);
+        }
         if (res.ok) {
           const data = await res.json();
           resetHistory(data);
