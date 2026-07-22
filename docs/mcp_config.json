@@ -1,0 +1,32 @@
+{
+  "cursor": {
+    "mcpServers": {
+      "flowdraft": {
+        "url": "http://localhost:8000/api/v1/mcp/sse",
+        "transport": "sse",
+        "headers": {
+          "X-MCP-API-Key": "default-mcp-key"
+        }
+      }
+    }
+  },
+  "claude_desktop": {
+    "mcpServers": {
+      "flowdraft": {
+        "url": "http://localhost:8000/api/v1/mcp/sse?api_key=default-mcp-key",
+        "transport": "sse"
+      }
+    }
+  },
+  "antigravity": {
+    "mcpServers": {
+      "flowdraft": {
+        "url": "http://localhost:8000/api/v1/mcp/sse",
+        "transport": "sse",
+        "headers": {
+          "X-MCP-API-Key": "default-mcp-key"
+        }
+      }
+    }
+  }
+}

@@ -18,6 +18,8 @@ while current_dir and current_dir != os.path.dirname(current_dir):
     current_dir = os.path.dirname(current_dir)
 
 from scripts.flowdraft.schema import validate_spec, SpecError, SUPPORTED_ELEMENT_TYPES, SUPPORTED_CONNECTION_STYLES, SUPPORTED_THEMES, SUPPORTED_PORTS
+from scripts.flowdraft.compiler import compile_spec
+from scripts.flowdraft.layout_engine import layout
 
 from app.core.database import async_session_maker
 from app.models import ExportJob, Diagram, User
@@ -105,18 +107,89 @@ STARTER_TEMPLATES: Dict[str, dict] = {
 @mcp.tool()
 async def compile_diagram(spec: dict) -> str:
     """
-    Validates and compiles a raw diagram specification JSON.
-    Returns a success message with normalized spec summary, or details of any syntax/structural errors.
+    Validates and compiles a raw diagram specification JSON into element layout positioning and bounding box details.
+    Invokes the FlowDraft IR compiler and layout engine to return node coordinates, dimensions, ports, and connection routing metrics.
+    Returns structured JSON.
     """
     try:
         norm_spec = validate_spec(spec)
-        elem_count = len(norm_spec.get("elements", []))
-        conn_count = len(norm_spec.get("connections", []))
-        return f"Diagram compiled successfully. Title: '{norm_spec.get('title', {}).get('prefix', '')} {norm_spec.get('title', {}).get('highlight', '')}'. Elements: {elem_count}, Connections: {conn_count}, Theme: {norm_spec.get('theme', 'dark')}."
+        ir = compile_spec(norm_spec)
+        canvas = norm_spec.get("canvas", {})
+        cw = canvas.get("width", 1920)
+        ch = canvas.get("height", 1440)
+        layout_ir = layout(ir, cw, ch)
+
+        nodes_summary = []
+        min_x, min_y = float('inf'), float('inf')
+        max_x, max_y = float('-inf'), float('-inf')
+
+        for node in layout_ir.get("nodes", []):
+            x = node.get("x", 0)
+            y = node.get("y", 0)
+            w = node.get("width", 0)
+            h = node.get("height", 0)
+            min_x = min(min_x, x)
+            min_y = min(min_y, y)
+            max_x = max(max_x, x + w)
+            max_y = max(max_y, y + h)
+
+            nodes_summary.append({
+                "id": node.get("id"),
+                "type": node.get("type"),
+                "title": node.get("title", ""),
+                "x": round(x, 2),
+                "y": round(y, 2),
+                "width": round(w, 2),
+                "height": round(h, 2),
+                "parent": node.get("parent"),
+                "children": node.get("children", [])
+            })
+
+        connections_summary = []
+        for conn in layout_ir.get("connections", []):
+            connections_summary.append({
+                "from": conn.get("from"),
+                "to": conn.get("to"),
+                "style": conn.get("style", "solid"),
+                "points": conn.get("points", [])
+            })
+
+        bounding_box = {
+            "min_x": round(min_x, 2) if min_x != float('inf') else 0,
+            "min_y": round(min_y, 2) if min_y != float('inf') else 0,
+            "max_x": round(max_x, 2) if max_x != float('-inf') else 0,
+            "max_y": round(max_y, 2) if max_y != float('-inf') else 0,
+            "width": round(max_x - min_x, 2) if min_x != float('inf') else 0,
+            "height": round(max_y - min_y, 2) if min_y != float('inf') else 0,
+        }
+
+        title_obj = norm_spec.get("title", {})
+        title_str = f"{title_obj.get('prefix', '')} {title_obj.get('highlight', '')}".strip()
+
+        result = {
+            "status": "compiled",
+            "title": title_str,
+            "version": norm_spec.get("version"),
+            "theme": norm_spec.get("theme"),
+            "canvas_dimensions": f"{cw}x{ch}",
+            "element_count": len(nodes_summary),
+            "connection_count": len(connections_summary),
+            "bounding_box": bounding_box,
+            "nodes": nodes_summary,
+            "connections": connections_summary
+        }
+        return json.dumps(result, indent=2)
     except SpecError as e:
-        return f"Compilation failed: {e.reason} (at path: {getattr(e, 'path', None)})"
+        return json.dumps({
+            "status": "error",
+            "error": f"Compilation failed: {e.reason}",
+            "path": getattr(e, 'path', None)
+        }, indent=2)
     except Exception as e:
-        return f"Error during compilation: {str(e)}"
+        return json.dumps({
+            "status": "error",
+            "error": f"Error during compilation: {str(e)}"
+        }, indent=2)
 
 @mcp.tool()
 async def validate_diagram_spec(spec: dict) -> str:
@@ -162,11 +235,22 @@ async def validate_diagram_spec(spec: dict) -> str:
 @mcp.tool()
 async def list_templates() -> str:
     """
-    Lists available built-in starter diagram templates (e.g., 'dataflow', 'microservices', 'auth_flow').
+    Lists available built-in starter diagram templates ('dataflow', 'microservices', 'auth_flow') with descriptions and visual themes.
     """
+    descriptions = {
+        "dataflow": "Realtime Dataflow Engine processing Kafka streams with Timescale DB storage",
+        "microservices": "Cloud Microservices Topology showing API Gateway and OAuth2 Auth Service",
+        "auth_flow": "OAuth2 Authentication Sequence between SPA Client and Identity Provider"
+    }
     return json.dumps({
         "templates": [
-            { "name": name, "title": f"{tmpl.get('title', {}).get('prefix', '')} {tmpl.get('title', {}).get('highlight', '')}", "theme": tmpl.get("theme"), "element_count": len(tmpl.get("elements", [])) }
+            {
+                "name": name,
+                "title": f"{tmpl.get('title', {}).get('prefix', '')} {tmpl.get('title', {}).get('highlight', '')}".strip(),
+                "description": descriptions.get(name, ""),
+                "theme": tmpl.get("theme"),
+                "element_count": len(tmpl.get("elements", []))
+            }
             for name, tmpl in STARTER_TEMPLATES.items()
         ]
     }, indent=2)
@@ -177,7 +261,10 @@ async def get_template(name: str) -> str:
     Retrieves the complete JSON spec for a starter diagram template by name ('dataflow', 'microservices', 'auth_flow').
     """
     if name not in STARTER_TEMPLATES:
-        return f"Error: Template '{name}' not found. Available templates: {list(STARTER_TEMPLATES.keys())}"
+        return json.dumps({
+            "error": f"Template '{name}' not found.",
+            "available_templates": list(STARTER_TEMPLATES.keys())
+        }, indent=2)
     return json.dumps(STARTER_TEMPLATES[name], indent=2)
 
 @mcp.tool()
@@ -211,7 +298,10 @@ async def get_saved_diagram(diagram_id: str) -> str:
     try:
         diag_uuid = uuid.UUID(diagram_id)
     except Exception:
-        return "Error: Invalid diagram_id format. Must be a valid UUID."
+        return json.dumps({
+            "status": "error",
+            "error": "Invalid diagram_id format. Must be a valid UUID."
+        }, indent=2)
         
     async with async_session_maker() as db:
         stmt = select(Diagram).where(Diagram.id == diag_uuid)
@@ -219,7 +309,10 @@ async def get_saved_diagram(diagram_id: str) -> str:
         diagram = res.scalar_one_or_none()
         
         if not diagram:
-            return f"Error: Diagram '{diagram_id}' not found."
+            return json.dumps({
+                "status": "error",
+                "error": f"Diagram '{diagram_id}' not found."
+            }, indent=2)
             
         return json.dumps({
             "id": str(diagram.id),
@@ -233,11 +326,16 @@ async def get_saved_diagram(diagram_id: str) -> str:
 async def save_diagram(title: str, spec: dict, description: Optional[str] = None, theme: str = "dark") -> str:
     """
     Validates and persists a diagram specification into the database under the MCP system user account.
+    Returns structured JSON with diagram_id, status, title, and timestamps.
     """
     try:
         validate_spec(spec)
     except SpecError as e:
-        return f"Validation failed: {e.reason} (at path: {getattr(e, 'path', None)})"
+        return json.dumps({
+            "status": "error",
+            "error": f"Validation failed: {e.reason}",
+            "path": getattr(e, 'path', None)
+        }, indent=2)
 
     async with async_session_maker() as db:
         user = await get_or_create_mcp_user(db)
@@ -253,7 +351,15 @@ async def save_diagram(title: str, spec: dict, description: Optional[str] = None
         await db.commit()
         await db.refresh(diagram)
         
-        return f"Diagram saved successfully. diagram_id: {diagram.id}"
+        return json.dumps({
+            "status": "saved",
+            "diagram_id": str(diagram.id),
+            "title": diagram.title,
+            "description": diagram.description,
+            "theme": diagram.theme,
+            "created_at": diagram.created_at.isoformat() if diagram.created_at else None,
+            "updated_at": diagram.updated_at.isoformat() if diagram.updated_at else None
+        }, indent=2)
 
 @mcp.tool()
 async def delete_saved_diagram(diagram_id: str) -> str:
@@ -263,7 +369,10 @@ async def delete_saved_diagram(diagram_id: str) -> str:
     try:
         diag_uuid = uuid.UUID(diagram_id)
     except Exception:
-        return "Error: Invalid diagram_id format. Must be a valid UUID."
+        return json.dumps({
+            "status": "error",
+            "error": "Invalid diagram_id format. Must be a valid UUID."
+        }, indent=2)
 
     async with async_session_maker() as db:
         stmt = select(Diagram).where(Diagram.id == diag_uuid)
@@ -271,25 +380,38 @@ async def delete_saved_diagram(diagram_id: str) -> str:
         diagram = res.scalar_one_or_none()
         
         if not diagram:
-            return f"Error: Diagram '{diagram_id}' not found."
+            return json.dumps({
+                "status": "error",
+                "error": f"Diagram '{diagram_id}' not found."
+            }, indent=2)
             
         await db.delete(diagram)
         await db.commit()
-        return f"Diagram '{diagram_id}' deleted successfully."
+        return json.dumps({
+            "status": "deleted",
+            "diagram_id": str(diagram_id)
+        }, indent=2)
 
 @mcp.tool()
-async def trigger_export(spec: dict, format: str = "mp4") -> str:
+async def trigger_export(spec: dict, format: str = "gif") -> str:
     """
     Submits a diagram spec and media format (mp4, gif, or png) to the video export queue.
-    Returns the job_id of the queued task.
+    Returns structured JSON with job_id, format, and status.
     """
     try:
         validate_spec(spec)
     except SpecError as e:
-        return f"Validation failed: {e.reason} (at path: {getattr(e, 'path', None)})"
+        return json.dumps({
+            "status": "failed",
+            "error": f"Validation failed: {e.reason}",
+            "path": getattr(e, 'path', None)
+        }, indent=2)
 
     if format not in ("mp4", "gif", "png"):
-        return "Error: Unsupported format. Must be 'mp4', 'gif', or 'png'."
+        return json.dumps({
+            "status": "failed",
+            "error": "Unsupported format. Must be 'mp4', 'gif', or 'png'."
+        }, indent=2)
 
     async with async_session_maker() as db:
         user = await get_or_create_mcp_user(db)
@@ -307,7 +429,11 @@ async def trigger_export(spec: dict, format: str = "mp4") -> str:
     broker = RedisBroker()
     try:
         await broker.enqueue_export_job(str(job.id), spec, format)
-        return f"Export job triggered successfully. job_id: {job.id}"
+        return json.dumps({
+            "status": "queued",
+            "job_id": str(job.id),
+            "format": format
+        }, indent=2)
     except Exception as e:
         async with async_session_maker() as db:
             stmt = select(ExportJob).where(ExportJob.id == job.id)
@@ -317,18 +443,25 @@ async def trigger_export(spec: dict, format: str = "mp4") -> str:
                 j.status = "failed"
                 j.error_message = f"Failed to enqueue to broker: {e}"
                 await db.commit()
-        return f"Failed to trigger export: {str(e)}"
+        return json.dumps({
+            "status": "failed",
+            "job_id": str(job.id),
+            "error": f"Failed to trigger export: {str(e)}"
+        }, indent=2)
 
 @mcp.tool()
 async def get_export_status(job_id: str) -> str:
     """
     Queries the status of an export job by its UUID.
-    If completed, returns status, backend proxy URL, and S3 presigned link.
+    Returns structured JSON with job_id, status, download_url, presigned_url, error_message, and file size metadata when completed.
     """
     try:
         job_uuid = uuid.UUID(job_id)
     except Exception:
-        return "Error: Invalid job_id format. Must be a valid UUID."
+        return json.dumps({
+            "status": "error",
+            "error": "Invalid job_id format. Must be a valid UUID."
+        }, indent=2)
 
     async with async_session_maker() as db:
         stmt = select(ExportJob).where(ExportJob.id == job_uuid)
@@ -336,21 +469,40 @@ async def get_export_status(job_id: str) -> str:
         job = result.scalar_one_or_none()
 
         if not job:
-            return f"Error: Export job '{job_id}' not found."
+            return json.dumps({
+                "status": "error",
+                "error": f"Export job '{job_id}' not found."
+            }, indent=2)
 
         presigned_url = None
         proxy_url = None
+        file_size = None
+
         if job.status == "completed":
             proxy_url = f"/api/v1/export/{job_id}/download"
             storage = MinioStorage()
+            object_name = f"{job_id}.{job.format}"
             try:
-                presigned_url = storage.get_download_url(f"{job_id}.{job.format}")
+                presigned_url = storage.get_download_url(object_name)
                 job.download_url = proxy_url
                 await db.commit()
             except Exception as e:
                 presigned_url = f"Error generating presigned link: {str(e)}"
+            try:
+                if storage.client:
+                    stat = storage.client.stat_object(storage.bucket_name, object_name)
+                    file_size = stat.size
+            except Exception:
+                file_size = None
 
-        return f"Job ID: {job.id}\nStatus: {job.status}\nProxy Download URL: {proxy_url or 'Pending/None'}\nPresigned S3 URL: {presigned_url or 'Pending/None'}\nError Message: {job.error_message or 'None'}"
+        return json.dumps({
+            "job_id": str(job.id),
+            "status": job.status,
+            "download_url": proxy_url,
+            "presigned_url": presigned_url,
+            "error_message": job.error_message,
+            "file_size": file_size
+        }, indent=2)
 
 # ----------------------------------------------------------------------
 # MCP Resources & Prompts

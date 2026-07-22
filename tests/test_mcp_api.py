@@ -188,13 +188,19 @@ class TestMCPAPI(unittest.TestCase):
 
     def test_compile_diagram_success(self):
         res = asyncio.run(compile_diagram(self.sample_spec))
-        self.assertIn("Diagram compiled successfully", res)
-        self.assertIn("Realtime Dataflow Engine", res)
+        data = json.loads(res)
+        self.assertEqual(data["status"], "compiled")
+        self.assertEqual(data["title"], "Realtime Dataflow Engine")
+        self.assertIn("bounding_box", data)
+        self.assertGreaterEqual(data["element_count"], 4)
+        self.assertEqual(data["connection_count"], 3)
 
     def test_compile_diagram_failure(self):
         invalid_spec = {"version": "2.0"} # missing title/elements
         res = asyncio.run(compile_diagram(invalid_spec))
-        self.assertIn("Compilation failed", res)
+        data = json.loads(res)
+        self.assertEqual(data["status"], "error")
+        self.assertIn("Compilation failed", data["error"])
 
     def test_validate_diagram_spec_valid(self):
         res_str = asyncio.run(validate_diagram_spec(self.sample_spec))
@@ -222,14 +228,16 @@ class TestMCPAPI(unittest.TestCase):
         self.assertEqual(data["theme"], "dark")
 
         err = asyncio.run(get_template("non_existent"))
-        self.assertIn("Error: Template 'non_existent' not found", err)
+        err_data = json.loads(err)
+        self.assertIn("non_existent", err_data["error"])
 
     def test_diagram_crud_lifecycle(self):
         with patch("app.api.v1.mcp.async_session_maker", return_value=self.mock_db):
             # 1. Save diagram
             save_res = asyncio.run(save_diagram("Test Spec", self.sample_spec, "MCP test diagram"))
-            self.assertIn("Diagram saved successfully", save_res)
-            diag_id = save_res.split("diagram_id: ")[1].strip()
+            save_data = json.loads(save_res)
+            self.assertEqual(save_data["status"], "saved")
+            diag_id = save_data["diagram_id"]
 
             # 2. List saved diagrams
             list_res = asyncio.run(list_saved_diagrams(limit=5))
@@ -244,7 +252,8 @@ class TestMCPAPI(unittest.TestCase):
 
             # 4. Delete saved diagram
             del_res = asyncio.run(delete_saved_diagram(diag_id))
-            self.assertIn("deleted successfully", del_res)
+            del_data = json.loads(del_res)
+            self.assertEqual(del_data["status"], "deleted")
 
     def test_trigger_and_status_export(self):
         with patch("app.api.v1.mcp.async_session_maker", return_value=self.mock_db):
@@ -255,13 +264,15 @@ class TestMCPAPI(unittest.TestCase):
 
                 # Trigger export
                 trigger_res = asyncio.run(trigger_export(self.sample_spec, "gif"))
-                self.assertIn("Export job triggered successfully", trigger_res)
-                job_id = trigger_res.split("job_id: ")[1].strip()
+                trigger_data = json.loads(trigger_res)
+                self.assertEqual(trigger_data["status"], "queued")
+                job_id = trigger_data["job_id"]
 
                 # Query status
                 status_res = asyncio.run(get_export_status(job_id))
-                self.assertIn(f"Job ID: {job_id}", status_res)
-                self.assertIn("Status: queued", status_res)
+                status_data = json.loads(status_res)
+                self.assertEqual(status_data["job_id"], job_id)
+                self.assertEqual(status_data["status"], "queued")
 
     # ------------------------------------------------------------------
     # Resources & Prompts Tests
