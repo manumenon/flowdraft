@@ -57,30 +57,6 @@ def apply_rebranding(data, replacement: str = "FlowDraft"):
     return data
 
 
-def draw_brand(ex, draw, signature: str, bx: float, by: float) -> None:
-    dots = [
-        (0,  0,  THEME["cyan"]),
-        (10, 8,  THEME["white"]),
-        (0,  16, THEME["purple"]),
-        (10, 24, THEME["white"]),
-        (20, 0,  THEME["white"]),
-        (30, 8,  THEME["pink"]),
-        (20, 16, THEME["white"]),
-        (30, 24, THEME["green"]),
-    ]
-    for dx, dy, color in dots:
-        draw_ellipse(
-            ex, draw,
-            bx + dx, by + dy,
-            5, 5,
-            color, color,
-            1,
-            scaled=False,
-        )
-    phys_x = (bx + 43) * fc.SCALE_X
-    phys_y = (by - 8) * fc.SCALE_Y
-    draw_signature(ex, draw, signature, phys_x, phys_y)
-
 
 def premium_finish(base: Image.Image, spec: dict = None) -> Image.Image:
     width, height = base.size
