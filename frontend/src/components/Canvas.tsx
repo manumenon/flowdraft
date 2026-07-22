@@ -260,7 +260,13 @@ export const Canvas: React.FC<CanvasProps> = ({
         setViewport(currentViewport, { duration: 0 });
       });
     }
-  }, [compiled, isPureRender, setNodes, setEdges, theme, getViewport, setViewport]);
+
+    if (isPureRender && fitView) {
+      setTimeout(() => {
+        fitView({ padding: 0.08, duration: 0 });
+      }, 50);
+    }
+  }, [compiled, isPureRender, setNodes, setEdges, theme, getViewport, setViewport, fitView]);
 
   // Execute Layout
   const executeLayout = useCallback(async () => {

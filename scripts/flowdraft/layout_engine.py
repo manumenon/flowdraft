@@ -1500,12 +1500,38 @@ def _run_legacy_node_placement(
         # ── Step 3: Position free elements ───────────────────────────────
         _position_free_elements(nodes, nodes_map, connections)
 
-        # ── Step 3b: Fit top-level elements spacing to canvas ────────────
-        # For absolute mode, we might not want to scale/shrink coordinate values,
-        # but _fit_to_canvas handles scaling if it exceeds canvas bounds. Let's keep it.
+        # ── Step 5: Center entire diagram and fit canvas bounds ──
         has_title = bool(ir.get("title"))
-        canvas_mode = ir.get("canvas", {}).get("mode", "dynamic")
-        _fit_to_canvas(nodes, canvas_w, canvas_h, has_title=has_title, scale_to_fit=False)
+        positioned = [
+            n for n in nodes
+            if n.get("parent") is None and n.get("x") is not None and n.get("y") is not None
+        ]
+        if positioned:
+            min_x = min(n["x"] for n in positioned)
+            min_y = min(n["y"] for n in positioned)
+            margin = 50.0
+            target_x = margin
+            target_y = 140.0 if has_title else margin
+            
+            dx = target_x - min_x
+            dy = target_y - min_y
+            
+            for node in nodes:
+                if node.get("x") is not None:
+                    node["x"] += dx
+                if node.get("y") is not None:
+                    node["y"] += dy
+            
+            max_x = max(n["x"] + n["width"] for n in positioned)
+            max_y = max(n["y"] + n["height"] for n in positioned)
+            
+            calc_w = max(1920.0, max_x + margin)
+            calc_h = max(1080.0, max_y + margin)
+            
+            if "canvas" not in ir:
+                ir["canvas"] = {}
+            ir["canvas"]["width"] = int(calc_w)
+            ir["canvas"]["height"] = int(calc_h)
 
         # ── Step 4: Convert child positions to absolute recursively (Pass 5) ─
         _absolutize_children(nodes, nodes_map)
