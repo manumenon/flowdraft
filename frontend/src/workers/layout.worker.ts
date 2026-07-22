@@ -393,31 +393,13 @@ self.onmessage = async (event: MessageEvent) => {
       const resultMap = new Map<string, any>();
       flatResultNodes.forEach((n) => resultMap.set(n.id, n));
 
-      // Post-process manually positioned panel footers
+      // Post-process manually positioned panel footers and container bounds
       elements.forEach((node: any) => {
         if (node.type === 'panel') {
           const panelId = node.id;
           const resultPanel = resultMap.get(panelId);
           if (!resultPanel) return;
 
-          // Find the footer child node in the input elements list
-          const footerNode = elements.find(
-            (el: any) => el.parent === panelId && (el.id.endsWith('_footer') || el.data?.role === 'footer')
-          );
-          if (!footerNode) return;
-
-          // Find all other child nodes of the panel in layoutResult
-          const otherChildren = flatResultNodes.filter(
-            (n) => nodesMap.get(n.id)?.parent === panelId && n.id !== footerNode.id
-          );
-
-          let maxY = resultPanel.y + 40;
-
-          if (otherChildren.length > 0) {
-            maxY = Math.max(...otherChildren.map((c) => c.y + (c.height || 80)));
-          }
-
-          // Padding of the panel
           let padLeft = 20, padBottom = 20, padRight = 20;
           if (node.layout?.padding) {
             const p = node.layout.padding;
@@ -430,22 +412,40 @@ self.onmessage = async (event: MessageEvent) => {
             }
           }
 
-          // Footer width is the inner width of the panel
+          const allChildren = flatResultNodes.filter(
+            (n) => nodesMap.get(n.id)?.parent === panelId
+          );
+
+          if (allChildren.length > 0) {
+            const maxRight = Math.max(...allChildren.map((c) => (c.x || 0) + (c.width || 200)));
+            const maxBottom = Math.max(...allChildren.map((c) => (c.y || 0) + (c.height || 80)));
+            resultPanel.width = Math.max(resultPanel.width, maxRight + padRight);
+            resultPanel.height = Math.max(resultPanel.height, maxBottom + padBottom);
+          }
+
+          // Find the footer child node in the input elements list if present
+          const footerNode = elements.find(
+            (el: any) => el.parent === panelId && (el.id.endsWith('_footer') || el.data?.role === 'footer')
+          );
+          if (!footerNode) return;
+
+          const otherChildren = allChildren.filter((n) => n.id !== footerNode.id);
+          let maxY = resultPanel.y + 40;
+          if (otherChildren.length > 0) {
+            maxY = Math.max(...otherChildren.map((c) => c.y + (c.height || 80)));
+          }
+
           const footerW = Math.max(200.0, resultPanel.width - padLeft - padRight);
-          
-          // Re-measure height of footer text based on width
           const titleText = footerNode.title || footerNode.body || '';
           const lineCount = Math.max(1, Math.ceil((titleText.length * 7) / (footerW - 40)));
           const footerH = Math.max(48, 32 + lineCount * 18);
 
-          // Get the original input elements reference to write layout values
           const inputFooter = elements.find((el: any) => el.id === footerNode.id);
           if (inputFooter) {
             inputFooter.width = footerW;
             inputFooter.height = footerH;
           }
 
-          // Now create the positioned footer node to return to the canvas
           const footerX = padLeft + (resultPanel.width - padLeft - padRight - footerW) / 2.0;
           const footerY = maxY + 16.0;
 
@@ -460,17 +460,12 @@ self.onmessage = async (event: MessageEvent) => {
           if (!resultPanel.children) {
             resultPanel.children = [];
           }
-          resultPanel.children.push(resultFooter);
+          if (!resultPanel.children.some((c: any) => c.id === footerNode.id)) {
+            resultPanel.children.push(resultFooter);
+          }
 
-          // Update panel height to fit the footer
           const neededPanelH = footerY + footerH + padBottom;
           resultPanel.height = Math.max(resultPanel.height, neededPanelH);
-
-          // Enforce panel width encloses max child right edge
-          if (otherChildren.length > 0) {
-            const maxRight = Math.max(...otherChildren.map((c) => (c.x || 0) + (c.width || 200)));
-            resultPanel.width = Math.max(resultPanel.width, maxRight + padRight);
-          }
         }
       });
 

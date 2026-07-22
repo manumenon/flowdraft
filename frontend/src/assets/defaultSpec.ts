@@ -335,7 +335,7 @@ export const defaultSpec: FlowSpec = {
           "id": "store_2",
           "type": "card",
           "title": "Vector Database",
-          "body": "pgvector storage\nDynamic HNSW index\nCompute cosine similarity",
+          "body": "pgvector storage\nImmutable embeddings\nHNSW index table",
           "icon": "disc",
           "style": {
             "color": "#bd54d3",
@@ -442,42 +442,42 @@ export const defaultSpec: FlowSpec = {
   "connections": [
     {
       "from": "input_0",
-      "to": "core_0",
+      "to": "core_1",
       "exitPort": "right",
       "entryPort": "left"
     },
     {
       "from": "input_1",
-      "to": "core_0",
+      "to": "core_1",
       "exitPort": "right",
       "entryPort": "left"
     },
     {
       "from": "input_2",
-      "to": "core_0",
+      "to": "core_1",
       "exitPort": "right",
       "entryPort": "left"
     },
     {
       "from": "input_3",
-      "to": "core_0",
+      "to": "core_1",
       "exitPort": "right",
       "entryPort": "left"
     },
     {
       "from": "input_4",
-      "to": "core_0",
-      "exitPort": "right",
-      "entryPort": "left"
-    },
-    {
-      "from": "core_0",
       "to": "core_1",
       "exitPort": "right",
       "entryPort": "left"
     },
     {
       "from": "core_1",
+      "to": "core_0",
+      "exitPort": "right",
+      "entryPort": "left"
+    },
+    {
+      "from": "core_0",
       "to": "core_2",
       "exitPort": "right",
       "entryPort": "left"
@@ -549,7 +549,7 @@ export const defaultSpec: FlowSpec = {
       "to": "decision",
       "exitPort": "left",
       "entryPort": "bottom",
-      "label": "Feedback Loop"
+      "label": "Re-evaluate (If Drift > 2%)"
     },
     {
       "from": "left_0",

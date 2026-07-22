@@ -258,14 +258,17 @@ def fit_text(
     if tw <= effective_max_width and (th <= effective_max_height or allow_grow):
         return fallback_text, emergency_min, fallback_font
 
-    # Binary search fallback truncation algorithm for O(log N) font text fitting
+    # Binary search fallback truncation algorithm for O(log N) font text fitting with word-boundary preservation
     low_idx, high_idx = 0, len(raw_text)
     best_truncated = None
 
     while low_idx <= high_idx:
         mid_idx = (low_idx + high_idx) // 2
-        words = raw_text[:mid_idx].split()
-        candidate = (" ".join(words) + "...") if words else (raw_text[:mid_idx] + "...")
+        slice_str = raw_text[:mid_idx]
+        words = slice_str.rstrip().split()
+        if len(words) > 1 and not slice_str.endswith(" "):
+            words = words[:-1]
+        candidate = (" ".join(words) + "...") if words else (slice_str[:mid_idx] + "...")
         wrapped_candidate = wrap_text(draw, candidate, fallback_font, effective_max_width) if wrap else candidate
         tw, th = text_size(draw, wrapped_candidate, fallback_font, spacing=spacing)
 
@@ -361,7 +364,13 @@ def draw_text(
     if not text:
         return
 
-    box = draw.multiline_textbbox((0, 0), text, font=font, spacing=c(spacing))
+    _cache_key = (text, id(font), c(spacing))
+    if not hasattr(draw_text, "_bbox_cache"):
+        draw_text._bbox_cache = {}
+    if _cache_key not in draw_text._bbox_cache:
+        draw_text._bbox_cache[_cache_key] = draw.multiline_textbbox((0, 0), text, font=font, spacing=c(spacing))
+    box = draw_text._bbox_cache[_cache_key]
+
     tw = box[2] - box[0]
     th = box[3] - box[1]
     actual_w = c(x + w) - c(x)

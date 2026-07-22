@@ -67,7 +67,7 @@ def get_port_coords(node: dict, port_name: str) -> tuple[float, float]:
     if port_fn is not None:
         return port_fn(x, y, w, h)
 
-    return (x + w / 2, y + h / 2)
+    return (x + w / 2, y)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -502,7 +502,7 @@ def render_node(ex: Excal, draw: ImageDraw.ImageDraw, node: dict, nodes_map: dic
 # Connection rendering
 # ═══════════════════════════════════════════════════════════════════════════
 
-def render_connection(
+def render_connection_line(
     ex: Excal,
     draw: ImageDraw.ImageDraw,
     conn: dict,
@@ -522,6 +522,17 @@ def render_connection(
         stroke, conn_width, conn_style,
         arrow=True, scaled=False,
     )
+
+
+def render_connection_label(
+    ex: Excal,
+    draw: ImageDraw.ImageDraw,
+    conn: dict,
+    nodes_map: dict[str, dict],
+) -> None:
+    path_points = [tuple(p) for p in conn.get("points", [])]
+    if not path_points:
+        return
 
     conn_label = conn.get("label")
     if conn_label:
@@ -563,6 +574,16 @@ def render_connection(
             THEME["white"], "center",
             scaled=False,
         )
+
+
+def render_connection(
+    ex: Excal,
+    draw: ImageDraw.ImageDraw,
+    conn: dict,
+    nodes_map: dict[str, dict],
+) -> None:
+    render_connection_line(ex, draw, conn, nodes_map)
+    render_connection_label(ex, draw, conn, nodes_map)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -625,7 +646,7 @@ def render_annotation(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Main entry point — 4-Pass Decoupled Z-Index Rendering Pipeline
+# Main entry point — 5-Pass Decoupled Z-Index Rendering Pipeline
 # ═══════════════════════════════════════════════════════════════════════════
 
 def render_all(
@@ -633,18 +654,19 @@ def render_all(
     draw: ImageDraw.ImageDraw,
     ir: dict,
 ) -> None:
-    """Render the entire compiled IR using a streamlined 4-pass z-index pipeline:
+    """Render the entire compiled IR using a decoupled 5-pass z-index pipeline:
 
-    Pass 1: Top-level panel container shapes & backgrounds
-    Pass 2: Complete element nodes (shapes + title/body text + icons)
-    Pass 3: Connections, arrowheads, and routed polylines (Z_edges)
-    Pass 4: Floating annotations & connection labels (Z_annotations > Z_edges)
+    Pass 1: Panel container background fills
+    Pass 2: Connection polylines & arrowheads (under card nodes)
+    Pass 3: All non-panel node shapes & fills (cards, inputs, diamonds)
+    Pass 4: Node content, typography, titles, body text, icons, badges
+    Pass 5: Floating annotations & connection labels (on top of node fills)
     """
     nodes = ir.get("nodes", [])
     connections = ir.get("connections", [])
     annotations = ir.get("annotations", [])
 
-    # Sort nodes by tree depth and explicit z-index (panels first, then children)
+    # Sort nodes hierarchically (panels first, then children, then by explicit zIndex)
     nodes = sorted(
         nodes,
         key=lambda n: (
@@ -656,24 +678,36 @@ def render_all(
 
     nodes_map: dict[str, dict] = {n["id"]: n for n in nodes}
 
-    # Pass 1: Node & Panel Background Shapes
+    # Pass 1: Panel Background Shapes
     for node in nodes:
-        if node.get("type") == "panel" and not node.get("parent"):
+        if node.get("type") == "panel":
             render_panel_shape(ex, draw, node, nodes_map)
-        elif not node.get("parent"):
+
+    # Pass 2: Connection polylines (under card nodes)
+    for conn in connections:
+        render_connection_line(ex, draw, conn, nodes_map)
+
+    # Pass 3: All Non-Panel Node Shapes (including child nodes)
+    for node in nodes:
+        if node.get("type") != "panel":
             render_node_shape(ex, draw, node, nodes_map)
 
-    # Pass 2: Connections & arrowheads
-    for conn in connections:
-        render_connection(ex, draw, conn, nodes_map)
-
-    # Pass 3: Node Content & Typography (Titles, Body text, Badges, Icons)
+    # Pass 4: Node Content & Typography (Titles, Body text, Badges, Icons)
     for node in nodes:
-        if node.get("type") == "panel" and not node.get("parent"):
+        if node.get("type") == "panel":
             render_panel_content(ex, draw, node, nodes_map)
-        elif not node.get("parent"):
+        else:
             render_node_content(ex, draw, node, nodes_map)
 
-    # Pass 4: Floating annotations
+    # Pass 5: Connection Labels & Floating Annotations (on top of cards)
+    for conn in connections:
+        render_connection_label(ex, draw, conn, nodes_map)
+
     for ann in annotations:
         render_annotation(ex, draw, ann, nodes_map)
+
+    # Re-index Excalidraw elements to match visual z-index ordering
+    if hasattr(ex, "elements") and isinstance(ex.elements, list):
+        for idx, element in enumerate(ex.elements):
+            element["index"] = f"a{idx + 1:04d}"
+

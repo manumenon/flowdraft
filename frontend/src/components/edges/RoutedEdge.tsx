@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import { EdgeLabelRenderer, type EdgeProps } from '@xyflow/react';
+import React, { useEffect, useRef, useMemo } from 'react';
+import { EdgeLabelRenderer, useNodes, type EdgeProps } from '@xyflow/react';
 import { gsap } from 'gsap';
-import { getManhattanPath } from '../../utils/routing';
+import { getManhattanPath, type RectObstacle } from '../../utils/routing';
 
 interface Segment {
   x1: number;
@@ -58,21 +58,38 @@ function getRoundedPathWithJumps(points: [number, number][], radius: number, int
     const endX = curr[0] - (dx / dist) * rCorner;
     const endY = curr[1] - (dy / dist) * rCorner;
 
-    if (isHorizontal && segIntersects.length > 0) {
-      const isLtr = prev[0] < curr[0];
-      const sortedIntersects = [...segIntersects].sort((a, b) => isLtr ? a.x - b.x : b.x - a.x);
-      const dir = isLtr ? 1 : -1;
+    if (segIntersects.length > 0) {
+      if (isHorizontal) {
+        const isLtr = prev[0] < curr[0];
+        const sortedIntersects = [...segIntersects].sort((a, b) => isLtr ? a.x - b.x : b.x - a.x);
+        const dir = isLtr ? 1 : -1;
 
-      sortedIntersects.forEach((intersect) => {
-        const inBounds = isLtr 
-          ? (intersect.x - R > startX && intersect.x + R < endX)
-          : (intersect.x + R < startX && intersect.x - R > endX);
+        sortedIntersects.forEach((intersect) => {
+          const inBounds = isLtr 
+            ? (intersect.x - R > startX && intersect.x + R < endX)
+            : (intersect.x + R < startX && intersect.x - R > endX);
 
-        if (inBounds) {
-          path += ` L ${(intersect.x - R * dir).toFixed(1)} ${startY.toFixed(1)}`;
-          path += ` A ${R} ${R} 0 0 1 ${(intersect.x + R * dir).toFixed(1)} ${startY.toFixed(1)}`;
-        }
-      });
+          if (inBounds) {
+            path += ` L ${(intersect.x - R * dir).toFixed(1)} ${startY.toFixed(1)}`;
+            path += ` A ${R} ${R} 0 0 1 ${(intersect.x + R * dir).toFixed(1)} ${startY.toFixed(1)}`;
+          }
+        });
+      } else {
+        const isTtb = prev[1] < curr[1];
+        const sortedIntersects = [...segIntersects].sort((a, b) => isTtb ? a.y - b.y : b.y - a.y);
+        const dir = isTtb ? 1 : -1;
+
+        sortedIntersects.forEach((intersect) => {
+          const inBounds = isTtb
+            ? (intersect.y - R > startY && intersect.y + R < endY)
+            : (intersect.y + R < startY && intersect.y - R > endY);
+
+          if (inBounds) {
+            path += ` L ${startX.toFixed(1)} ${(intersect.y - R * dir).toFixed(1)}`;
+            path += ` A ${R} ${R} 0 0 1 ${startX.toFixed(1)} ${(intersect.y + R * dir).toFixed(1)}`;
+          }
+        });
+      }
       path += ` L ${endX.toFixed(1)} ${endY.toFixed(1)}`;
     } else {
       path += ` L ${endX.toFixed(1)} ${endY.toFixed(1)}`;
@@ -102,9 +119,19 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
   selected,
 }) => {
   const packetsRef = useRef<(SVGGElement | null)[]>([]);
+  const nodes = useNodes();
   const edgeData = data as any;
   const edgeColor = edgeData.color || '#a6adc8';
   const connectionStyle = edgeData.style || 'solid';
+
+  const obstacles: RectObstacle[] = useMemo(() => {
+    return nodes.map((n) => ({
+      x: n.position.x,
+      y: n.position.y,
+      width: n.measured?.width || n.width || (n.style?.width as number) || 180,
+      height: n.measured?.height || n.height || (n.style?.height as number) || 100,
+    }));
+  }, [nodes]);
 
   // 1. Shift source coordinates if multiple connections share the exit port
   let shiftedSourceX = sourceX;
@@ -147,11 +174,13 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
 
   // 4. Calculate base points (invalidate static waypoints if handle coordinates drift during node drag)
   let staticPoints = edgeData.points as [number, number][] | undefined;
-  if (staticPoints && staticPoints.length >= 2) {
+  if (edgeData.isDragging) {
+    staticPoints = undefined;
+  } else if (staticPoints && staticPoints.length >= 2) {
     const sDist = Math.hypot(staticPoints[0][0] - shiftedSourceX, staticPoints[0][1] - shiftedSourceY);
     const lastPt = staticPoints[staticPoints.length - 1];
     const tDist = Math.hypot(lastPt[0] - shiftedTargetX, lastPt[1] - shiftedTargetY);
-    if (sDist > 15 || tDist > 15 || edgeData.isDragging) {
+    if (sDist > 15 || tDist > 15) {
       staticPoints = undefined;
     }
   }
@@ -163,13 +192,14 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
     shiftedTargetX,
     shiftedTargetY,
     targetPosition,
-    midpointOffset
+    midpointOffset,
+    obstacles
   );
 
   // Clone points to avoid mutating state references
   const basePoints = rawPoints.map((pt) => [...pt] as [number, number]);
 
-  // 5. Shorten final segment to keep the target arrowhead fully visible outside target border
+  // 5. Shorten final segment to keep the target arrowhead aligned precisely outside target border
   if (basePoints.length >= 2) {
     const lastIdx = basePoints.length - 1;
     const pLast = basePoints[lastIdx];
@@ -177,9 +207,10 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
     const dx = pLast[0] - pPrev[0];
     const dy = pLast[1] - pPrev[1];
     const dist = Math.hypot(dx, dy);
-    if (dist > 10) {
-      pLast[0] = pLast[0] - (dx / dist) * 8;
-      pLast[1] = pLast[1] - (dy / dist) * 8;
+    const MARKER_REF_OFFSET = 5.0; // Match SVG arrowhead marker refX offset exactly
+    if (dist > MARKER_REF_OFFSET) {
+      pLast[0] = pLast[0] - (dx / dist) * MARKER_REF_OFFSET;
+      pLast[1] = pLast[1] - (dy / dist) * MARKER_REF_OFFSET;
     }
   }
 
@@ -190,23 +221,11 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
   }
   (window as any).__FLOWDRAFT_PATHS__[id] = segments;
 
-  const [registryCount, setRegistryCount] = React.useState(0);
-  useEffect(() => {
-    const checkRegistry = () => {
-      const count = Object.keys((window as any).__FLOWDRAFT_PATHS__ || {}).length;
-      if (count !== registryCount) {
-        setRegistryCount(count);
-      }
-    };
-    checkRegistry();
-    const interval = setInterval(checkRegistry, 100);
-    return () => clearInterval(interval);
-  }, [registryCount]);
-
   const R_jump = 6;
   const intersections: { x: number; y: number; segIdx: number }[] = [];
   if (connectionStyle === 'solid') {
-    Object.entries((window as any).__FLOWDRAFT_PATHS__).forEach(([otherId, otherSegs]) => {
+    const allPaths = (window as any).__FLOWDRAFT_PATHS__ || {};
+    Object.entries(allPaths).forEach(([otherId, otherSegs]) => {
       if (otherId === id) return;
 
       segments.forEach((seg, sIdx) => {
@@ -222,7 +241,7 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
 
             if (vert.x1 > xMin + R_jump && vert.x1 < xMax - R_jump &&
                 horiz.y1 > yMin + R_jump && horiz.y1 < yMax - R_jump) {
-              if (seg.isHorizontal && id < otherId) {
+              if (id.localeCompare(otherId) < 0) {
                 intersections.push({ x: vert.x1, y: horiz.y1, segIdx: sIdx });
               }
             }

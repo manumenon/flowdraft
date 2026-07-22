@@ -209,14 +209,19 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   // Update nodes and edges when compiled changes
   useEffect(() => {
-    const rfNodesWithFlags = compiled.rfNodes.map((node) => ({
-      ...node,
-      zIndex: node.type === 'panel' ? 0 : node.type === 'group' ? 1 : 10,
-      data: {
-        ...node.data,
-        isPureRender,
-      },
-    }));
+    const rfNodesWithFlags = compiled.rfNodes.map((node) => {
+      const depth = node.parentId ? 2 : 1;
+      const baseZ = node.type === 'panel' || node.type === 'group' ? 0 : 10;
+      const customZ = (node.style as any)?.zIndex ?? 0;
+      return {
+        ...node,
+        zIndex: baseZ + (depth * 5) + customZ,
+        data: {
+          ...node.data,
+          isPureRender,
+        },
+      };
+    });
     setNodes(rfNodesWithFlags);
     setEdges(compiled.rfEdges);
     setCanvasSize({
@@ -243,9 +248,12 @@ export const Canvas: React.FC<CanvasProps> = ({
         currentNodes.map((node) => {
           const match = positionedNodes.find((pn) => pn.id === node.id);
           if (match) {
+            const parentNode = node.parentId ? positionedNodes.find((p) => p.id === node.parentId) : null;
+            const relX = parentNode ? match.x - parentNode.x : match.x;
+            const relY = parentNode ? match.y - parentNode.y : match.y;
             return {
               ...node,
-              position: { x: match.x, y: match.y },
+              position: { x: relX, y: relY },
               width: match.width,
               height: match.height,
               style: {
@@ -352,7 +360,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
         const colOffsets: number[] = [50];
         for (let i = 0; i < colWidths.length; i++) {
-          colOffsets[i + 1] = colOffsets[i] + colWidths[i] + mainGapX;
+          colOffsets[i + 1] = colOffsets[i] + colWidths[i] + Math.max(80, colWidths[i] * 0.1);
         }
         const rowOffsets: number[] = [200];
         for (let i = 0; i < rowHeights.length; i++) {
@@ -474,7 +482,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     <div ref={containerRef} style={containerStyle} className="relative w-full h-full select-none overflow-hidden font-sans">
       {/* Dynamic Auto-Layout Prompt Alert banner */}
       {promptLayoutAlert && !isPureRender && (
-        <div className="absolute top-24 left-1/2 transform -translate-x-1/2 z-50 animate-zoom-in">
+        <div className="absolute top-28 left-1/2 transform -translate-x-1/2 z-40 animate-zoom-in">
           <button
             onClick={() => {
               executeLayout();
@@ -487,7 +495,7 @@ export const Canvas: React.FC<CanvasProps> = ({
           </button>
         </div>
       )}
-      {/* Glow Filter Definitions */}
+      {/* Glow Filter & Arrowhead Marker Definitions */}
       <svg style={{ position: 'absolute', width: 0, height: 0 }}>
         <defs>
           <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -497,6 +505,17 @@ export const Canvas: React.FC<CanvasProps> = ({
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
+          <marker
+            id="react-flow__arrowclosed"
+            viewBox="0 0 10 10"
+            refX="6"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+          </marker>
         </defs>
       </svg>
 
