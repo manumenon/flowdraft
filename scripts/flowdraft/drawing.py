@@ -241,6 +241,65 @@ def draw_diamond(
     draw.line(scaled_pts + [scaled_pts[0]], fill=hex_rgba(stroke, alpha), width=max(1, c(width)))
 
 
+def draw_cylinder(
+    ex,
+    draw: ImageDraw.ImageDraw,
+    x: float, y: float, w: float, h: float,
+    stroke: str,
+    fill: str = None,
+    width: float = 2,
+    scaled: bool = False,
+    opacity: float = None,
+) -> None:
+    """Draw a cylinder (database barrel) on PIL and in the Excal model."""
+    cap_h = min(h * 0.25, 35.0)
+    # Body rectangle background fill
+    if fill:
+        draw_rect(ex, draw, x, y + cap_h / 2, w, h - cap_h, stroke=None, fill=fill, width=0, radius=0, scaled=scaled, opacity=opacity)
+    # Top ellipse cap
+    draw_ellipse(ex, draw, x, y, w, cap_h, stroke=stroke, fill=fill, width=width, scaled=scaled, opacity=opacity)
+    # Bottom ellipse cap
+    draw_ellipse(ex, draw, x, y + h - cap_h, w, cap_h, stroke=stroke, fill=fill, width=width, scaled=scaled, opacity=opacity)
+    # Side lines
+    draw_line(ex, draw, [(x, y + cap_h / 2), (x, y + h - cap_h / 2)], stroke=stroke, width=width, scaled=scaled, opacity=opacity)
+    draw_line(ex, draw, [(x + w, y + cap_h / 2), (x + w, y + h - cap_h / 2)], stroke=stroke, width=width, scaled=scaled, opacity=opacity)
+
+
+def draw_cloud(
+    ex,
+    draw: ImageDraw.ImageDraw,
+    x: float, y: float, w: float, h: float,
+    stroke: str,
+    fill: str = None,
+    width: float = 2,
+    scaled: bool = False,
+    opacity: float = None,
+) -> None:
+    """Draw a cloud shape on PIL and in the Excal model."""
+    # Base rounded container
+    draw_rect(ex, draw, x + w * 0.1, y + h * 0.25, w * 0.8, h * 0.65, stroke=stroke, fill=fill, width=width, radius=h * 0.3, scaled=scaled, opacity=opacity)
+    # Overlapping cloud lobes
+    draw_ellipse(ex, draw, x + w * 0.25, y, w * 0.5, h * 0.6, stroke=stroke, fill=fill, width=width, scaled=scaled, opacity=opacity)
+    draw_ellipse(ex, draw, x, y + h * 0.2, w * 0.4, h * 0.65, stroke=stroke, fill=fill, width=width, scaled=scaled, opacity=opacity)
+    draw_ellipse(ex, draw, x + w * 0.6, y + h * 0.25, w * 0.38, h * 0.6, stroke=stroke, fill=fill, width=width, scaled=scaled, opacity=opacity)
+
+
+def draw_group(
+    ex,
+    draw: ImageDraw.ImageDraw,
+    x: float, y: float, w: float, h: float,
+    stroke: str,
+    fill: str = None,
+    width: float = 2,
+    radius: float = 12,
+    style: str = "dashed",
+    scaled: bool = False,
+    opacity: float = None,
+) -> None:
+    """Draw a group container shape on PIL and in the Excal model."""
+    draw_rect(ex, draw, x, y, w, h, stroke=stroke, fill=fill, width=width, radius=radius, style=style, scaled=scaled, opacity=opacity)
+
+
 # ---------------------------------------------------------------------------
 # Icon sprite library
 # ---------------------------------------------------------------------------
@@ -250,7 +309,7 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
     Icons are composed of primitive calls (``draw_line``, ``draw_rect``, etc.)
     so they appear in both the raster output and the Excalidraw JSON.
 
-    Supported kinds: ``folder``, ``file``, ``scan``, ``shield``, ``db``,
+    Supported kinds: ``folder``, ``file``, ``scan``, ``shield``, ``shield-check``, ``db``,
     ``hash``, ``package``, and a default dot for unknown kinds.
 
     Args:
@@ -302,7 +361,7 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
         draw_ellipse(ex, draw, x + 14 * scale, y + 11 * scale, 38 * scale, 38 * scale, THEME["white"], None, 4, scaled=True)
         draw_line(ex, draw, [(x + 47 * scale, y + 45 * scale), (x + 64 * scale, y + 62 * scale)], THEME["white"], 5, scaled=True)
 
-    elif kind == "shield":
+    elif kind in ("shield", "shield-check"):
         pts = [
             (x + 38 * scale, y + 7 * scale),
             (x + 63 * scale, y + 17 * scale),
@@ -538,7 +597,7 @@ def icon(ex, draw: ImageDraw.ImageDraw, kind: str, x: float, y: float, color: st
 # ---------------------------------------------------------------------------
 # Signature watermark
 # ---------------------------------------------------------------------------
-def draw_signature(ex, draw: ImageDraw.ImageDraw, text: str, x: float, y: float) -> None:
+def draw_signature(ex, draw: ImageDraw.ImageDraw, text: str, x: float, y: float, hand: bool = True) -> None:
     """Draw the brand signature with a chromatic-aberration shadow effect.
 
     Args:
@@ -546,6 +605,7 @@ def draw_signature(ex, draw: ImageDraw.ImageDraw, text: str, x: float, y: float)
         draw: PIL ImageDraw.
         text: Signature string (e.g. "@FlowDraft").
         x, y: Position in physical pixels.
+        hand: Hand-drawn font mode.
     """
     from . import constants as _c
     SCALE_X = _c.SCALE_X
@@ -566,7 +626,7 @@ def draw_signature(ex, draw: ImageDraw.ImageDraw, text: str, x: float, y: float)
             ex, draw, text,
             x + dx * SCALE_X, y + dy * SCALE_Y,
             sw, sh, s_size, color,
-            align="left", bold=True, scaled=True, opacity=alpha / 255.0,
+            align="left", hand=hand, bold=True, scaled=True, opacity=alpha / 255.0,
         )
 
     # Clean underline (replaces the old squiggle)

@@ -66,9 +66,15 @@ export const THEMES: Record<string, Record<string, string>> = {
 
 export function adjustColor(color?: string | null, theme: string = 'dark'): string {
   if (!color) return '';
-  if (theme === 'light' || theme === 'white') {
+
+  if (theme === 'white') {
+    return '#09090b';
+  }
+
+  if (theme === 'light') {
     const mappings: Record<string, string> = {
       '#000000': '#ffffff',
+      '#ffffff': '#0f172a',
       '#f4f0ee': '#111827',
       '#cfc7c5': '#4b5563',
       '#5c6265': '#6b7280',
@@ -80,7 +86,7 @@ export function adjustColor(color?: string | null, theme: string = 'dark'): stri
       '#120814': '#ede9fe',
       '#7ee3d6': '#0891b2',
       '#081626': '#dbeafe',
-      '#124238': '#99f6e4',
+      '#124238': '#0f766e',
       '#f4b64e': '#b45309',
       '#ff7ab6': '#be185d',
       '#080711': '#ede9fe',
@@ -95,10 +101,27 @@ export function adjustColor(color?: string | null, theme: string = 'dark'): stri
       '#f59e0b': '#b45309', // Amber preset
       '#f43f5e': '#be185d', // Rose preset
       '#a855f7': '#6d28d9', // Purple preset
+      '#06b6d4': '#0891b2', // Cyan preset
+      '#ef4444': '#b91c1c', // Red preset
       '#64748b': '#475569', // Slate preset
     };
     const colorLower = color.toLowerCase();
-    return mappings[colorLower] || color;
+    if (mappings[colorLower]) {
+      return mappings[colorLower];
+    }
+    if (/^#[0-9a-f]{6}$/i.test(colorLower)) {
+      const r = parseInt(colorLower.slice(1, 3), 16);
+      const g = parseInt(colorLower.slice(3, 5), 16);
+      const b = parseInt(colorLower.slice(5, 7), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      if (brightness > 160) {
+        const dr = Math.floor(r * 0.55).toString(16).padStart(2, '0');
+        const dg = Math.floor(g * 0.55).toString(16).padStart(2, '0');
+        const db = Math.floor(b * 0.55).toString(16).padStart(2, '0');
+        return `#${dr}${dg}${db}`;
+      }
+    }
+    return color;
   }
   return color;
 }
@@ -174,7 +197,7 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
       const bodyHeight = wrappedBodyLines > 0 ? wrappedBodyLines * 18 + 8 : 0;
       const iconPad = hasIcon ? 10 : 0;
       clonedEl.width = clonedEl.width || 260;
-      clonedEl.height = Math.max(110, 36 + titleHeight + bodyHeight + iconPad);
+      clonedEl.height = Math.max(130, 44 + titleHeight + bodyHeight + iconPad);
     } else if (clonedEl.type === 'input') {
       clonedEl.width = 220;
       clonedEl.height = 42;
@@ -355,12 +378,44 @@ export function compileSpec(spec: FlowSpec, activeTheme?: string): CompiledFlow 
 
   const shouldAutoColor = uniqueSources.length >= 3;
 
-  // Build annotation lookup map to attach to edge labels
+  // Build annotation lookup map to attach to edge labels and node data
   const annotationMap: Record<string, string> = {};
   if (Array.isArray(spec.annotations)) {
-    spec.annotations.forEach((ann: any) => {
+    spec.annotations.forEach((ann: any, idx: number) => {
       if (ann.from && ann.to && ann.text) {
         annotationMap[`${ann.from}->${ann.to}`] = ann.text;
+      } else if (ann.text) {
+        const targetNode = ann.attachTo ? rfNodes.find((n) => n.id === ann.attachTo) : null;
+        const hasCustomCoords = ann.x !== undefined || ann.y !== undefined;
+        if (targetNode && !hasCustomCoords) {
+          const nodeData = targetNode.data as any;
+          if (!nodeData.annotations) {
+            nodeData.annotations = [];
+          }
+          nodeData.annotations.push(ann);
+        } else {
+          const annId = ann.id || `annotation-${idx}`;
+          const labelNode = {
+            id: annId,
+            type: 'label' as const,
+            position: { x: ann.x || 0, y: ann.y || 0 },
+            parentId: undefined,
+            extent: undefined,
+            zIndex: 6,
+            style: { width: 160, height: 36, ...(ann.style || {}) },
+            data: {
+              title: ann.text,
+              body: ann.body,
+              icon: undefined,
+              style: ann.style,
+              layout: undefined,
+              badge: undefined,
+              subtitle: undefined,
+              role: 'annotation',
+            },
+          };
+          rfNodes.push(labelNode);
+        }
       }
     });
   }

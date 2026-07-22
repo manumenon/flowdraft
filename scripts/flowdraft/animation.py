@@ -143,12 +143,14 @@ def animate_frame(base: Image.Image, idx: int, total: int, spec: dict = None) ->
         size_factor = 0.85 + 0.3 * (0.5 + 0.5 * math.sin(2.0 * math.pi * progress * speed * 2.0 + offset))
 
         # Comet tail parts
+        from .gif import fix_comet_position
         for trail, base_strength in [(0, 1.0), (-0.030, 0.68), (-0.058, 0.42), (-0.086, 0.22)]:
             # Opacity variation over time
             opacity_factor = 0.8 + 0.2 * math.sin(2.0 * math.pi * progress * speed * 3.0 + trail)
             strength = base_strength * opacity_factor
             
-            x, y = point_at_fraction(points, progress + offset + trail)
+            pos = fix_comet_position(progress * speed + offset + trail)
+            x, y = point_at_fraction(points, pos)
             draw_glow_dot(draw, x, y, interpolated_color, strength, size_factor)
 
     # Animate panel glows simultaneously but with staggered phases using easing functions

@@ -155,6 +155,40 @@ def excalidraw_to_svg(elements: list, width: int, height: int, bg_color: str) ->
                     "stroke-linecap": "round",
                 })
 
+            # --- Motion Flow Highlights in SVG Output ---
+            if not is_closed and len(absolute_pts) >= 2:
+                path_d = "M " + " L ".join(f"{px},{py}" for px, py in absolute_pts)
+                glow_color = stroke if stroke and stroke not in ("#000000", "#ffffff", "none", "transparent") else "#00f0ff"
+
+                # 1. Animated stroke-dashoffset flow highlight
+                flow_path = ET.SubElement(svg, "path", {
+                    "d": path_d,
+                    "fill": "none",
+                    "stroke": glow_color,
+                    "stroke-width": str(max(1.5, stroke_w)),
+                    "stroke-dasharray": "8,16",
+                    "stroke-linecap": "round",
+                    "opacity": "0.85",
+                })
+                ET.SubElement(flow_path, "animate", {
+                    "attributeName": "stroke-dashoffset",
+                    "from": "24",
+                    "to": "0",
+                    "dur": "1.5s",
+                    "repeatCount": "indefinite",
+                })
+
+                # 2. Animated particle using <animateMotion>
+                particle_circle = ET.SubElement(svg, "circle", {
+                    "r": "4",
+                    "fill": glow_color,
+                })
+                ET.SubElement(particle_circle, "animateMotion", {
+                    "path": path_d,
+                    "dur": "3s",
+                    "repeatCount": "indefinite",
+                })
+
         # --- Text ---
         elif el_type == "text":
             font_size   = el.get("fontSize", 16)

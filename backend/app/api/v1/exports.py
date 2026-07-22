@@ -1,11 +1,14 @@
 import os
 import sys
 import uuid
+import logging
 from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+
+logger = logging.getLogger(__name__)
 
 # Dynamically resolve project root containing the 'scripts' directory and add it to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -149,13 +152,13 @@ async def get_export_job_status(
             detail="Not authorized to access this export job"
         )
 
-    download_url = ""
+    download_url = None
     if job.status == "completed":
         try:
             storage = MinioStorage()
-            # Test presigned URL / storage access
-            if hasattr(storage.client, "presigned_get_object"):
-                storage.client.presigned_get_object(storage.bucket_name, f"{job_id}.{job.format}")
+            if not storage.client or not hasattr(storage.client, "presigned_get_object"):
+                raise ValueError("MinIO client unavailable")
+            storage.client.presigned_get_object(storage.bucket_name, f"{job_id}.{job.format}")
             download_url = f"/api/v1/export/{job_id}/download"
         except Exception as e:
             logger.warning(f"MinIO storage unavailable for job {job_id}: {e}")
@@ -163,7 +166,7 @@ async def get_export_job_status(
         job.download_url = download_url
         await db.commit()
     else:
-        download_url = job.download_url or ""
+        download_url = job.download_url
 
     return {
         "job_id": str(job.id),

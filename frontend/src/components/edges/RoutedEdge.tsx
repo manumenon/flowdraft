@@ -105,6 +105,42 @@ function getRoundedPathWithJumps(points: [number, number][], radius: number, int
   return path;
 }
 
+function getArcLengthMidpoint(points: [number, number][]): [number, number] {
+  if (!points || points.length === 0) return [0, 0];
+  if (points.length === 1) return points[0];
+
+  const segLengths: number[] = [];
+  let totalLength = 0;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const dx = points[i + 1][0] - points[i][0];
+    const dy = points[i + 1][1] - points[i][1];
+    const len = Math.hypot(dx, dy);
+    segLengths.push(len);
+    totalLength += len;
+  }
+
+  if (totalLength === 0) return points[0];
+
+  const halfLength = totalLength / 2;
+  let accumulated = 0;
+
+  for (let i = 0; i < segLengths.length; i++) {
+    const len = segLengths[i];
+    if (accumulated + len >= halfLength) {
+      if (len === 0) return points[i];
+      const remaining = halfLength - accumulated;
+      const ratio = remaining / len;
+      const x = points[i][0] + ratio * (points[i + 1][0] - points[i][0]);
+      const y = points[i][1] + ratio * (points[i + 1][1] - points[i][1]);
+      return [x, y];
+    }
+    accumulated += len;
+  }
+
+  return points[points.length - 1];
+}
+
 export const RoutedEdge: React.FC<EdgeProps> = ({
   id,
   sourceX,
@@ -125,12 +161,32 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
   const connectionStyle = edgeData.style || 'solid';
 
   const obstacles: RectObstacle[] = useMemo(() => {
-    return nodes.map((n) => ({
-      x: n.position.x,
-      y: n.position.y,
-      width: n.measured?.width || n.width || (n.style?.width as number) || 180,
-      height: n.measured?.height || n.height || (n.style?.height as number) || 100,
-    }));
+    const nodeMap = new Map<string, any>();
+    nodes.forEach((n) => nodeMap.set(n.id, n));
+
+    const getAbsPosition = (node: any): { x: number; y: number } => {
+      let x = node.position?.x ?? 0;
+      let y = node.position?.y ?? 0;
+      let curr = node;
+      while (curr && curr.parentId) {
+        const parent = nodeMap.get(curr.parentId);
+        if (!parent) break;
+        x += parent.position?.x ?? 0;
+        y += parent.position?.y ?? 0;
+        curr = parent;
+      }
+      return { x, y };
+    };
+
+    return nodes.map((n) => {
+      const abs = getAbsPosition(n);
+      return {
+        x: abs.x,
+        y: abs.y,
+        width: n.measured?.width || n.width || (n.style?.width as number) || 180,
+        height: n.measured?.height || n.height || (n.style?.height as number) || 100,
+      };
+    });
   }, [nodes]);
 
   // 1. Shift source coordinates if multiple connections share the exit port
@@ -208,9 +264,10 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
     const dy = pLast[1] - pPrev[1];
     const dist = Math.hypot(dx, dy);
     const MARKER_REF_OFFSET = 5.0; // Match SVG arrowhead marker refX offset exactly
-    if (dist > MARKER_REF_OFFSET) {
-      pLast[0] = pLast[0] - (dx / dist) * MARKER_REF_OFFSET;
-      pLast[1] = pLast[1] - (dy / dist) * MARKER_REF_OFFSET;
+    if (dist > MARKER_REF_OFFSET + 1.0) {
+      const clampOffset = Math.min(MARKER_REF_OFFSET, dist - 1.0);
+      pLast[0] = pLast[0] - (dx / dist) * clampOffset;
+      pLast[1] = pLast[1] - (dy / dist) * clampOffset;
     }
   }
 
@@ -223,33 +280,31 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
 
   const R_jump = 6;
   const intersections: { x: number; y: number; segIdx: number }[] = [];
-  if (connectionStyle === 'solid') {
-    const allPaths = (window as any).__FLOWDRAFT_PATHS__ || {};
-    Object.entries(allPaths).forEach(([otherId, otherSegs]) => {
-      if (otherId === id) return;
+  const allPaths = (window as any).__FLOWDRAFT_PATHS__ || {};
+  Object.entries(allPaths).forEach(([otherId, otherSegs]) => {
+    if (otherId === id) return;
 
-      segments.forEach((seg, sIdx) => {
-        (otherSegs as Segment[]).forEach((oSeg) => {
-          if (seg.isHorizontal !== oSeg.isHorizontal) {
-            const horiz = seg.isHorizontal ? seg : oSeg;
-            const vert = seg.isHorizontal ? oSeg : seg;
+    segments.forEach((seg, sIdx) => {
+      (otherSegs as Segment[]).forEach((oSeg) => {
+        if (seg.isHorizontal !== oSeg.isHorizontal) {
+          const horiz = seg.isHorizontal ? seg : oSeg;
+          const vert = seg.isHorizontal ? oSeg : seg;
 
-            const xMin = Math.min(horiz.x1, horiz.x2);
-            const xMax = Math.max(horiz.x1, horiz.x2);
-            const yMin = Math.min(vert.y1, vert.y2);
-            const yMax = Math.max(vert.y1, vert.y2);
+          const xMin = Math.min(horiz.x1, horiz.x2);
+          const xMax = Math.max(horiz.x1, horiz.x2);
+          const yMin = Math.min(vert.y1, vert.y2);
+          const yMax = Math.max(vert.y1, vert.y2);
 
-            if (vert.x1 > xMin + R_jump && vert.x1 < xMax - R_jump &&
-                horiz.y1 > yMin + R_jump && horiz.y1 < yMax - R_jump) {
-              if (id.localeCompare(otherId) < 0) {
-                intersections.push({ x: vert.x1, y: horiz.y1, segIdx: sIdx });
-              }
+          if (vert.x1 > xMin + R_jump && vert.x1 < xMax - R_jump &&
+              horiz.y1 > yMin + R_jump && horiz.y1 < yMax - R_jump) {
+            if (id.localeCompare(otherId) < 0) {
+              intersections.push({ x: vert.x1, y: horiz.y1, segIdx: sIdx });
             }
           }
-        });
+        }
       });
     });
-  }
+  });
 
   const d = getRoundedPathWithJumps(basePoints, 12, intersections);
 
@@ -290,10 +345,7 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
     strokeDasharray = '2, 4';
   }
 
-  const midPoint = basePoints[Math.floor(basePoints.length / 2)] || [
-    (sourceX + targetX) / 2,
-    (sourceY + targetY) / 2,
-  ];
+  const midPoint = getArcLengthMidpoint(basePoints);
 
   return (
     <g className="group cursor-pointer">
@@ -360,8 +412,9 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${midPoint[0]}px,${midPoint[1]}px)`,
               pointerEvents: 'all',
+              zIndex: 30,
             }}
-            className="px-2 py-0.5 rounded bg-surface-1/90 border border-border-themed shadow-md text-[10px] font-bold text-text-primary uppercase tracking-widest font-mono text-center max-w-[120px] truncate select-none"
+            className="px-2.5 py-1 rounded-md bg-surface-1/95 border border-border-strong shadow-lg text-[9px] font-extrabold text-text-primary uppercase tracking-wider font-mono text-center max-w-[160px] break-words whitespace-normal leading-tight select-none backdrop-blur-md hover:z-40 transition-all"
           >
             {edgeData.label}
           </div>

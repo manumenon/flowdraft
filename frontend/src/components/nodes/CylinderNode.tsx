@@ -26,8 +26,8 @@ export const CylinderNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center select-none transition-all duration-300 animate-zoom-in ${
-        selected ? 'scale-[1.02]' : 'hover:scale-[1.03] cursor-pointer'
+      className={`relative flex flex-col items-center justify-center select-none transition-all duration-200 animate-zoom-in ${
+        selected ? 'ring-1 ring-indigo-500/40 rounded-lg' : 'cursor-pointer'
       }`}
       style={{
         width: '100%',
@@ -86,7 +86,7 @@ export const CylinderNode: React.FC<NodeProps> = (props) => {
           {data.title || ''}
         </span>
         {data.body && (
-          <span className="text-[10px] opacity-75 font-mono text-text-secondary mt-0.5 whitespace-normal break-words max-w-full">
+          <span className="text-[10px] font-mono text-text-secondary font-medium mt-0.5 whitespace-normal break-words max-w-full">
             {data.body}
           </span>
         )}

@@ -299,7 +299,7 @@ def draw_text(
     size: float,
     color: str = None,
     align: str = "center",
-    hand: bool = False,
+    hand: bool = None,
     bold: bool = False,
     spacing: float = 3,
     fit: bool = False,
@@ -336,6 +336,9 @@ def draw_text(
     from . import constants as _c
     SCALE_X = _c.SCALE_X
     SCALE_Y = _c.SCALE_Y
+
+    if hand is None:
+        hand = getattr(_c, "HAND", True)
 
     if text is None:
         text = ""

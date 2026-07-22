@@ -24,6 +24,7 @@ import PanelNode from './nodes/PanelNode';
 import LabelNode from './nodes/LabelNode';
 import CylinderNode from './nodes/CylinderNode';
 import CloudNode from './nodes/CloudNode';
+import EllipseNode from './nodes/EllipseNode';
 import { Play, RotateCcw, AppWindow, ChevronUp, ChevronDown, Pause, Sparkles } from 'lucide-react';
 import { gsap } from 'gsap';
 
@@ -36,6 +37,7 @@ const nodeTypes = {
   label: LabelNode,
   cylinder: CylinderNode,
   cloud: CloudNode,
+  ellipse: EllipseNode,
 };
 
 const edgeTypes = {
@@ -48,7 +50,7 @@ interface CanvasProps {
   isPureRender?: boolean;
   onNodeSelect?: (id: string | null) => void;
   onEdgeSelect?: (from: string, to: string, index: number) => void;
-  onNodeDragStop?: (id: string, x: number, y: number, allNodes?: any[]) => void;
+  onNodeDragStop?: (id: string, x: number, y: number, allNodes?: any[], skipHistory?: boolean) => void;
   onConnect?: (from: string, to: string, exitPort: string, entryPort: string) => void;
   onDropTemplate?: (template: any, x: number, y: number) => void;
   snapToGrid?: boolean;
@@ -70,10 +72,11 @@ export const Canvas: React.FC<CanvasProps> = ({
   tourStep,
 }) => {
   const { runLayout, isLayoutRunning, isWorkerReady } = useFlowLayout();
-  const { screenToFlowPosition, getNodes, fitView } = useReactFlow();
+  const { screenToFlowPosition, getNodes, fitView, getViewport, setViewport } = useReactFlow();
   const [promptLayoutAlert, setPromptLayoutAlert] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const prevLengthsRef = useRef({ elements: spec.elements?.length || 0, connections: spec.connections?.length || 0 });
+  const prevThemeRef = useRef(theme);
 
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -127,6 +130,14 @@ export const Canvas: React.FC<CanvasProps> = ({
     return compileSpec(spec, theme);
   }, [spec, theme]);
 
+  const layoutStructureKey = useMemo(() => {
+    const elemKey = (spec.elements || []).map((e) => `${e.id}:${e.x}:${e.y}`).join('|');
+    const connKey = (spec.connections || []).length;
+    const dir = spec.canvas?.layoutDirection || 'TB';
+    const algo = spec.canvas?.layoutAlgorithm || 'layered';
+    return `${elemKey}#${connKey}#${dir}#${algo}`;
+  }, [spec.elements, spec.connections, spec.canvas?.layoutDirection, spec.canvas?.layoutAlgorithm]);
+
   const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
   const [, setCanvasSize] = useState({ width: 1920, height: 1440 });
@@ -162,6 +173,7 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [progress, setProgress] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [isPlayerCollapsed, setIsPlayerCollapsed] = useState(true);
+  const isScrubbing = React.useRef(false);
 
   // Sync seek bar with GSAP global timeline ticker
   useEffect(() => {
@@ -170,9 +182,11 @@ export const Canvas: React.FC<CanvasProps> = ({
     const cycleDuration = (spec.canvas?.frames || 90) / (spec.canvas?.fps || 30);
     const updateProgress = () => {
       if (!active) return;
-      const time = gsap.globalTimeline.time();
-      const p = (time % cycleDuration) / cycleDuration;
-      setProgress(p * 100);
+      if (!isScrubbing.current) {
+        const time = gsap.globalTimeline.time();
+        const p = (time % cycleDuration) / cycleDuration;
+        setProgress(p * 100);
+      }
       requestAnimationFrame(updateProgress);
     };
     requestAnimationFrame(updateProgress);
@@ -209,6 +223,18 @@ export const Canvas: React.FC<CanvasProps> = ({
 
   // Update nodes and edges when compiled changes
   useEffect(() => {
+    const isThemeChange = prevThemeRef.current !== theme;
+    prevThemeRef.current = theme;
+
+    let currentViewport: { x: number; y: number; zoom: number } | null = null;
+    if (isThemeChange && getViewport) {
+      try {
+        currentViewport = getViewport();
+      } catch (e) {
+        // ignore if viewport not ready
+      }
+    }
+
     const rfNodesWithFlags = compiled.rfNodes.map((node) => {
       const depth = node.parentId ? 2 : 1;
       const baseZ = node.type === 'panel' || node.type === 'group' ? 0 : 10;
@@ -228,7 +254,13 @@ export const Canvas: React.FC<CanvasProps> = ({
       width: compiled.canvas.width || 1920,
       height: compiled.canvas.height || 1440,
     });
-  }, [compiled, isPureRender, setNodes, setEdges]);
+
+    if (isThemeChange && currentViewport && setViewport) {
+      requestAnimationFrame(() => {
+        setViewport(currentViewport, { duration: 0 });
+      });
+    }
+  }, [compiled, isPureRender, setNodes, setEdges, theme, getViewport, setViewport]);
 
   // Execute Layout
   const executeLayout = useCallback(async () => {
@@ -244,16 +276,16 @@ export const Canvas: React.FC<CanvasProps> = ({
         spec.canvas?.layoutAlgorithm
       );
 
+      const nodePosMap = new Map(positionedNodes.map((pn) => [pn.id, pn]));
+      const edgePosMap = new Map(positionedEdges.map((pe) => [pe.id, pe]));
+
       setNodes((currentNodes) =>
         currentNodes.map((node) => {
-          const match = positionedNodes.find((pn) => pn.id === node.id);
+          const match = nodePosMap.get(node.id);
           if (match) {
-            const parentNode = node.parentId ? positionedNodes.find((p) => p.id === node.parentId) : null;
-            const relX = parentNode ? match.x - parentNode.x : match.x;
-            const relY = parentNode ? match.y - parentNode.y : match.y;
             return {
               ...node,
-              position: { x: relX, y: relY },
+              position: { x: match.x, y: match.y },
               width: match.width,
               height: match.height,
               style: {
@@ -269,7 +301,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
       setEdges((currentEdges) =>
         currentEdges.map((edge) => {
-          const match = positionedEdges.find((pe) => pe.id === edge.id);
+          const match = edgePosMap.get(edge.id);
           if (match) {
             return {
               ...edge,
@@ -360,7 +392,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 
         const colOffsets: number[] = [50];
         for (let i = 0; i < colWidths.length; i++) {
-          colOffsets[i + 1] = colOffsets[i] + colWidths[i] + Math.max(80, colWidths[i] * 0.1);
+          colOffsets[i + 1] = colOffsets[i] + colWidths[i] + Math.max(mainGapX, colWidths[i] * 0.1);
         }
         const rowOffsets: number[] = [200];
         for (let i = 0; i < rowHeights.length; i++) {
@@ -419,7 +451,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     } else {
       (window as any).__LAYOUT_COMPLETE__ = true;
     }
-  }, [compiled.flatElements, compiled.canvas.mode, executeLayout, isWorkerReady]);
+  }, [layoutStructureKey, compiled.canvas.mode, executeLayout, isWorkerReady]);
 
   // Track elements/connections length additions and removals for auto-layout or user prompt
   useEffect(() => {
@@ -605,7 +637,7 @@ export const Canvas: React.FC<CanvasProps> = ({
               cancelAnimationFrame((window as any).__DRAG_RAF__);
             }
             (window as any).__DRAG_RAF__ = requestAnimationFrame(() => {
-              onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes);
+              onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes, true);
             });
           }
         }}
@@ -625,7 +657,7 @@ export const Canvas: React.FC<CanvasProps> = ({
             })
           );
           if (node.position) {
-            onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes);
+            onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes, false);
           }
         }}
         onConnect={isPureRender ? undefined : (conn) => {
@@ -669,9 +701,41 @@ export const Canvas: React.FC<CanvasProps> = ({
         {!isPureRender && (
           <MiniMap
             position="bottom-right"
-            className="!bg-surface-1/90 border border-border-themed rounded-xl"
-            nodeColor={() => (theme === 'dark' ? '#171b30' : '#f1f3f5')}
-            maskColor={theme === 'dark' ? 'rgba(10, 13, 26, 0.6)' : 'rgba(255, 255, 255, 0.6)'}
+            className="!bg-surface-1/90 border border-border-themed rounded-xl shadow-lg"
+            nodeColor={(node: any) => {
+              if (node.type === 'panel' || node.type === 'group') {
+                return 'transparent';
+              }
+              if (theme === 'white') return '#09090b';
+              if (theme === 'light') return '#2563eb';
+              return '#3b82f6';
+            }}
+            nodeStrokeColor={(node: any) => {
+              if (node.type === 'panel' || node.type === 'group') {
+                if (theme === 'white') return '#09090b';
+                if (theme === 'light') return '#2563eb';
+                return '#60a5fa';
+              }
+              return 'transparent';
+            }}
+            nodeStrokeWidth={2}
+            maskColor={
+              theme === 'dark'
+                ? 'rgba(10, 13, 26, 0.7)'
+                : theme === 'white'
+                  ? 'rgba(0, 0, 0, 0.15)'
+                  : 'rgba(100, 116, 139, 0.35)'
+            }
+            maskStrokeColor={
+              theme === 'white'
+                ? '#09090b'
+                : theme === 'light'
+                  ? '#2563eb'
+                  : '#60a5fa'
+            }
+            maskStrokeWidth={1.5}
+            zoomable
+            pannable
           />
         )}
 
@@ -778,6 +842,10 @@ export const Canvas: React.FC<CanvasProps> = ({
                   max="100"
                   step="0.5"
                   value={progress}
+                  onMouseDown={() => { isScrubbing.current = true; }}
+                  onMouseUp={() => { isScrubbing.current = false; }}
+                  onTouchStart={() => { isScrubbing.current = true; }}
+                  onTouchEnd={() => { isScrubbing.current = false; }}
                   onChange={handleSliderChange}
                   className="flex-grow accent-indigo-600 bg-surface-3 h-1.5 rounded-lg focus-ring cursor-pointer"
                 />

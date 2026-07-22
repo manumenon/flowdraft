@@ -16,6 +16,7 @@ interface PropertyEditorProps {
   token: string | null;
   activeDiagramId: string | null;
   onTriggerAuth: () => void;
+  onLogout?: () => void;
   tourStep?: number | null;
 }
 
@@ -46,7 +47,12 @@ const COMPONENT_TEMPLATES = [
   { title: 'Object Storage', type: 'card', icon: 'HardDrive', color: '#f43f5e' },
   { title: 'Queue Worker', type: 'card', icon: 'Cpu', color: '#a855f7' },
   { title: 'Database Cylinder', type: 'cylinder', icon: 'Database', color: '#2563eb' },
-  { title: 'Cloud CDN', type: 'cloud', icon: 'Cloud', color: '#0891b2' }
+  { title: 'Cloud CDN', type: 'cloud', icon: 'Cloud', color: '#0891b2' },
+  { title: 'Input Field / Trigger', type: 'input', icon: 'Terminal', color: '#10b981' },
+  { title: 'Decision Node', type: 'diamond', icon: 'HelpCircle', color: '#ef4444' },
+  { title: 'Panel / Group', type: 'panel', icon: 'Box', color: '#8b5cf6' },
+  { title: 'Text Label', type: 'label', icon: 'Tag', color: '#64748b' },
+  { title: 'Ellipse Oval', type: 'ellipse', icon: 'Circle', color: '#ec4899' },
 ];
 
 export const PropertyEditor: React.FC<PropertyEditorProps> = ({
@@ -60,6 +66,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   token,
   activeDiagramId,
   onTriggerAuth,
+  onLogout,
   tourStep,
 }) => {
   const { screenToFlowPosition, getNodes } = useReactFlow();
@@ -127,8 +134,24 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
     ? findElementRecursive(spec.elements, selectedElementId)
     : null;
 
-  const selectedConnection = selectedEdge && spec.connections
-    ? spec.connections.find((c, idx) => c.from === selectedEdge.from && c.to === selectedEdge.to && idx === selectedEdge.index)
+  const selectedConnectionIndex = useMemo(() => {
+    if (!selectedEdge || !spec.connections) return -1;
+    let matchIdx = spec.connections.findIndex(
+      (c, idx) =>
+        c.from === selectedEdge.from &&
+        c.to === selectedEdge.to &&
+        (selectedEdge.index !== undefined && selectedEdge.index >= 0 ? idx === selectedEdge.index : true)
+    );
+    if (matchIdx === -1) {
+      matchIdx = spec.connections.findIndex(
+        (c) => c.from === selectedEdge.from && c.to === selectedEdge.to
+      );
+    }
+    return matchIdx;
+  }, [selectedEdge, spec.connections]);
+
+  const selectedConnection = selectedConnectionIndex >= 0 && spec.connections
+    ? spec.connections[selectedConnectionIndex]
     : null;
 
   const updateNodeProperty = (key: keyof ElementSpec | string, value: any, isStyle = false) => {
@@ -194,11 +217,11 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   };
 
   const updateConnectionProperty = (key: string, value: any) => {
-    if (!selectedEdge) return;
+    if (!selectedEdge || selectedConnectionIndex < 0) return;
 
     onUpdateSpec((prev) => {
       const updatedConns = (prev.connections || []).map((conn, idx) => {
-        if (conn.from === selectedEdge.from && conn.to === selectedEdge.to && idx === selectedEdge.index) {
+        if (idx === selectedConnectionIndex) {
           return {
             ...conn,
             [key]: value,
@@ -253,10 +276,10 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
   };
 
   const deleteConnection = () => {
-    if (!selectedEdge) return;
+    if (!selectedEdge || selectedConnectionIndex < 0) return;
     onUpdateSpec((prev) => {
       const cleanConns = (prev.connections || []).filter(
-        (conn, idx) => !(conn.from === selectedEdge.from && conn.to === selectedEdge.to && idx === selectedEdge.index)
+        (_, idx) => idx !== selectedConnectionIndex
       );
       return {
         ...prev,
@@ -336,7 +359,6 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
       id: newId,
       type: template.type as any,
       title: template.title,
-      body: 'Active data node...',
       icon: template.icon,
       x: finalPos.x,
       y: finalPos.y,
@@ -347,6 +369,28 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
         strokeWidth: 2,
       },
     };
+
+    if (template.type === 'panel') {
+      newElement.width = 320;
+      newElement.height = 220;
+      newElement.children = [];
+    } else if (template.type === 'label') {
+      newElement.style = {
+        ...newElement.style,
+        transparent: true,
+        borderless: true,
+      };
+    } else if (template.type === 'input') {
+      newElement.width = 220;
+      newElement.height = 42;
+      newElement.body = 'Active data node...';
+    } else if (template.type === 'ellipse') {
+      newElement.width = 160;
+      newElement.height = 90;
+      newElement.body = 'Active data node...';
+    } else {
+      newElement.body = 'Active data node...';
+    }
 
     onUpdateSpec((prev) => ({
       ...prev,
@@ -672,6 +716,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                   {PRESET_COLORS.map((col) => (
                     <button
                       key={col.value}
+                      aria-label={`Select ${col.name} accent color`}
                       onClick={() => {
                         updateNodeProperty('color', col.value, true);
                         updateNodeProperty('strokeColor', col.value, true);
@@ -683,7 +728,6 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
                       }`}
                       style={{ backgroundColor: col.value }}
                       title={col.name}
-                      aria-label={`Color ${col.name}`}
                     />
                   ))}
                   {/* Custom color input picker */}
@@ -1216,6 +1260,7 @@ export const PropertyEditor: React.FC<PropertyEditorProps> = ({
               spec={spec}
               activeDiagramId={activeDiagramId}
               onTriggerAuth={onTriggerAuth}
+              onLogout={onLogout}
               isInline={true}
               tourStep={tourStep}
             />

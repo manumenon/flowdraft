@@ -786,11 +786,15 @@ def _measure_panel(
 
 # Dispatcher table: type → measurer function
 _MEASURERS: dict[str, Any] = {
-    "card":    _measure_card,
-    "diamond": _measure_diamond,
-    "input":   _measure_input,
-    "label":   _measure_label,
-    "panel":   _measure_panel,
+    "card":     _measure_card,
+    "diamond":  _measure_diamond,
+    "input":    _measure_input,
+    "label":    _measure_label,
+    "panel":    _measure_panel,
+    "group":    _measure_panel,
+    "cylinder": _measure_card,
+    "cloud":    _measure_card,
+    "ellipse":  _measure_card,
 }
 
 
@@ -977,6 +981,10 @@ def compile_spec(spec: dict) -> dict:
     Returns:
         An IR dict ``{"nodes": [...], "connections": [...], "annotations": [...]}``.
     """
+    if "hand" in spec:
+        from . import constants as _c
+        _c.HAND = bool(spec["hand"])
+
     draw = _scratch_draw()
 
     raw_elements = spec["elements"]

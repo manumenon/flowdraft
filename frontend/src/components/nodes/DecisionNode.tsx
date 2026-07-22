@@ -20,10 +20,13 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
   let titleFontSize = '11px';
   let bodyFontSize = '10px';
 
-  if (totalLength > 100) {
+  if (totalLength > 120) {
+    titleFontSize = '8px';
+    bodyFontSize = '7.5px';
+  } else if (totalLength > 80) {
     titleFontSize = '9px';
     bodyFontSize = '8px';
-  } else if (totalLength > 50) {
+  } else if (totalLength > 40) {
     titleFontSize = '10px';
     bodyFontSize = '9px';
   }
@@ -39,11 +42,7 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative w-full h-full select-none transition-all duration-300 animate-zoom-in ${
-        selected 
-          ? 'scale-[1.03]' 
-          : 'hover:scale-[1.05] cursor-pointer'
-      }`}
+      className="relative w-full h-full select-none transition-all duration-200 animate-zoom-in cursor-pointer"
       style={{
         filter: selected 
           ? `drop-shadow(0 0 8px ${accentColor})` 
@@ -75,21 +74,39 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
       <Handle type="target" position={Position.Right} id="target-right" style={handleStyle} />
       <Handle type="source" position={Position.Right} id="source-right" style={handleStyle} />
 
-      {/* Centered text container */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-5 pointer-events-none">
+      {/* Centered text container with inner diamond geometry padding */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-[26%] py-[22%] pointer-events-none overflow-hidden">
         <span 
-          className="font-extrabold leading-tight tracking-wider max-w-[70%] break-words" 
+          className="font-extrabold leading-tight tracking-wider w-full break-words line-clamp-2" 
           style={{ color: accentColor, fontSize: titleFontSize }}
         >
           {data.title || ''}
         </span>
         {data.body && (
           <span 
-            className="leading-normal opacity-70 whitespace-pre-wrap font-mono mt-1.5 max-w-[68%] text-text-secondary break-words"
+            className="leading-tight whitespace-pre-wrap font-mono mt-1 w-full text-text-secondary font-medium break-words opacity-90 line-clamp-3"
             style={{ fontSize: bodyFontSize }}
           >
             {data.body}
           </span>
+        )}
+        {/* Render Annotations if defined in spec */}
+        {data.annotations && data.annotations.length > 0 && (
+          <div className="flex flex-wrap justify-center gap-1 mt-1 pointer-events-none z-10">
+            {data.annotations.map((ann: any, idx: number) => (
+              <div
+                key={idx}
+                className="text-[8px] px-1.5 py-0.5 rounded bg-surface-1/90 border shadow-sm font-semibold flex items-center gap-1 backdrop-blur-md"
+                style={{
+                  borderColor: `${strokeColor}40`,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ backgroundColor: strokeColor }} />
+                <span className="leading-tight">{ann.text}</span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>

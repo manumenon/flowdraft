@@ -350,22 +350,32 @@ def route_with_elk(ir: dict) -> bool:
                 needed_panel_h = (footer_node["y"] - node["y"]) + footer_node["height"] + pad_b
                 node["height"] = max(node["height"], needed_panel_h)
 
-    # Enforce parent panel bounds expansion for any overflowing child nodes
-    for node in nodes:
-        if node.get("type") in ("panel", "group"):
-            children = [c for c in nodes if c.get("parent") == node["id"] and not c.get("out_of_flow")]
-            if children:
-                pad = node.get("style", {}).get("padding", {"left": 12, "right": 12, "top": 36, "bottom": 12})
-                pad_r = pad.get("right", 20)
-                pad_b = pad.get("bottom", 20)
-                max_child_r = max(c["x"] + c["width"] for c in children)
-                max_child_b = max(c["y"] + c["height"] for c in children)
-                needed_w = (max_child_r - node["x"]) + pad_r
-                needed_h = (max_child_b - node["y"]) + pad_b
-                if needed_w > node["width"]:
-                    node["width"] = needed_w
-                if needed_h > node["height"]:
-                    node["height"] = needed_h
+    # Enforce parent panel bounds expansion in bottom-up topological order
+    def _panel_depth(node_id: str) -> int:
+        depth = 0
+        curr = nodes_map.get(node_id)
+        while curr and curr.get("parent"):
+            depth += 1
+            curr = nodes_map.get(curr["parent"])
+        return depth
+
+    container_panels = [n for n in nodes if n.get("type") in ("panel", "group")]
+    container_panels.sort(key=lambda n: _panel_depth(n["id"]), reverse=True)
+
+    for node in container_panels:
+        children = [c for c in nodes if c.get("parent") == node["id"] and not c.get("out_of_flow")]
+        if children:
+            pad = node.get("style", {}).get("padding", {"left": 12, "right": 12, "top": 36, "bottom": 12})
+            pad_r = pad.get("right", 20)
+            pad_b = pad.get("bottom", 20)
+            max_child_r = max(c["x"] + c.get("width", 0.0) for c in children)
+            max_child_b = max(c["y"] + c.get("height", 0.0) for c in children)
+            needed_w = (max_child_r - node["x"]) + pad_r
+            needed_h = (max_child_b - node["y"]) + pad_b
+            if needed_w > node["width"]:
+                node["width"] = needed_w
+            if needed_h > node["height"]:
+                node["height"] = needed_h
 
     # Resolve vertical top-level overlaps if panels expanded
     toplevel_nodes = [n for n in nodes if n.get("parent") is None]

@@ -15,6 +15,7 @@ interface ProjectSidebarProps {
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
   onShowToast?: (type: 'success' | 'error' | 'info' | 'warning', title: string, message: string) => void;
+  onOpenImport?: () => void;
 }
 
 interface Diagram {
@@ -24,6 +25,11 @@ interface Diagram {
   spec: any;
   theme: string;
 }
+
+const getValidToken = (inputToken?: string | null): string | null => {
+  const t = inputToken !== undefined ? inputToken : localStorage.getItem('flowdraft_token');
+  return (t && t !== 'null' && t !== 'undefined' && t.trim() !== '') ? t : null;
+};
 
 export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   token,
@@ -38,6 +44,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   isCollapsed = false,
   onToggleCollapse,
   onShowToast,
+  onOpenImport,
 }) => {
   const [diagrams, setDiagrams] = useState<Diagram[]>([]);
   const [loading, setLoading] = useState(false);
@@ -50,17 +57,23 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
     : window.location.origin;
 
   const fetchDiagrams = async () => {
-    if (!token) return;
+    const validToken = getValidToken(token);
+    if (!validToken) return;
     setLoading(true);
     try {
       const res = await fetch(`${baseUrl}/api/diagrams`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${validToken}`,
         },
       });
       if (res.ok) {
         const data = await res.json();
         setDiagrams(data);
+      } else if (res.status === 401) {
+        localStorage.removeItem('flowdraft_token');
+        localStorage.removeItem('flowdraft_user_email');
+        setDiagrams([]);
+        onLogout();
       } else {
         onShowToast?.('error', 'Fetch Blueprints Failed', 'API gateway returned error status: ' + res.status);
       }
@@ -73,7 +86,8 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   };
 
   useEffect(() => {
-    if (token) {
+    const validToken = getValidToken(token);
+    if (validToken) {
       fetchDiagrams();
     } else {
       setDiagrams([]);
@@ -81,27 +95,37 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   }, [token]);
 
   const handleCreateDiagram = async () => {
-    if (!token) {
-      onTriggerAuth();
+    if (window.confirm("Create a new diagram spec? Any unsaved changes on the current canvas will be reset.")) {
+      // User confirmed
+    } else {
+      return;
+    }
+
+    const validToken = getValidToken(token);
+    const emptySpec: FlowSpec = {
+      title: { prefix: 'NEW', highlight: titleInput, subtitle: 'Interactive Flowchart' },
+      canvas: { mode: 'dynamic', width: 1200, height: 800 },
+      elements: [
+        { id: 'node_1', type: 'card', title: 'Start Node', body: 'Initialize structure' }
+      ],
+      connections: [],
+      theme: theme,
+    };
+
+    if (!validToken) {
+      onSelectSpec(emptySpec, theme);
+      setTitleInput('New Diagram');
+      onShowToast?.('info', 'Guest Mode Sandbox', 'Created new diagram locally. Sign in to save to cloud workspace.');
       return;
     }
     setSaving(true);
     try {
-      const emptySpec: FlowSpec = {
-        title: { prefix: 'NEW', highlight: titleInput, subtitle: 'Interactive Flowchart' },
-        canvas: { mode: 'dynamic', width: 1200, height: 800 },
-        elements: [
-          { id: 'node_1', type: 'card', title: 'Start Node', body: 'Initialize structure' }
-        ],
-        connections: [],
-        theme: theme,
-      };
 
       const res = await fetch(`${baseUrl}/api/diagrams`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${validToken}`,
         },
         body: JSON.stringify({
           title: titleInput,
@@ -117,6 +141,11 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         onSelectSpec(newDiag.spec, newDiag.theme, newDiag.id);
         setTitleInput('New Diagram');
         onShowToast?.('success', 'Blueprint Created', 'Saved new spec to database.');
+      } else if (res.status === 401) {
+        localStorage.removeItem('flowdraft_token');
+        localStorage.removeItem('flowdraft_user_email');
+        onLogout();
+        onTriggerAuth();
       } else {
         onShowToast?.('error', 'Creation Failed', 'Server rejected blueprint creation.');
       }
@@ -129,7 +158,9 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   };
 
   const handleSaveDiagram = async () => {
-    if (!token) {
+    const validToken = getValidToken(token);
+    if (!validToken) {
+      onShowToast?.('info', 'Guest Mode Sandbox', 'Sign in required to save diagrams to cloud workspace.');
       onTriggerAuth();
       return;
     }
@@ -143,7 +174,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${validToken}`,
         },
         body: JSON.stringify({
           title: updatedTitle,
@@ -156,6 +187,11 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         const updated = await res.json();
         setDiagrams((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
         onSaveComplete(updated.id);
+      } else if (res.status === 401) {
+        localStorage.removeItem('flowdraft_token');
+        localStorage.removeItem('flowdraft_user_email');
+        onLogout();
+        onTriggerAuth();
       } else {
         onShowToast?.('error', 'Save Failed', 'Server rejected saving changes.');
       }
@@ -169,7 +205,12 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
 
   const handleDeleteDiagram = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!token) return;
+    const validToken = getValidToken(token);
+    if (!validToken) {
+      onShowToast?.('info', 'Guest Mode Sandbox', 'Sign in required to manage saved cloud blueprints.');
+      onTriggerAuth();
+      return;
+    }
     if (deleteConfirmId !== id) {
       setDeleteConfirmId(id);
       return;
@@ -178,7 +219,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       const res = await fetch(`${baseUrl}/api/diagrams/${id}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${validToken}`,
         },
       });
       if (res.ok) {
@@ -194,6 +235,11 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
             theme: 'dark',
           }, 'dark');
         }
+      } else if (res.status === 401) {
+        localStorage.removeItem('flowdraft_token');
+        localStorage.removeItem('flowdraft_user_email');
+        onLogout();
+        onTriggerAuth();
       } else {
         onShowToast?.('error', 'Delete Failed', 'Server rejected blueprint deletion.');
       }
@@ -205,14 +251,24 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
 
   const handleExportLocalJSON = () => {
     try {
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(spec, null, 2));
+      const rawTitle = spec.title?.highlight || 'flowdraft_diagram';
+      const safeTitle = rawTitle
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/gi, '_')
+        .replace(/^_+|_+$/g, '');
+      const filename = `${safeTitle || 'flowdraft_diagram'}.json`;
+
+      const jsonString = JSON.stringify(spec, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
       const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `${spec.title?.highlight || 'flowdraft_diagram'}.json`);
+      downloadAnchor.href = url;
+      downloadAnchor.download = filename;
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
-      downloadAnchor.remove();
-      onShowToast?.('success', 'Export Complete', 'Downloaded diagram spec JSON file.');
+      document.body.removeChild(downloadAnchor);
+      URL.revokeObjectURL(url);
+      onShowToast?.('success', 'Export Complete', `Downloaded ${filename} successfully.`);
     } catch (err) {
       console.error('Failed to export local JSON', err);
       onShowToast?.('error', 'Export Failed', 'Could not compile layout JSON.');
@@ -234,6 +290,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
           onShowToast?.('error', 'Invalid Format', 'Spec JSON is missing required elements array.');
         }
       } catch (err) {
+        console.error('Import JSON error', err);
         onShowToast?.('error', 'Import Failed', 'Invalid JSON syntax.');
       }
     };
@@ -268,16 +325,14 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
           <div className="w-8 h-[1px] bg-border-themed" />
 
           {/* Create Empty Diagram Shortcut Button */}
-          {token && (
-            <button
-              onClick={handleCreateDiagram}
-              disabled={saving}
-              className="p-2 bg-surface-2 hover:bg-surface-3 text-text-secondary hover:text-text-primary border border-border-themed rounded-lg transition focus-ring"
-              title="Add New Spec Diagram"
-            >
-              <Plus size={14} />
-            </button>
-          )}
+          <button
+            onClick={handleCreateDiagram}
+            disabled={saving}
+            className="p-2 bg-surface-2 hover:bg-surface-3 text-text-secondary hover:text-text-primary border border-border-themed rounded-lg transition focus-ring"
+            title="Add New Spec Diagram"
+          >
+            <Plus size={14} />
+          </button>
 
           {/* Compass view saved list toggle */}
           <button
@@ -349,40 +404,38 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       </div>
 
       {/* Action / Diagram Control Box */}
-      {token && (
-        <div className="p-4 border-b border-border-themed flex flex-col gap-3 bg-surface-2/20">
-          <div className="relative">
-            <input
-              id="new-diagram-title-input"
-              name="new-diagram-title-input"
-              type="text"
-              placeholder="New diagram title..."
-              value={titleInput}
-              onChange={(e) => setTitleInput(e.target.value)}
-              className="w-full px-3 py-2 bg-surface-0 border border-border-themed focus:border-accent rounded-lg text-xs text-text-primary focus:outline-none transition font-medium focus-ring"
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={handleCreateDiagram}
-              disabled={saving}
-              className="flex-grow py-2 bg-accent hover:opacity-90 disabled:bg-accent/50 text-[10px] uppercase tracking-wider font-bold rounded-lg flex items-center justify-center gap-1.5 transition text-white focus-ring"
-            >
-              <Plus size={13} /> Add Spec
-            </button>
-            {activeDiagramId && (
-              <button
-                onClick={handleSaveDiagram}
-                disabled={saving}
-                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-[10px] uppercase tracking-wider font-bold rounded-lg flex items-center justify-center gap-1.5 transition text-white focus-ring"
-                title="Save Current Work"
-              >
-                {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save
-              </button>
-            )}
-          </div>
+      <div className="p-4 border-b border-border-themed flex flex-col gap-3 bg-surface-2/20">
+        <div className="relative">
+          <input
+            id="new-diagram-title-input"
+            name="new-diagram-title-input"
+            type="text"
+            placeholder="New diagram title..."
+            value={titleInput}
+            onChange={(e) => setTitleInput(e.target.value)}
+            className="w-full px-3 py-2 bg-surface-0 border border-border-themed focus:border-accent rounded-lg text-xs text-text-primary focus:outline-none transition font-medium focus-ring"
+          />
         </div>
-      )}
+        <div className="flex gap-2">
+          <button
+            onClick={handleCreateDiagram}
+            disabled={saving}
+            className="flex-grow py-2 bg-accent hover:opacity-90 disabled:bg-accent/50 text-[10px] uppercase tracking-wider font-bold rounded-lg flex items-center justify-center gap-1.5 transition text-white focus-ring"
+          >
+            <Plus size={13} /> Add Spec
+          </button>
+          {getValidToken(token) && activeDiagramId && (
+            <button
+              onClick={handleSaveDiagram}
+              disabled={saving}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-[10px] uppercase tracking-wider font-bold rounded-lg flex items-center justify-center gap-1.5 transition text-white focus-ring"
+              title="Save Current Work"
+            >
+              {saving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Save
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Saved Spec Explorer List */}
       <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 custom-scrollbar">
@@ -404,7 +457,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
         ) : diagrams.length === 0 ? (
           <div className="text-center py-10 text-xs text-text-muted border border-dashed border-border-themed rounded-xl bg-surface-2/20 px-4 leading-relaxed flex flex-col items-center gap-2">
             <Compass className="text-text-muted w-8 h-8 animate-pulse" />
-            <span>No saved architecture configurations. {token ? "Create a blueprint to get started." : "Login to store blueprints."}</span>
+            <span>No saved architecture configurations. {getValidToken(token) ? "Create a blueprint to get started." : "Login to store blueprints."}</span>
           </div>
         ) : (
           <div className="flex flex-col gap-2">
@@ -488,17 +541,27 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
             Export Spec
           </button>
           
-          <label className="flex-grow py-1.5 bg-surface-2 hover:bg-surface-3 border border-border-themed hover:border-border-strong text-[10px] uppercase font-bold tracking-wider rounded-lg flex items-center justify-center gap-1 text-text-secondary hover:text-text-primary cursor-pointer text-center select-none focus-ring transition duration-200">
+          <button
+            onClick={() => {
+              if (onOpenImport) {
+                onOpenImport();
+              } else {
+                document.getElementById('import-spec-file')?.click();
+              }
+            }}
+            className="flex-grow py-1.5 bg-surface-2 hover:bg-surface-3 border border-border-themed hover:border-border-strong text-[10px] uppercase font-bold tracking-wider rounded-lg flex items-center justify-center gap-1 text-text-secondary hover:text-text-primary focus-ring transition duration-200"
+            title="Import diagram spec JSON"
+          >
             Import Spec
-            <input
-              id="import-spec-file"
-              name="import-spec-file"
-              type="file"
-              accept=".json"
-              onChange={handleImportLocalJSON}
-              className="hidden"
-            />
-          </label>
+          </button>
+          <input
+            id="import-spec-file"
+            name="import-spec-file"
+            type="file"
+            accept=".json"
+            onChange={handleImportLocalJSON}
+            className="hidden"
+          />
         </div>
       </div>
     </div>

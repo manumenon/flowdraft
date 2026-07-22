@@ -654,14 +654,9 @@ def layout_panel_children(
             continue
         if node.get("x") is not None or node.get("y") is not None:
             manual_ids.append(cid)
-            # If out_of_flow == True, coordinates are already relative to nearest ancestor panel.
-            # Otherwise, convert absolute coordinates to relative.
-            if not node.get("out_of_flow"):
-                node["x"] = (node.get("x") or 0.0) - parent_x
-                node["y"] = (node.get("y") or 0.0) - parent_y
-            else:
-                node["x"] = node.get("x") or 0.0
-                node["y"] = node.get("y") or 0.0
+            # Coordinates inside panel are panel-relative
+            node["x"] = node.get("x") or 0.0
+            node["y"] = node.get("y") or 0.0
         else:
             auto_ids.append(cid)
 
@@ -670,12 +665,8 @@ def layout_panel_children(
         f_node = nodes_map[footer_id]
         if f_node.get("x") is not None or f_node.get("y") is not None:
             footer_is_manual = True
-            if not f_node.get("out_of_flow"):
-                f_node["x"] = (f_node.get("x") or 0.0) - parent_x
-                f_node["y"] = (f_node.get("y") or 0.0) - parent_y
-            else:
-                f_node["x"] = f_node.get("x") or 0.0
-                f_node["y"] = f_node.get("y") or 0.0
+            f_node["x"] = f_node.get("x") or 0.0
+            f_node["y"] = f_node.get("y") or 0.0
 
     # Auto-detect direction for input panels (children are all inputs → row)
     if direction == _DEFAULT_DIRECTION and auto_ids:
@@ -699,11 +690,44 @@ def layout_panel_children(
         if cid in nodes_map
     ]
 
-    # ── Place auto-laid out main children ────────────────────────────
-    origin_x = pad["left"]
-    
-    # Calculate header height to prevent children overlapping with titles/subtitles
+    # Pre-calculate title and subtitle text wrapping based on available width budget
     offsets = panel.get("layout_offsets", {})
+    init_panel_w = max(panel.get("width", 0.0), 100.0)
+    avail_w = max(50.0, init_panel_w - pad["left"] - pad["right"])
+    if "badge" in offsets:
+        avail_w = max(50.0, avail_w - (offsets["badge"]["w"] + 15.0))
+
+    from PIL import Image, ImageDraw
+    img_temp = Image.new("RGB", (1, 1))
+    draw_temp = ImageDraw.Draw(img_temp)
+    from scripts.flowdraft.compiler import _measure_text
+
+    if "title" in offsets:
+        offsets["title"]["w"] = avail_w
+        title_text = panel.get("title", "")
+        if title_text:
+            _, t_size, t_w, t_h = _measure_text(
+                draw_temp, title_text, avail_w, 200.0, offsets["title"]["size"],
+                min_size=offsets["title"]["min_size"], hand=offsets["title"]["hand"], bold=offsets["title"]["bold"]
+            )
+            offsets["title"]["h"] = max(34.0, t_h)
+            offsets["title"]["size"] = t_size
+
+    if "subtitle" in offsets:
+        sub_avail_w = max(50.0, init_panel_w - pad["left"] - pad["right"])
+        offsets["subtitle"]["w"] = sub_avail_w
+        subtitle_text = panel.get("subtitle", "")
+        if subtitle_text:
+            if "title" in offsets:
+                offsets["subtitle"]["y"] = offsets["title"]["y"] + offsets["title"]["h"] + 6.0
+            _, s_size, s_w, s_h = _measure_text(
+                draw_temp, subtitle_text, sub_avail_w, 100.0, offsets["subtitle"]["size"],
+                min_size=offsets["subtitle"]["min_size"], hand=offsets["subtitle"]["hand"], bold=offsets["subtitle"]["bold"]
+            )
+            offsets["subtitle"]["h"] = s_h
+            offsets["subtitle"]["size"] = s_size
+
+    # Calculate header height accurately to prevent children from overlapping titles
     header_h = 0.0
     if "title" in offsets:
         header_h = max(header_h, offsets["title"]["y"] + offsets["title"]["h"])
@@ -712,8 +736,9 @@ def layout_panel_children(
     if "badge" in offsets:
         header_h = max(header_h, offsets["badge"]["y"] + offsets["badge"]["h"])
     if header_h > 0:
-        header_h += 15.0  # add a buffer below the header area
+        header_h += 15.0  # add buffer below header area
 
+    origin_x = pad["left"]
     origin_y = max(pad["top"], header_h)
     content_w, content_h = 0.0, 0.0
 
@@ -741,7 +766,6 @@ def layout_panel_children(
     if footer_id and footer_id in nodes_map and not footer_is_manual:
         ref_w = content_w
         if manual_ids:
-            # Only count in-flow manual nodes
             in_flow_manual = [nodes_map[cid] for cid in manual_ids if not nodes_map[cid].get("out_of_flow")]
             max_manual_x = max((n["x"] + n["width"] for n in in_flow_manual), default=0.0)
             ref_w = max(content_w, max_manual_x - origin_x)
@@ -750,11 +774,7 @@ def layout_panel_children(
         footer_w = max(200.0, ref_w)
         footer_node["width"] = footer_w
 
-        # Re-measure footer card at final width to recalculate text wrap and height
         from scripts.flowdraft.compiler import _measure_card
-        from PIL import Image, ImageDraw
-        img_temp = Image.new("RGB", (1, 1))
-        draw_temp = ImageDraw.Draw(img_temp)
         res = _measure_card(footer_node, draw_temp, footer_node.get("_resolved_style", {}))
         footer_node["height"] = res["height"]
         footer_node["layout_offsets"] = res["layout_offsets"]
@@ -777,63 +797,6 @@ def layout_panel_children(
     else:
         panel["width"] = max(panel.get("width", 0.0), pad["left"] + pad["right"])
         panel["height"] = max(panel.get("height", 0.0), pad["top"] + pad["bottom"])
-
-    # Constrain title and subtitle width budgets to prevent badge / border overlaps
-    offsets = panel.get("layout_offsets", {})
-    diff_y = 0.0
-    
-    from PIL import Image, ImageDraw
-    img_temp = Image.new("RGB", (1, 1))
-    draw_temp = ImageDraw.Draw(img_temp)
-    from scripts.flowdraft.compiler import _measure_text
-    
-    if "title" in offsets:
-        avail_w = panel["width"] - pad["left"] - pad["right"]
-        if "badge" in offsets:
-            avail_w -= (offsets["badge"]["w"] + 15.0)
-        avail_w = max(50.0, avail_w)
-        offsets["title"]["w"] = avail_w
-        
-        title_text = panel.get("title", "")
-        if title_text:
-            _, t_size, t_w, t_h = _measure_text(
-                draw_temp, title_text, avail_w, 200.0, offsets["title"]["size"],
-                min_size=offsets["title"]["min_size"], hand=offsets["title"]["hand"], bold=offsets["title"]["bold"]
-            )
-            old_h = offsets["title"]["h"]
-            new_h = max(34.0, t_h)
-            if new_h > old_h:
-                diff_y += (new_h - old_h)
-                offsets["title"]["h"] = new_h
-                offsets["title"]["size"] = t_size
-                
-    if "subtitle" in offsets:
-        avail_w = max(50.0, panel["width"] - pad["left"] - pad["right"])
-        offsets["subtitle"]["w"] = avail_w
-        
-        subtitle_text = panel.get("subtitle", "")
-        if subtitle_text:
-            if diff_y > 0.0:
-                offsets["subtitle"]["y"] += diff_y
-                
-            _, s_size, s_w, s_h = _measure_text(
-                draw_temp, subtitle_text, avail_w, 100.0, offsets["subtitle"]["size"],
-                min_size=offsets["subtitle"]["min_size"], hand=offsets["subtitle"]["hand"], bold=offsets["subtitle"]["bold"]
-            )
-            old_h = offsets["subtitle"]["h"]
-            new_h = s_h
-            if new_h > old_h:
-                sub_diff = new_h - old_h
-                diff_y += sub_diff
-                offsets["subtitle"]["h"] = new_h
-                offsets["subtitle"]["size"] = s_size
-
-    if diff_y > 0.0:
-        for child_id in panel.get("children", []):
-            child = nodes_map.get(child_id)
-            if child and child.get("y") is not None:
-                child["y"] += diff_y
-        panel["height"] += diff_y
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1121,7 +1084,7 @@ def _absolutize_children(
 def _compute_bounding_box(
     nodes: list[dict],
 ) -> tuple[float, float, float, float]:
-    """Compute the axis-aligned bounding box of all positioned nodes.
+    """Compute the axis-aligned bounding box of all positioned nodes across the hierarchy.
 
     Args:
         nodes: Flat node list (only nodes with ``x`` and ``y`` are counted).
@@ -1138,8 +1101,8 @@ def _compute_bounding_box(
 
     min_x = min(n["x"] for n in positioned)
     min_y = min(n["y"] for n in positioned)
-    max_x = max(n["x"] + n["width"] for n in positioned)
-    max_y = max(n["y"] + n["height"] for n in positioned)
+    max_x = max(n["x"] + n.get("width", 0.0) for n in positioned)
+    max_y = max(n["y"] + n.get("height", 0.0) for n in positioned)
 
     return min_x, min_y, max_x, max_y
 
@@ -1165,18 +1128,14 @@ def _fit_to_canvas(
         margin:   Margin on each side.
         scale_to_fit: If False, keep layout unscaled at 100%.
     """
-    positioned = [
+    positioned_all = [
         n for n in nodes
-        if n.get("parent") is None and n.get("x") is not None and n.get("y") is not None
+        if n.get("x") is not None and n.get("y") is not None
     ]
-    if not positioned:
+    if not positioned_all:
         return
 
-    min_x = min(n["x"] for n in positioned)
-    min_y = min(n["y"] for n in positioned)
-    max_x = max(n["x"] + n["width"] for n in positioned)
-    max_y = max(n["y"] + n["height"] for n in positioned)
-
+    min_x, min_y, max_x, max_y = _compute_bounding_box(nodes)
     content_w = max_x - min_x
     content_h = max_y - min_y
 
@@ -1197,50 +1156,51 @@ def _fit_to_canvas(
         scale_x = 1.0
         scale_y = 1.0
 
-    # Translate so content starts at margin and is centered
+    # Ensure canvas offsets remain non-negative (>= margin) so top/left elements are never shifted off-screen
     scaled_w = content_w * scale_x
     scaled_h = content_h * scale_y
-    offset_x = margin + (avail_w - scaled_w) / 2
-    offset_y = margin + (avail_h - scaled_h) / 2
+    offset_x = max(margin, margin + (avail_w - scaled_w) / 2.0)
+    offset_y = max(margin, margin + (avail_h - scaled_h) / 2.0)
 
-    for node in positioned:
+    toplevel_nodes = [n for n in positioned_all if n.get("parent") is None]
+    for node in toplevel_nodes:
         node["x"] = (node["x"] - min_x) * scale_x + offset_x
         node["y"] = (node["y"] - min_y) * scale_y + offset_y
 
     # Resolve horizontal overlaps among top-level nodes
-    positioned.sort(key=lambda n: n["x"])
-    for i in range(len(positioned)):
+    toplevel_nodes.sort(key=lambda n: n["x"])
+    for i in range(len(toplevel_nodes)):
         for j in range(i):
-            prev = positioned[j]
-            curr = positioned[i]
-            prev_x2 = prev["x"] + prev["width"]
+            prev = toplevel_nodes[j]
+            curr = toplevel_nodes[i]
+            prev_x2 = prev["x"] + prev.get("width", 0.0)
             prev_y1 = prev["y"]
-            prev_y2 = prev["y"] + prev["height"]
+            prev_y2 = prev["y"] + prev.get("height", 0.0)
             curr_x1 = curr["x"]
             curr_y1 = curr["y"]
-            curr_y2 = curr["y"] + curr["height"]
+            curr_y2 = curr["y"] + curr.get("height", 0.0)
             
             overlap_h = min(prev_y2, curr_y2) - max(prev_y1, curr_y1)
-            min_h = min(prev["height"], curr["height"])
+            min_h = min(prev.get("height", 0.0), curr.get("height", 0.0))
             y_overlap = (overlap_h > 0.3 * min_h)
             if y_overlap and curr_x1 < prev_x2 + 20.0:
                 curr["x"] = prev_x2 + 20.0
 
     # Resolve vertical overlaps among top-level nodes
-    positioned.sort(key=lambda n: n["y"])
-    for i in range(len(positioned)):
+    toplevel_nodes.sort(key=lambda n: n["y"])
+    for i in range(len(toplevel_nodes)):
         for j in range(i):
-            prev = positioned[j]
-            curr = positioned[i]
-            prev_y2 = prev["y"] + prev["height"]
+            prev = toplevel_nodes[j]
+            curr = toplevel_nodes[i]
+            prev_y2 = prev["y"] + prev.get("height", 0.0)
             prev_x1 = prev["x"]
-            prev_x2 = prev["x"] + prev["width"]
+            prev_x2 = prev["x"] + prev.get("width", 0.0)
             curr_y1 = curr["y"]
             curr_x1 = curr["x"]
-            curr_x2 = curr["x"] + curr["width"]
+            curr_x2 = curr["x"] + curr.get("width", 0.0)
             
             overlap_w = min(prev_x2, curr_x2) - max(prev_x1, curr_x1)
-            min_w = min(prev["width"], curr["width"])
+            min_w = min(prev.get("width", 0.0), curr.get("width", 0.0))
             x_overlap = (overlap_w > 0.3 * min_w)
             if x_overlap and curr_y1 < prev_y2 + 20.0:
                 curr["y"] = prev_y2 + 20.0
@@ -1706,8 +1666,8 @@ def layout(
                 curr = nodes_map.get(curr["parent"])
         obstacles = [n for n in nodes if n["id"] not in excluded_ids and not n["id"].startswith("decor_") and n.get("type") != "panel"]
         
-        # Run A* or fallback
-        soft_cards = [src_node, tgt_node]
+        # Run A* or fallback (exclude src_node and tgt_node from soft_cards so start and end port cells are not penalized)
+        soft_cards = []
         soft_panels = [n for n in nodes if n.get("type") == "panel" and n["id"] not in excluded_ids]
         for nid in (src_id, tgt_id):
             curr = nodes_map.get(nid)
@@ -1745,10 +1705,17 @@ def layout(
 
     # ── Step 7: Inject page layout decorations (Pass 7) ──────────────
     if nodes:
-        title_spec = ir.get("title") or {}
-        highlight_text = title_spec.get("highlight", "")
-        prefix_text    = title_spec.get("prefix", "")
-        subtitle_text  = title_spec.get("subtitle", "")
+        raw_title = ir.get("title")
+        if isinstance(raw_title, str):
+            title_spec = {"highlight": raw_title}
+        elif isinstance(raw_title, dict):
+            title_spec = raw_title
+        else:
+            title_spec = {}
+            
+        highlight_text = title_spec.get("highlight", "") if isinstance(title_spec, dict) else ""
+        prefix_text    = title_spec.get("prefix", "") if isinstance(title_spec, dict) else ""
+        subtitle_text  = title_spec.get("subtitle", "") if isinstance(title_spec, dict) else ""
         
         # Outer border
         all_elements = nodes + annotations
@@ -1762,10 +1729,18 @@ def layout(
         max_x = max(rights) if rights else canvas_w - 50.0
         max_y = max(bottoms) if bottoms else canvas_h - 50.0
         
-        outer_border_x = 18.0
-        outer_border_y = max(135.0, min_y - 20.0)
-        outer_border_w = canvas_w - 36.0
-        outer_border_h = (canvas_h - 18.0) - outer_border_y
+        has_title = bool(title_spec)
+        outer_border_x = max(0.0, min(18.0, canvas_w - 10.0))
+        outer_border_y = max(135.0, min_y - 20.0) if has_title else max(18.0, min_y - 20.0)
+        outer_border_y = max(0.0, min(outer_border_y, canvas_h - 10.0))
+        
+        outer_border_w = max(canvas_w - 36.0, max_x + 20.0 - outer_border_x)
+        outer_border_h = max(canvas_h - 18.0 - outer_border_y, max_y + 20.0 - outer_border_y)
+        
+        if outer_border_x + outer_border_w > canvas_w:
+            outer_border_w = max(10.0, canvas_w - outer_border_x)
+        if outer_border_y + outer_border_h > canvas_h:
+            outer_border_h = max(10.0, canvas_h - outer_border_y)
         
         border_node = {
             "id": "decor_outer_border",
@@ -1909,10 +1884,15 @@ def layout(
                 
         # Watermark brand signature
         signature = ir.get("signature", "@FlowDraft")
-        bx = (outer_border_x + outer_border_w) - 255.0
+        bw = 255.0
+        bh = 40.0
+        bx = (outer_border_x + outer_border_w) - bw
         by = 143.0
         if bx < 600.0:
             bx = canvas_w - 270.0
+            
+        bx = max(0.0, min(bx, canvas_w - bw))
+        by = max(0.0, min(by, canvas_h - bh))
             
         brand_node = {
             "id": "decor_brand",
@@ -1920,8 +1900,8 @@ def layout(
             "x": bx,
             "y": by,
             "signature": signature,
-            "width": 255.0,
-            "height": 40.0,
+            "width": bw,
+            "height": bh,
             "layout_offsets": {}
         }
         nodes.append(brand_node)
@@ -2045,21 +2025,35 @@ def intersect_circle_corner(xc: float, yc: float, cx: float, cy: float, cr: floa
 
 
 def simplify_orthogonal_path(path: list[tuple[float, float]]) -> list[tuple[float, float]]:
-    if len(path) <= 2:
+    if not path:
         return path
-    simplified = [path[0]]
-    for i in range(1, len(path) - 1):
+    # Deduplicate consecutive identical points first
+    cleaned = [path[0]]
+    for p in path[1:]:
+        if math.hypot(p[0] - cleaned[-1][0], p[1] - cleaned[-1][1]) > 1e-3:
+            cleaned.append(p)
+    if len(cleaned) <= 2:
+        return cleaned
+
+    simplified = [cleaned[0]]
+    for i in range(1, len(cleaned) - 1):
         prev = simplified[-1]
-        curr = path[i]
-        nxt = path[i+1]
+        curr = cleaned[i]
+        nxt = cleaned[i+1]
         
         is_collinear_h = (abs(prev[1] - curr[1]) < 1e-3 and abs(curr[1] - nxt[1]) < 1e-3)
         is_collinear_v = (abs(prev[0] - curr[0]) < 1e-3 and abs(curr[0] - nxt[0]) < 1e-3)
         
         if not (is_collinear_h or is_collinear_v):
             simplified.append(curr)
-    simplified.append(path[-1])
-    return simplified
+    simplified.append(cleaned[-1])
+
+    # Final cleanup of consecutive duplicates after collinear removal
+    final_pts = [simplified[0]]
+    for p in simplified[1:]:
+        if math.hypot(p[0] - final_pts[-1][0], p[1] - final_pts[-1][1]) > 1e-3:
+            final_pts.append(p)
+    return final_pts
 
 
 def route_orthogonal_astar(

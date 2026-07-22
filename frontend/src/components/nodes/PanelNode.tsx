@@ -26,8 +26,8 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative h-full w-full select-none transition-all duration-300 animate-zoom-in ${
-        selected ? 'scale-[1.002] shadow-premium' : ''
+      className={`relative h-full w-full select-none transition-shadow duration-200 animate-zoom-in ${
+        selected ? 'shadow-premium ring-1 ring-emerald-500/40' : ''
       } ${isTransparent ? '' : 'animated-panel-gradient'}`}
       style={{
         backdropFilter: isTransparent ? 'none' : 'blur(12px)',
@@ -65,13 +65,13 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
       <Handle type="source" position={Position.Right} id="source-right" style={handleStyle} />
 
       {/* Premium Header Title & Subtitle Badge */}
-      <div className="absolute top-4 left-4 right-4 flex items-start justify-between pointer-events-none select-none">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: strokeColor }}>
+      <div className="absolute top-3.5 left-4 right-4 flex items-start justify-between pointer-events-none select-none gap-2 z-10">
+        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+          <span className="text-[10px] font-extrabold tracking-widest uppercase break-words leading-tight" style={{ color: strokeColor }}>
             {data.title || ''}
           </span>
           {data.subtitle && (
-            <span className="text-[10px] leading-tight font-medium opacity-60 italic text-text-secondary">
+            <span className="text-[10px] leading-tight font-medium italic text-text-secondary break-words">
               {data.subtitle}
             </span>
           )}
@@ -90,6 +90,25 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
           </span>
         )}
       </div>
+
+      {/* Render Panel Annotations if defined in spec */}
+      {data.annotations && data.annotations.length > 0 && (
+        <div className="absolute bottom-3 left-4 right-4 flex flex-wrap gap-1.5 pointer-events-none z-10">
+          {data.annotations.map((ann: any, idx: number) => (
+            <div
+              key={idx}
+              className="text-[10px] px-2.5 py-1 rounded-md bg-surface-1/90 border shadow-sm font-semibold flex items-center gap-1.5 backdrop-blur-md"
+              style={{
+                borderColor: `${strokeColor}40`,
+                color: 'var(--text-primary)',
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: strokeColor }} />
+              <span className="leading-tight">{ann.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

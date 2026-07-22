@@ -34,6 +34,9 @@ from .drawing import (
     draw_ellipse,
     draw_diamond,
     draw_line,
+    draw_cylinder,
+    draw_cloud,
+    draw_group,
     icon as draw_icon,
 )
 from .text import draw_text
@@ -447,12 +450,49 @@ def render_decor_brand_shape(ex: Excal, draw: ImageDraw.ImageDraw, node: dict) -
 def render_decor_brand_content(ex: Excal, draw: ImageDraw.ImageDraw, node: dict) -> None:
     bx, by = node["x"], node["y"]
     signature = node.get("signature", "@FlowDraft")
+    hand_val = _hand_font(node)
     from .drawing import draw_signature
-    draw_signature(ex, draw, signature, bx + 43, by - 8)
+    draw_signature(ex, draw, signature, bx + 43, by - 8, hand=hand_val)
 
 def render_decor_brand(ex: Excal, draw: ImageDraw.ImageDraw, node: dict) -> None:
     render_decor_brand_shape(ex, draw, node)
     render_decor_brand_content(ex, draw, node)
+
+
+# --- ELLIPSE, CYLINDER, CLOUD, GROUP ---
+def render_ellipse_shape(ex: Excal, draw: ImageDraw.ImageDraw, node: dict) -> None:
+    nx, ny = node["x"], node["y"]
+    nw, nh = node["width"], node["height"]
+    stroke = _stroke_color(node)
+    fill = _fill_color(node, default=THEME["blue_fill"])
+    sw = _stroke_width(node, default=2)
+    draw_ellipse(ex, draw, nx, ny, nw, nh, stroke, fill, sw, scaled=False)
+
+def render_cylinder_shape(ex: Excal, draw: ImageDraw.ImageDraw, node: dict) -> None:
+    nx, ny = node["x"], node["y"]
+    nw, nh = node["width"], node["height"]
+    stroke = _stroke_color(node)
+    fill = _fill_color(node, default=THEME["purple_fill"])
+    sw = _stroke_width(node, default=2)
+    draw_cylinder(ex, draw, nx, ny, nw, nh, stroke, fill, sw, scaled=False)
+
+def render_cloud_shape(ex: Excal, draw: ImageDraw.ImageDraw, node: dict) -> None:
+    nx, ny = node["x"], node["y"]
+    nw, nh = node["width"], node["height"]
+    stroke = _stroke_color(node)
+    fill = _fill_color(node, default=THEME["blue_fill"])
+    sw = _stroke_width(node, default=2)
+    draw_cloud(ex, draw, nx, ny, nw, nh, stroke, fill, sw, scaled=False)
+
+def render_group_shape(ex: Excal, draw: ImageDraw.ImageDraw, node: dict) -> None:
+    nx, ny = node["x"], node["y"]
+    nw, nh = node["width"], node["height"]
+    stroke = _stroke_color(node, default=THEME["muted"])
+    fill = _fill_color(node, default=None)
+    sw = _stroke_width(node, default=2)
+    cr = _corner_radius(node, default=12)
+    ss = _stroke_style(node, default="dashed")
+    draw_group(ex, draw, nx, ny, nw, nh, stroke, fill, sw, radius=cr, style=ss, scaled=False)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -463,6 +503,10 @@ _SHAPE_RENDERERS = {
     "card":        render_card_shape,
     "diamond":     render_diamond_shape,
     "input":       render_input_shape,
+    "group":       render_group_shape,
+    "cylinder":    render_cylinder_shape,
+    "cloud":       render_cloud_shape,
+    "ellipse":     render_ellipse_shape,
     "decor_brand": render_decor_brand_shape,
 }
 
@@ -470,6 +514,10 @@ _CONTENT_RENDERERS = {
     "card":        render_card_content,
     "diamond":     render_diamond_content,
     "input":       render_input_content,
+    "group":       render_card_content,
+    "cylinder":    render_card_content,
+    "cloud":       render_card_content,
+    "ellipse":     render_card_content,
     "label":       render_label,
     "text":        render_label,
     "decor_brand": render_decor_brand_content,
@@ -477,7 +525,7 @@ _CONTENT_RENDERERS = {
 
 def render_node_shape(ex: Excal, draw: ImageDraw.ImageDraw, node: dict, nodes_map: dict[str, dict]) -> None:
     ntype = node.get("type", "card")
-    if ntype == "panel":
+    if ntype in ("panel", "group") and node.get("children"):
         render_panel_shape(ex, draw, node, nodes_map)
         return
     renderer = _SHAPE_RENDERERS.get(ntype)
@@ -486,7 +534,7 @@ def render_node_shape(ex: Excal, draw: ImageDraw.ImageDraw, node: dict, nodes_ma
 
 def render_node_content(ex: Excal, draw: ImageDraw.ImageDraw, node: dict, nodes_map: dict[str, dict]) -> None:
     ntype = node.get("type", "card")
-    if ntype == "panel":
+    if ntype in ("panel", "group") and node.get("children"):
         render_panel_content(ex, draw, node, nodes_map)
         return
     renderer = _CONTENT_RENDERERS.get(ntype)
@@ -529,6 +577,7 @@ def render_connection_label(
     draw: ImageDraw.ImageDraw,
     conn: dict,
     nodes_map: dict[str, dict],
+    hand: bool = True,
 ) -> None:
     path_points = [tuple(p) for p in conn.get("points", [])]
     if not path_points:
@@ -549,11 +598,17 @@ def render_connection_label(
         else:
             lbl_x, lbl_y = path_points[0]
 
+        lbl_hand = conn.get("hand")
+        if lbl_hand is None:
+            lbl_hand = conn.get("_resolved_style", {}).get("hand")
+        if lbl_hand is None:
+            lbl_hand = hand
+
         from .fonts import load_font, text_size
         from .compiler import _scratch_draw
         from .constants import SCALE
 
-        font_val = load_font(12, hand=False, bold=False)
+        font_val = load_font(12, hand=lbl_hand, bold=False)
         draw_scratch = _scratch_draw()
         txt_pw, txt_ph = text_size(draw_scratch, conn_label, font_val)
         txt_w = max(40.0, (txt_pw / SCALE) + 12.0)
@@ -572,6 +627,7 @@ def render_connection_label(
             lbl_x - txt_w / 2.0, lbl_y - txt_h / 2.0,
             txt_w, txt_h, 12,
             THEME["white"], "center",
+            hand=lbl_hand,
             scaled=False,
         )
 
@@ -581,9 +637,10 @@ def render_connection(
     draw: ImageDraw.ImageDraw,
     conn: dict,
     nodes_map: dict[str, dict],
+    hand: bool = True,
 ) -> None:
     render_connection_line(ex, draw, conn, nodes_map)
-    render_connection_label(ex, draw, conn, nodes_map)
+    render_connection_label(ex, draw, conn, nodes_map, hand=hand)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -700,8 +757,9 @@ def render_all(
             render_node_content(ex, draw, node, nodes_map)
 
     # Pass 5: Connection Labels & Floating Annotations (on top of cards)
+    hand_val = ir.get("hand", True)
     for conn in connections:
-        render_connection_label(ex, draw, conn, nodes_map)
+        render_connection_label(ex, draw, conn, nodes_map, hand=hand_val)
 
     for ann in annotations:
         render_annotation(ex, draw, ann, nodes_map)

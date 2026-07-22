@@ -36,8 +36,31 @@ export const Icon: React.FC<IconProps> = ({ name, className, size = 18, color })
     );
   }
 
+  // Tech icon aliases for common backend/database/infrastructure technologies
+  const TECH_ALIASES: Record<string, string> = {
+    postgres: 'Database',
+    postgresql: 'Database',
+    redis: 'Zap',
+    kafka: 'Rss',
+    neo4j: 'Share2',
+    memgraph: 'Share2',
+    vector: 'Disc',
+    pgvector: 'Disc',
+    raft: 'Lock',
+    claude: 'Bot',
+    openai: 'Cpu',
+    markdown: 'FileText',
+    python: 'Code',
+    fastapi: 'Server',
+    playwright: 'Play',
+    minio: 'HardDrive',
+  };
+
+  const lowerName = name.toLowerCase().trim();
+  let iconName = TECH_ALIASES[lowerName] || name;
+
   // Convert kebab-case or snake_case to PascalCase
-  const pascalName = name
+  const pascalName = iconName
     .split(/[-_]/)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join('');
@@ -45,12 +68,12 @@ export const Icon: React.FC<IconProps> = ({ name, className, size = 18, color })
   // Find the icon component
   let IconComponent = (Icons as any)[pascalName];
   if (!IconComponent) {
-    IconComponent = (Icons as any)[name];
+    IconComponent = (Icons as any)[iconName];
   }
   if (!IconComponent) {
     // Fallback: search case-insensitively
     const keys = Object.keys(Icons);
-    const matchedKey = keys.find((key) => key.toLowerCase() === name.toLowerCase());
+    const matchedKey = keys.find((key) => key.toLowerCase() === iconName.toLowerCase());
     if (matchedKey) {
       IconComponent = (Icons as any)[matchedKey];
     }

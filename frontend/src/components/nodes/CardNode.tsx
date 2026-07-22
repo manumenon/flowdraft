@@ -29,10 +29,10 @@ export const CardNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative px-4 py-3.5 flex flex-col justify-between h-full w-full select-none transition-all duration-300 animate-zoom-in ${
+      className={`relative px-4 py-3.5 flex flex-col justify-between h-full w-full select-none transition-shadow duration-200 animate-zoom-in ${
         selected 
-          ? 'scale-[1.02] shadow-premium' 
-          : 'hover:scale-[1.03] hover:-translate-y-1 hover:shadow-xl cursor-pointer'
+          ? 'shadow-premium ring-1 ring-indigo-500/40' 
+          : 'hover:shadow-xl cursor-pointer'
       }`}
       style={{
         backgroundColor: isTransparent ? 'transparent' : 'var(--node-bg)',
@@ -86,8 +86,27 @@ export const CardNode: React.FC<NodeProps> = (props) => {
       </div>
 
       {data.body && (
-        <div className="text-[11px] leading-relaxed opacity-75 whitespace-pre-wrap overflow-hidden flex-grow mt-1 font-mono text-text-secondary">
+        <div className="text-[11px] leading-relaxed whitespace-pre-wrap overflow-hidden flex-grow mt-1 font-mono text-text-secondary font-medium">
           {data.body}
+        </div>
+      )}
+
+      {/* Render Annotations if defined in spec */}
+      {data.annotations && data.annotations.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5 pointer-events-none z-10">
+          {data.annotations.map((ann: any, idx: number) => (
+            <div
+              key={idx}
+              className="text-[10px] px-2 py-0.5 rounded-md bg-surface-1/90 border shadow-sm font-semibold flex items-center gap-1.5 backdrop-blur-md"
+              style={{
+                borderColor: `${strokeColor}40`,
+                color: 'var(--text-primary)',
+              }}
+            >
+              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: strokeColor }} />
+              <span className="leading-tight">{ann.text}</span>
+            </div>
+          ))}
         </div>
       )}
     </div>

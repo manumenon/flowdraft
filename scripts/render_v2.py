@@ -93,12 +93,12 @@ def premium_finish(base: Image.Image, spec: dict = None) -> Image.Image:
 
     if layout:
         rects = []
-        if "outer_border" in layout: rects.append((layout["outer_border"], THEME["frame"], 3))
-        if "core_panel" in layout: rects.append((layout["core_panel"], THEME["core_stroke"], 3))
-        if "center_panel" in layout: rects.append((layout["center_panel"], THEME["purple"], 3))
-        if "left_panel" in layout: rects.append((layout["left_panel"], THEME["green"], 3))
-        if "right_panel" in layout: rects.append((layout["right_panel"], THEME["green"], 3))
-        if "highlight_panel" in layout: rects.append((layout["highlight_panel"], THEME["green"], 2))
+        if layout.get("outer_border") is not None: rects.append((layout["outer_border"], THEME["frame"], 3))
+        if layout.get("core_panel") is not None: rects.append((layout["core_panel"], THEME["core_stroke"], 3))
+        if layout.get("center_panel") is not None: rects.append((layout["center_panel"], THEME["purple"], 3))
+        if layout.get("left_panel") is not None: rects.append((layout["left_panel"], THEME["green"], 3))
+        if layout.get("right_panel") is not None: rects.append((layout["right_panel"], THEME["green"], 3))
+        if layout.get("highlight_panel") is not None: rects.append((layout["highlight_panel"], THEME["green"], 2))
     else:
         rects = [
             ((18 * SCALE_X,  117 * SCALE_Y, 1192 * SCALE_X, 1111 * SCALE_Y), THEME["frame"],       3),
@@ -190,10 +190,8 @@ def frame_diff_report(gif_path: Path) -> dict:
         changed = 0
         if bbox:
             cropped = diff.crop(bbox)
-            data    = (cropped.get_flattened_data()
-                       if hasattr(cropped, "get_flattened_data")
-                       else cropped.getdata())
-            changed = sum(1 for px in data if px != (0, 0, 0))
+            hist    = cropped.convert("L").histogram()
+            changed = sum(hist[1:])
         diffs.append({"from": a, "to": b, "changed_pixels": changed})
 
     return {"frames": frame_count, "diffs": diffs}

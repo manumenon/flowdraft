@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Download, Film, Loader2, Play, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import type { FlowSpec } from '../types/spec';
+
+const getValidToken = (inputToken?: string | null): string | null => {
+  const t = inputToken !== undefined ? inputToken : localStorage.getItem('flowdraft_token');
+  return (t && t !== 'null' && t !== 'undefined' && t.trim() !== '') ? t : null;
+};
 
 interface ExportPanelProps {
   token: string | null;
   spec: FlowSpec;
   activeDiagramId: string | null;
   onTriggerAuth: () => void;
+  onLogout?: () => void;
   isInline?: boolean;
   tourStep?: number | null;
 }
@@ -25,6 +31,7 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
   spec,
   activeDiagramId,
   onTriggerAuth,
+  onLogout,
   isInline = false,
   tourStep,
 }) => {
@@ -37,25 +44,28 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
     return saved ? JSON.parse(saved) : [];
   });
   const [jobProgress, setJobProgress] = useState<Record<string, number>>({});
+  const pollFailuresRef = useRef<Record<string, number>>({});
 
   const baseUrl = window.location.origin.includes(':3000')
     ? window.location.origin.replace(':3000', ':8000')
     : window.location.origin;
 
   const resolveDownloadUrl = (url: string | null, jobId?: string) => {
-    if (!url) return '';
-    // If it is a direct MinIO/S3 link or contains MinIO hostnames/ports, redirect to proxy download route
-    if (jobId && (url.includes('/exports/') || url.includes(':9000/'))) {
+    if (!url && !jobId) return '';
+    if (jobId && (!url || url.includes('/exports/') || url.includes(':9000/') || url.includes('minio:'))) {
       return `${baseUrl}/api/v1/export/${jobId}/download`;
     }
-    let resolved = url;
+    let resolved = url || '';
     if (resolved.includes('minio:9000')) {
       resolved = resolved.replace('minio:9000', 'localhost:9000');
+    }
+    if (resolved.includes('minio:')) {
+      resolved = resolved.replace('minio:', 'localhost:');
     }
     if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
       return resolved;
     }
-    return baseUrl + resolved;
+    return baseUrl + (resolved.startsWith('/') ? resolved : `/${resolved}`);
   };
 
   // Persist jobs list
@@ -91,8 +101,9 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
 
   // Polling for active jobs
   useEffect(() => {
+    const validToken = getValidToken(token);
     const activeJobs = jobs.filter((j) => j.status === 'queued' || j.status === 'processing');
-    if (activeJobs.length === 0 || !token) return;
+    if (activeJobs.length === 0 || !validToken) return;
 
     const timer = setInterval(async () => {
       const updatedJobs = [...jobs];
@@ -104,10 +115,11 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
           try {
             const res = await fetch(`${baseUrl}/api/export/${job.jobId}`, {
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization: `Bearer ${validToken}`,
               },
             });
             if (res.ok) {
+              pollFailuresRef.current[job.jobId] = 0;
               const data = await res.json();
               if (data.status !== job.status || data.download_url !== job.downloadUrl) {
                 updatedJobs[i] = {
@@ -118,6 +130,19 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                 };
                 hasUpdates = true;
               }
+            } else if (res.status === 401) {
+              clearInterval(timer);
+              updatedJobs[i] = {
+                ...job,
+                status: 'failed',
+                errorMessage: 'Session expired (401)',
+              };
+              setJobs(updatedJobs);
+              localStorage.removeItem('flowdraft_token');
+              localStorage.removeItem('flowdraft_user_email');
+              onLogout?.();
+              onTriggerAuth();
+              return;
             } else if (res.status === 403 || res.status === 404) {
               updatedJobs[i] = {
                 ...job,
@@ -125,9 +150,32 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
                 errorMessage: res.status === 403 ? 'Access denied (belongs to another user)' : 'Job not found',
               };
               hasUpdates = true;
+            } else {
+              const failCount = (pollFailuresRef.current[job.jobId] || 0) + 1;
+              pollFailuresRef.current[job.jobId] = failCount;
+              if (failCount >= 3) {
+                updatedJobs[i] = {
+                  ...job,
+                  status: 'failed',
+                  errorMessage: 'Backend offline / rendering service unreachable',
+                };
+                hasUpdates = true;
+                delete pollFailuresRef.current[job.jobId];
+              }
             }
           } catch (err) {
             console.error('Error polling status for job ' + job.jobId, err);
+            const failCount = (pollFailuresRef.current[job.jobId] || 0) + 1;
+            pollFailuresRef.current[job.jobId] = failCount;
+            if (failCount >= 3) {
+              updatedJobs[i] = {
+                ...job,
+                status: 'failed',
+                errorMessage: 'Backend offline / rendering service unreachable',
+              };
+              hasUpdates = true;
+              delete pollFailuresRef.current[job.jobId];
+            }
           }
         }
       }
@@ -138,10 +186,11 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
     }, 2000);
 
     return () => clearInterval(timer);
-  }, [jobs, token]);
+  }, [jobs, token, onLogout, onTriggerAuth]);
 
   const handleStartExport = async () => {
-    if (!token) {
+    const validToken = getValidToken(token);
+    if (!validToken) {
       onTriggerAuth();
       return;
     }
@@ -161,10 +210,18 @@ export const ExportPanel: React.FC<ExportPanelProps> = ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${validToken}`,
         },
         body: JSON.stringify(payload),
       });
+
+      if (res.status === 401) {
+        localStorage.removeItem('flowdraft_token');
+        localStorage.removeItem('flowdraft_user_email');
+        onLogout?.();
+        onTriggerAuth();
+        return;
+      }
 
       const data = await res.json();
       if (res.ok && data.job_id) {

@@ -57,16 +57,13 @@ def point_at_fraction(points: list, t: float) -> tuple:
 
     The fraction wraps modulo 1 so values outside [0, 1) are handled correctly
     for looping animations.
-
-    Args:
-        points: List of ``(x, y)`` tuples.
-        t:      Fractional position (0 = start, 1 = end, wraps).
-
-    Returns:
-        An ``(x, y)`` tuple.
     """
     total = path_len(points)
-    return point_at_distance(points, (t % 1.0) * total)
+    if t < 0.0:
+        frac = max(0.0, t)
+    else:
+        frac = t % 1.0
+    return point_at_distance(points, frac * total)
 
 
 # ---------------------------------------------------------------------------

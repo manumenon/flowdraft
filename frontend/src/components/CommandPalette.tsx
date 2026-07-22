@@ -62,10 +62,14 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ onClose, actions
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[999] flex items-start justify-center pt-[15vh] p-4">
+    <div
+      className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[999] flex items-start justify-center pt-[15vh] p-4 cursor-pointer"
+      onClick={onClose}
+    >
       <div
         ref={containerRef}
-        className="w-full max-w-lg bg-surface-1/90 backdrop-blur-md border border-border-themed rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[380px] animate-zoom-in"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg bg-surface-1/90 backdrop-blur-md border border-border-themed rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[380px] animate-zoom-in cursor-default"
       >
          <div className="flex items-center gap-2.5 px-4 border-b border-border-themed h-12">
           <Search className="text-text-muted w-4 h-4" />

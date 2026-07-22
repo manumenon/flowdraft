@@ -41,6 +41,25 @@
     --panel-bg: rgba(23, 27, 48, 0.4);
   }
 
+  .light-theme {
+    --surface-0: #f8f9fa;
+    --surface-1: #ffffff;
+    --surface-2: #f1f3f5;
+    --surface-3: #e2e8f0;
+    --border-subtle: rgba(0, 0, 0, 0.08);
+    --border-default: rgba(0, 0, 0, 0.16);
+    --border-strong: rgba(0, 0, 0, 0.28);
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --accent: #4f46e5;
+    --accent-soft: rgba(79, 70, 229, 0.12);
+
+    --node-bg: #ffffff;
+    --node-fg: #0f172a;
+    --panel-bg: rgba(241, 243, 245, 0.85);
+  }
+
   .white-theme {
     --surface-0: #ffffff;
     --surface-1: #ffffff;
@@ -107,14 +126,14 @@
 
 .focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5) !important;
-  border-color: rgba(59, 130, 246, 0.8) !important;
+  box-shadow: 0 0 0 2px var(--accent) !important;
+  border-color: var(--accent) !important;
 }
 
 /* Global focus-visible fallbacks */
 *:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 body {
@@ -249,6 +268,12 @@ body {
 
 .animated-panel-gradient {
   background: linear-gradient(-45deg, rgba(23, 27, 48, 0.45), rgba(49, 46, 129, 0.3), rgba(30, 27, 75, 0.4), rgba(17, 24, 39, 0.45));
+  background-size: 400% 400%;
+  animation: gradientBG 15s ease infinite !important;
+}
+
+.light-theme .animated-panel-gradient {
+  background: linear-gradient(-45deg, rgba(241, 243, 245, 0.85), rgba(224, 231, 255, 0.8), rgba(238, 242, 255, 0.85), rgba(249, 250, 251, 0.85));
   background-size: 400% 400%;
   animation: gradientBG 15s ease infinite !important;
 }

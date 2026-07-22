@@ -96,19 +96,26 @@ self.onmessage = async (event: MessageEvent) => {
     elements.forEach((node: any) => {
       if (node.type === 'panel') {
         let topPad = 40.0;
-        const hasTitle = !!node.title;
-        const hasSubtitle = !!node.subtitle;
-        if (hasTitle) topPad = Math.max(topPad, 36);
-        if (hasSubtitle) topPad = Math.max(topPad, 56);
-        topPad += 15.0;
+        const titleText = node.title || '';
+        const titleLines = Math.max(1, Math.ceil(titleText.length / 28));
+        const subtitleText = node.subtitle || '';
+        const subtitleLines = subtitleText ? Math.max(1, Math.ceil(subtitleText.length / 32)) : 0;
+        topPad = Math.max(44, 20 + titleLines * 20 + subtitleLines * 16);
         panelHeaders[node.id] = topPad;
       }
     });
 
+    const isFooterNode = (node: any): boolean => {
+      if (!node) return false;
+      if (node._role === 'footer' || node.data?.role === 'footer') return true;
+      if (typeof node.id === 'string' && node.id.toLowerCase().includes('footer')) return true;
+      return false;
+    };
+
     const elkNodes: Record<string, any> = {};
     elements.forEach((node: any) => {
       const nid = node.id;
-      if (nid.endsWith('_footer') || node.data?.role === 'footer') {
+      if (isFooterNode(node)) {
         return;
       }
       const ntype = node.type;
@@ -130,7 +137,7 @@ self.onmessage = async (event: MessageEvent) => {
           }
         }
         const footerNode = elements.find(
-          (el: any) => el.parent === nid && (el.id.endsWith('_footer') || el.data?.role === 'footer')
+          (el: any) => el.parent === nid && isFooterNode(el)
         );
         if (footerNode) {
           const footerW = 260.0;
@@ -425,14 +432,14 @@ self.onmessage = async (event: MessageEvent) => {
 
           // Find the footer child node in the input elements list if present
           const footerNode = elements.find(
-            (el: any) => el.parent === panelId && (el.id.endsWith('_footer') || el.data?.role === 'footer')
+            (el: any) => el.parent === panelId && isFooterNode(el)
           );
           if (!footerNode) return;
 
           const otherChildren = allChildren.filter((n) => n.id !== footerNode.id);
-          let maxY = resultPanel.y + 40;
+          let maxY = 40;
           if (otherChildren.length > 0) {
-            maxY = Math.max(...otherChildren.map((c) => c.y + (c.height || 80)));
+            maxY = Math.max(...otherChildren.map((c) => (c.y || 0) + (c.height || 80)));
           }
 
           const footerW = Math.max(200.0, resultPanel.width - padLeft - padRight);

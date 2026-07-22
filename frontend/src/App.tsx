@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Canvas } from './components/Canvas';
 import { defaultSpec } from './assets/defaultSpec';
 import { useClockHook } from './hooks/useClockHook';
@@ -28,6 +28,11 @@ function parseSpecFromQuery(): FlowSpec | null {
     }
   }
 }
+
+const getValidToken = (inputToken?: string | null): string | null => {
+  const t = inputToken !== undefined ? inputToken : localStorage.getItem('flowdraft_token');
+  return (t && t !== 'null' && t !== 'undefined' && t.trim() !== '') ? t : null;
+};
 
 function App() {
   const pathname = window.location.pathname;
@@ -61,8 +66,11 @@ function App() {
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // State for Authentication and Sidebars
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('flowdraft_token'));
-  const [currentUser, setCurrentUser] = useState<string | null>(() => localStorage.getItem('flowdraft_user_email'));
+  const [token, setToken] = useState<string | null>(() => getValidToken());
+  const [currentUser, setCurrentUser] = useState<string | null>(() => {
+    const email = localStorage.getItem('flowdraft_user_email');
+    return (email && email !== 'null' && email !== 'undefined' && email.trim() !== '') ? email : null;
+  });
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<{ from: string; to: string; index: number } | null>(null);
@@ -160,20 +168,24 @@ function App() {
   useEffect(() => {
     const handleGlobalShortcuts = (e: KeyboardEvent) => {
       // 1. Ctrl+K (Command Palette)
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setShowCommandPalette((prev) => !prev);
         return;
       }
 
-      // Ignore shortcuts if focusing an input/textarea
+      // Ignore shortcuts if focusing an input/textarea/select/button or inside modal containers
       const activeEl = document.activeElement;
       const isInput = activeEl && (
         activeEl.tagName === 'INPUT' || 
         activeEl.tagName === 'TEXTAREA' || 
-        activeEl.getAttribute('contenteditable') === 'true'
+        activeEl.tagName === 'SELECT' ||
+        activeEl.tagName === 'BUTTON' ||
+        activeEl.getAttribute('contenteditable') === 'true' ||
+        activeEl.closest('.modal-container') !== null ||
+        activeEl.closest('[role="dialog"]') !== null
       );
-      if (isInput) return;
+      if (isInput && (e.key === 'Delete' || e.key === 'Backspace' || e.key === 'Escape')) return;
 
       // 2. Undo/Redo
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -194,8 +206,20 @@ function App() {
         return;
       }
 
-      // 3. Escape key (Deselect)
+      // 3. Escape key (Close active modals/overlays or Deselect canvas)
       if (e.key === 'Escape') {
+        if (showHelp) {
+          setShowHelp(false);
+          return;
+        }
+        if (isSidebarOpen) {
+          setIsSidebarOpen(false);
+          return;
+        }
+        if (showCommandPalette) {
+          setShowCommandPalette(false);
+          return;
+        }
         setSelectedElementId(null);
         setSelectedEdge(null);
         return;
@@ -300,14 +324,42 @@ function App() {
       showToast('success', 'Spec Loaded', 'Diagram specification applied successfully!');
     } catch (err: any) {
       setValidationError(err.message || 'Invalid JSON format');
-      showToast('error', 'Spec Parsing Failed', err.message || 'Check syntax or JSON structure.');
     }
   };
 
+  const handleSpecFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        setJsonInput(content);
+        const parsed = JSON.parse(content);
+        if (!parsed.elements || !Array.isArray(parsed.elements)) {
+          throw new Error("Invalid Spec: 'elements' must be a valid list.");
+        }
+        setSpecState(parsed);
+        setValidationError(null);
+        setIsSidebarOpen(false);
+        showToast('success', 'Spec Loaded', 'Diagram specification applied successfully!');
+      } catch (err: any) {
+        setValidationError(err.message || 'Invalid JSON format');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const handleAuthSuccess = (newToken: string, email: string) => {
-    setToken(newToken);
+    const validToken = getValidToken(newToken);
+    setToken(validToken);
     setCurrentUser(email);
-    localStorage.setItem('flowdraft_token', newToken);
+    if (validToken) {
+      localStorage.setItem('flowdraft_token', validToken);
+    } else {
+      localStorage.removeItem('flowdraft_token');
+    }
     localStorage.setItem('flowdraft_user_email', email);
     setShowAuthModal(false);
     showToast('success', 'Sign In Success', `Welcome back, ${email}!`);
@@ -316,11 +368,12 @@ function App() {
   // Sync theme with HTML root class for tailwind/light mode consistency
   useEffect(() => {
     const root = window.document.documentElement;
-    root.classList.remove('dark', 'white-theme');
+    root.classList.remove('dark', 'white-theme', 'light-theme');
     if (theme === 'white') {
       root.classList.add('white-theme');
       root.style.colorScheme = 'light';
     } else if (theme === 'light') {
+      root.classList.add('light-theme');
       root.style.colorScheme = 'light';
     } else {
       root.classList.add('dark');
@@ -350,7 +403,7 @@ function App() {
     showToast('success', 'Diagram Opened', `Successfully opened diagram spec.`);
   };
 
-  const handleNodeDragStop = (id: string, x: number, y: number, allNodes?: any[]) => {
+  const handleNodeDragStop = (id: string, x: number, y: number, allNodes?: any[], skipHistory = false) => {
     const snapValue = 20;
     const finalX = snapToGrid ? Math.round(x / snapValue) * snapValue : x;
     const finalY = snapToGrid ? Math.round(y / snapValue) * snapValue : y;
@@ -366,19 +419,18 @@ function App() {
           if (el.id === id) {
             newX = finalX;
             newY = finalY;
+            if (allNodes) {
+              const match = allNodes.find((n) => n.id === el.id);
+              if (match) {
+                if (match.width) newWidth = match.width;
+                if (match.height) newHeight = match.height;
+              }
+            }
           } else if (allNodes) {
             const match = allNodes.find((n) => n.id === el.id);
             if (match) {
               newX = snapToGrid ? Math.round(match.position.x / snapValue) * snapValue : match.position.x;
               newY = snapToGrid ? Math.round(match.position.y / snapValue) * snapValue : match.position.y;
-              if (match.width) newWidth = match.width;
-              if (match.height) newHeight = match.height;
-            }
-          }
-
-          if (el.id === id && allNodes) {
-            const match = allNodes.find((n) => n.id === el.id);
-            if (match) {
               if (match.width) newWidth = match.width;
               if (match.height) newHeight = match.height;
             }
@@ -415,7 +467,7 @@ function App() {
         canvas: newCanvas,
         elements: updateRecursive(prev.elements),
       };
-    });
+    }, skipHistory);
   };
 
   const handleConnect = (from: string, to: string, exitPort: string, entryPort: string) => {
@@ -580,11 +632,12 @@ function App() {
           {/* Command Palette Indicator */}
           <button
             onClick={() => setShowCommandPalette(true)}
-            className="hidden lg:flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface-2 border border-border-themed px-2.5 py-1.5 rounded-lg transition focus-ring"
+            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-text-primary bg-surface-2 hover:bg-surface-3 border border-border-themed px-2.5 py-1.5 rounded-lg transition focus-ring"
             aria-label="Open Command Palette"
+            title="Open Command Palette (Ctrl+K)"
           >
             <Command size={11} />
-            <span>Search Actions</span>
+            <span className="hidden sm:inline">Search Actions</span>
             <span className="text-[10px] text-text-muted bg-surface-3 border border-border-themed px-1 py-0.5 rounded font-mono">Ctrl+K</span>
           </button>
 
@@ -673,6 +726,7 @@ function App() {
             isCollapsed={leftSidebarCollapsed}
             onToggleCollapse={() => setLeftSidebarCollapsed(!leftSidebarCollapsed)}
             onShowToast={showToast}
+            onOpenImport={() => setIsSidebarOpen(true)}
           />
         </div>
 
@@ -719,6 +773,7 @@ function App() {
             token={token}
             activeDiagramId={activeDiagramId}
             onTriggerAuth={() => setShowAuthModal(true)}
+            onLogout={handleLogout}
             tourStep={tourStep}
           />
         </div>
@@ -761,10 +816,21 @@ function App() {
               )}
             </div>
 
-            <div className="p-4 border-t border-border-themed">
+            <div className="p-4 border-t border-border-themed flex gap-2">
+              <label className="flex-grow py-2 bg-surface-2 hover:bg-surface-3 border border-border-themed text-xs font-semibold rounded text-text-secondary hover:text-text-primary flex items-center justify-center gap-1.5 cursor-pointer transition focus-ring">
+                <FileJson size={14} /> Upload File
+                <input
+                  id="import-spec-overlay-file"
+                  name="import-spec-overlay-file"
+                  type="file"
+                  accept=".json"
+                  onChange={handleSpecFileUpload}
+                  className="hidden"
+                />
+              </label>
               <button
                 onClick={handleApplySpec}
-                className="w-full py-2 bg-accent hover:opacity-90 font-semibold rounded text-sm transition flex items-center justify-center gap-1.5 text-white shadow-md focus-ring"
+                className="flex-grow py-2 bg-accent hover:opacity-90 font-semibold rounded text-xs transition flex items-center justify-center gap-1.5 text-white shadow-md focus-ring"
               >
                 <Check size={16} /> Apply Spec
               </button>
@@ -850,7 +916,7 @@ function App() {
       )}
 
       {/* Interactive Tour Overlay */}
-      {tourStep !== null && (
+      {tourStep !== null && !showHelp && !showAuthModal && (
         <div 
           className={`z-[99] w-full max-w-sm px-4 select-none animate-zoom-in transition-all duration-300 ${
             tourStep === 1 

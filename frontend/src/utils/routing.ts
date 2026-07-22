@@ -193,12 +193,12 @@ export function getManhattanPath(
   if (obstacles && obstacles.length > 0) {
     const buffer = 24;
     for (const obs of obstacles) {
-      // Ignore obstacles near start or end points
-      const isStartNode = Math.abs(startX - (obs.x + obs.width / 2)) < obs.width / 2 + 12 &&
-                          Math.abs(startY - (obs.y + obs.height / 2)) < obs.height / 2 + 12;
-      const isEndNode = Math.abs(endX - (obs.x + obs.width / 2)) < obs.width / 2 + 12 &&
-                        Math.abs(endY - (obs.y + obs.height / 2)) < obs.height / 2 + 12;
-      if (isStartNode || isEndNode) continue;
+      // Ignore obstacles if they enclose both start and end points (e.g. parent container panel)
+      const enclosesBoth = startX >= obs.x && startX <= obs.x + obs.width &&
+                           startY >= obs.y && startY <= obs.y + obs.height &&
+                           endX >= obs.x && endX <= obs.x + obs.width &&
+                           endY >= obs.y && endY <= obs.y + obs.height;
+      if (enclosesBoth) continue;
 
       const obsLeft = obs.x - buffer;
       const obsRight = obs.x + obs.width + buffer;
@@ -206,28 +206,27 @@ export function getManhattanPath(
       const obsBottom = obs.y + obs.height + buffer;
 
       if (isStartHorizontal && isEndHorizontal) {
-        // Check if corridor at midX cuts through obstacle
-        if (midX >= obsLeft && midX <= obsRight) {
+        const minY = Math.min(p1y, p2y);
+        const maxY = Math.max(p1y, p2y);
+        // Check if vertical corridor segment at midX cuts through obstacle
+        if (midX >= obsLeft && midX <= obsRight && maxY >= obsTop && minY <= obsBottom) {
           const distToLeft = Math.abs(p1x - obsLeft);
           const distToRight = Math.abs(p1x - obsRight);
           midX = distToLeft < distToRight ? obsLeft - 10 : obsRight + 10;
         }
-        // Check if horizontal segments cut through obstacle
-        const minY = Math.min(p1y, p2y);
-        const maxY = Math.max(p1y, p2y);
+        // Check if horizontal segments cut through obstacle interior
         if (minY <= obsBottom && maxY >= obsTop && Math.min(p1x, midX) <= obsRight && Math.max(p1x, midX) >= obsLeft) {
-          if (p1y >= obsTop && p1y <= obsBottom) {
+          if (p1y >= obs.y && p1y <= obs.y + obs.height) {
             const distToTop = Math.abs(p1y - obsTop);
             const distToBottom = Math.abs(p1y - obsBottom);
-            if (distToTop < distToBottom) {
-              midY = obsTop - 10;
-            } else {
-              midY = obsBottom + 10;
-            }
+            midY = distToTop < distToBottom ? obsTop - 10 : obsBottom + 10;
           }
         }
       } else if (!isStartHorizontal && !isEndHorizontal) {
-        if (midY >= obsTop && midY <= obsBottom) {
+        const minX = Math.min(p1x, p2x);
+        const maxX = Math.max(p1x, p2x);
+        // Check if horizontal corridor segment at midY cuts through obstacle
+        if (midY >= obsTop && midY <= obsBottom && maxX >= obsLeft && minX <= obsRight) {
           const distToTop = Math.abs(p1y - obsTop);
           const distToBottom = Math.abs(p1y - obsBottom);
           midY = distToTop < distToBottom ? obsTop - 10 : obsBottom + 10;
