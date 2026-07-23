@@ -10,12 +10,37 @@ import os
 import shutil
 import subprocess
 import json
+import math
 
 log = logging.getLogger(__name__)
 
 def _find_node() -> str | None:
     """Find path to Node.js executable."""
     return shutil.which("node")
+
+def compute_card_size(node: dict) -> tuple[float, float]:
+    """Compute dynamic content-driven node dimensions from labels, icons, and badges."""
+    w = float(node.get("width") or 0)
+    h = float(node.get("height") or 0)
+    if w > 0 and h > 0:
+        return w, h
+        
+    title = str(node.get("title") or node.get("label") or node.get("id") or "")
+    subtitle = str(node.get("subtitle") or "")
+    badge = str(node.get("badge") or "")
+    has_icon = bool(node.get("icon"))
+    
+    # Base paddings
+    horiz_pad = 36.0 + (28.0 if has_icon else 0.0) + (30.0 if badge else 0.0)
+    title_len = len(title)
+    
+    chars_per_line = 22
+    lines = max(1, math.ceil(title_len / chars_per_line)) if title else 1
+    
+    calc_w = max(180.0, min(360.0, max(len(l) for l in title.split("\n")) * 9.5 + horiz_pad)) if title else 200.0
+    calc_h = max(72.0, 36.0 + lines * 20.0 + (18.0 if subtitle else 0.0))
+    
+    return max(w, calc_w), max(h, calc_h)
 
 def route_with_elk(ir: dict) -> bool:
     """
@@ -56,7 +81,6 @@ def route_with_elk(ir: dict) -> bool:
     panel_headers = {}
     for node in nodes:
         if node.get("type") == "panel":
-            # Default top padding
             top_pad = 40.0
             title_off = node.get("layout_offsets", {}).get("title", {})
             subtitle_off = node.get("layout_offsets", {}).get("subtitle", {})
@@ -64,6 +88,12 @@ def route_with_elk(ir: dict) -> bool:
                 top_pad = max(top_pad, title_off.get("y", 0) + title_off.get("h", 0))
             if subtitle_off:
                 top_pad = max(top_pad, subtitle_off.get("y", 0) + subtitle_off.get("h", 0))
+            title_text = node.get("title") or ""
+            if title_text:
+                title_lines = max(1, math.ceil(len(title_text) / 28))
+                sub_text = node.get("subtitle") or ""
+                sub_lines = max(1, math.ceil(len(sub_text) / 32)) if sub_text else 0
+                top_pad = max(top_pad, 20 + title_lines * 20 + sub_lines * 16)
             top_pad += 15.0 # extra padding
             panel_headers[node["id"]] = top_pad
 
@@ -96,12 +126,53 @@ def route_with_elk(ir: dict) -> bool:
                 "elk.spacing.edgeNode": "20",
                 "elk.layered.nodePlacement.strategy": "BALANCED",
                 "elk.edgeRouting": "ORTHOGONAL",
+                "elk.portConstraints": "FIXED_SIDE",
                 "elk.padding": f"[top={top_pad},left=20,bottom=20,right=20]"
             }
 
         else:
-            elk_node["width"] = node.get("width", 200)
-            elk_node["height"] = node.get("height", 80)
+            w, h = compute_card_size(node)
+            node["width"] = w
+            node["height"] = h
+            elk_node["width"] = w
+            elk_node["height"] = h
+            elk_node["layoutOptions"] = {
+                "elk.portConstraints": "FIXED_SIDE"
+            }
+            elk_node["ports"] = [
+                {
+                    "id": f"{nid}-port-top",
+                    "width": 1,
+                    "height": 1,
+                    "x": w / 2.0,
+                    "y": 0.0,
+                    "layoutOptions": {"elk.port.side": "NORTH"}
+                },
+                {
+                    "id": f"{nid}-port-bottom",
+                    "width": 1,
+                    "height": 1,
+                    "x": w / 2.0,
+                    "y": h,
+                    "layoutOptions": {"elk.port.side": "SOUTH"}
+                },
+                {
+                    "id": f"{nid}-port-left",
+                    "width": 1,
+                    "height": 1,
+                    "x": 0.0,
+                    "y": h / 2.0,
+                    "layoutOptions": {"elk.port.side": "WEST"}
+                },
+                {
+                    "id": f"{nid}-port-right",
+                    "width": 1,
+                    "height": 1,
+                    "x": w,
+                    "y": h / 2.0,
+                    "layoutOptions": {"elk.port.side": "EAST"}
+                }
+            ]
             
         elk_nodes[nid] = elk_node
 
@@ -117,11 +188,11 @@ def route_with_elk(ir: dict) -> bool:
         "layoutOptions": {
             "elk.algorithm": "layered",
             "elk.direction": elk_dir,
-            "elk.spacing.nodeNode": "80",
-            "elk.layered.spacing.nodeNodeBetweenLayers": "90",
-            "elk.spacing.edgeNode": "30",
+            "elk.spacing.nodeNode": "70",
+            "elk.layered.spacing.nodeNodeBetweenLayers": "80",
+            "elk.spacing.edgeNode": "25",
             "elk.spacing.edgeEdge": "15",
-            "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+            "elk.layered.nodePlacement.strategy": "BALANCED",
             "elk.cycleBreaking.strategy": "GREEDY",
             "elk.edgeRouting": "ORTHOGONAL",
             "elk.hierarchyHandling": "SEPARATE_CHILDREN",
@@ -210,15 +281,20 @@ def route_with_elk(ir: dict) -> bool:
         src = get_top_parent(src_id)
         tgt = get_top_parent(tgt_id)
         
+        exit_port = conn.get("exitPort") or conn.get("fromPort") or "bottom"
+        entry_port = conn.get("entryPort") or conn.get("toPort") or "top"
+        src_port_id = f"{src_id}-port-{exit_port}"
+        tgt_port_id = f"{tgt_id}-port-{entry_port}"
+
         if src != tgt:
             # Cross-hierarchy connection -> root-level edge between parent panels
-            edge_key = (src, tgt)
+            edge_key = (src_port_id, tgt_port_id)
             if edge_key not in added_edges:
                 added_edges.add(edge_key)
                 edge = {
-                    "id": f"edge_{len(added_edges)}_{src}_{tgt}",
-                    "sources": [src],
-                    "targets": [tgt]
+                    "id": f"edge_{len(added_edges)}_{src_id}_{tgt_id}",
+                    "sources": [src_port_id],
+                    "targets": [tgt_port_id]
                 }
                 if edge_opts:
                     edge["layoutOptions"] = edge_opts
@@ -227,8 +303,8 @@ def route_with_elk(ir: dict) -> bool:
             # Internal connection -> local edge inside parent panel
             edge = {
                 "id": f"edge_internal_{i}_{src_id}_{tgt_id}",
-                "sources": [src_id],
-                "targets": [tgt_id]
+                "sources": [src_port_id],
+                "targets": [tgt_port_id]
             }
             if edge_opts:
                 edge["layoutOptions"] = edge_opts

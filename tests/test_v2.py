@@ -948,6 +948,244 @@ class TestFlowDraftV2(unittest.TestCase):
         pt = point_at_fraction(pts, neg_pos)
         self.assertEqual(pt, (0.0, 0.0))
 
+    def test_layout_quality_assertions(self):
+        """Test that automated layout quality checks verify all 7 layout quality contracts on default spec."""
+        from scripts.flowdraft.layout_quality import (
+            check_layout_quality, check_zero_node_overlaps, check_non_negative_canvas_bounds,
+            check_excalidraw_unique_ids, check_gif_has_motion, check_title_badge_clearance,
+            check_directional_port_normal_stubs, check_multi_connection_port_spacing
+        )
+        spec_data = json.loads(SPEC_PATH.read_text(encoding="utf-8"))
+        validated = validate_spec(spec_data)
+        compiled = compile_spec(validated)
+        ir = layout(compiled, canvas_w=1920, canvas_h=1440)
+
+        res = check_layout_quality(ir)
+        self.assertTrue(res["ok"])
+
+        # Spot-check all 7 contract functions individually on default spec IR
+        self.assertTrue(check_zero_node_overlaps(ir.get("nodes", []))["ok"])
+        self.assertTrue(check_non_negative_canvas_bounds(ir.get("nodes", []))["ok"])
+        self.assertTrue(check_excalidraw_unique_ids(ir.get("nodes", []) + ir.get("connections", []))["ok"])
+        self.assertTrue(check_title_badge_clearance(ir.get("nodes", []))["ok"])
+        self.assertTrue(check_directional_port_normal_stubs(ir.get("connections", []))["ok"])
+        self.assertTrue(check_multi_connection_port_spacing(ir.get("connections", []), ir.get("nodes", []))["ok"])
+
+    def test_contract_zero_node_overlaps_unit(self):
+        """Unit test check_zero_node_overlaps contract function."""
+        from scripts.flowdraft.layout_quality import check_zero_node_overlaps
+
+        non_overlapping = [
+            {"id": "n1", "x": 100, "y": 100, "width": 100, "height": 50},
+            {"id": "n2", "x": 300, "y": 100, "width": 100, "height": 50},
+        ]
+        self.assertTrue(check_zero_node_overlaps(non_overlapping)["ok"])
+
+        overlapping = [
+            {"id": "n1", "x": 100, "y": 100, "width": 100, "height": 50},
+            {"id": "n2", "x": 150, "y": 120, "width": 100, "height": 50},
+        ]
+        res = check_zero_node_overlaps(overlapping)
+        self.assertFalse(res["ok"])
+        self.assertEqual(len(res["overlaps"]), 1)
+
+    def test_contract_non_negative_canvas_bounds_unit(self):
+        """Unit test check_non_negative_canvas_bounds contract function (x >= 20, y >= 20)."""
+        from scripts.flowdraft.layout_quality import check_non_negative_canvas_bounds
+
+        valid_nodes = [
+            {"id": "n1", "x": 25.0, "y": 30.0},
+            {"id": "n2", "x": 100.0, "y": 20.0},
+        ]
+        self.assertTrue(check_non_negative_canvas_bounds(valid_nodes)["ok"])
+
+        invalid_nodes = [
+            {"id": "n1", "x": 10.0, "y": 30.0},  # x < 20
+        ]
+        res = check_non_negative_canvas_bounds(invalid_nodes)
+        self.assertFalse(res["ok"])
+        self.assertEqual(len(res["invalid"]), 1)
+
+    def test_contract_excalidraw_unique_ids_unit(self):
+        """Unit test check_excalidraw_unique_ids contract function."""
+        from scripts.flowdraft.layout_quality import check_excalidraw_unique_ids
+
+        unique_els = [{"id": "el1"}, {"id": "el2"}, {"id": "el3"}]
+        self.assertTrue(check_excalidraw_unique_ids(unique_els)["ok"])
+
+        dup_els = [{"id": "el1"}, {"id": "el2"}, {"id": "el1"}]
+        res = check_excalidraw_unique_ids(dup_els)
+        self.assertFalse(res["ok"])
+        self.assertIn("el1", res["duplicates"])
+
+    def test_contract_gif_has_motion_unit(self):
+        """Unit test check_gif_has_motion contract function (> 250k pixel diffs)."""
+        from scripts.flowdraft.layout_quality import check_gif_has_motion
+
+        valid_report = {
+            "frames": 90,
+            "diffs": [
+                {"from": 0, "to": 22, "changed_pixels": 75000},
+                {"from": 22, "to": 45, "changed_pixels": 80000},
+                {"from": 45, "to": 67, "changed_pixels": 100000},
+                {"from": 67, "to": 89, "changed_pixels": 50000},
+            ]
+        }  # Total 305,000 > 250,000
+        self.assertTrue(check_gif_has_motion(valid_report)["ok"])
+
+        no_motion_report = {
+            "frames": 90,
+            "diffs": [
+                {"from": 0, "to": 22, "changed_pixels": 0},
+                {"from": 22, "to": 45, "changed_pixels": 0},
+            ]
+        }
+        self.assertFalse(check_gif_has_motion(no_motion_report)["ok"])
+
+    def test_contract_title_badge_clearance_unit(self):
+        """Unit test check_title_badge_clearance contract function."""
+        from scripts.flowdraft.layout_quality import check_title_badge_clearance
+
+        clear_nodes = [
+            {"id": "decor_title_highlight", "x": 600, "y": 27, "width": 392, "height": 72},
+            {"id": "content_card", "x": 100, "y": 200, "width": 200, "height": 100},
+        ]
+        self.assertTrue(check_title_badge_clearance(clear_nodes)["ok"])
+
+        overlapping_nodes = [
+            {"id": "decor_title_highlight", "x": 600, "y": 27, "width": 392, "height": 72},
+            {"id": "bad_card", "x": 650, "y": 50, "width": 200, "height": 100},
+        ]
+        res = check_title_badge_clearance(overlapping_nodes)
+        self.assertFalse(res["ok"])
+        self.assertEqual(len(res["violations"]), 1)
+
+    def test_contract_directional_port_normal_stubs_unit(self):
+        """Unit test check_directional_port_normal_stubs contract function (>= 16px stubs)."""
+        from scripts.flowdraft.layout_quality import check_directional_port_normal_stubs
+
+        valid_conns = [
+            {
+                "id": "c1",
+                "from": "n1",
+                "to": "n2",
+                "exitPort": "right",
+                "entryPort": "left",
+                "points": [[100, 100], [116, 100], [184, 200], [200, 200]]  # start stub 16px, end stub 16px
+            }
+        ]
+        self.assertTrue(check_directional_port_normal_stubs(valid_conns)["ok"])
+
+        short_stub_conns = [
+            {
+                "id": "c2",
+                "from": "n1",
+                "to": "n2",
+                "exitPort": "right",
+                "entryPort": "left",
+                "points": [[100, 100], [105, 100], [184, 200], [200, 200]]  # start stub 5px < 16px
+            }
+        ]
+        res = check_directional_port_normal_stubs(short_stub_conns)
+        self.assertFalse(res["ok"])
+        self.assertGreaterEqual(len(res["invalid"]), 1)
+
+    def test_contract_multi_connection_port_spacing_unit(self):
+        """Unit test check_multi_connection_port_spacing contract function (>= 16px spacing)."""
+        from scripts.flowdraft.layout_quality import check_multi_connection_port_spacing
+
+        valid_conns = [
+            {
+                "from": "n1", "to": "t1", "exitPort": "right", "entryPort": "left",
+                "points": [[100, 100], [116, 100]]
+            },
+            {
+                "from": "n1", "to": "t2", "exitPort": "right", "entryPort": "left",
+                "points": [[100, 116], [116, 116]]  # y-spacing = 16px
+            }
+        ]
+        self.assertTrue(check_multi_connection_port_spacing(valid_conns)["ok"])
+
+        crowded_conns = [
+            {
+                "from": "n1", "to": "t1", "exitPort": "right", "entryPort": "left",
+                "points": [[100, 100], [116, 100]]
+            },
+            {
+                "from": "n1", "to": "t2", "exitPort": "right", "entryPort": "left",
+                "points": [[100, 108], [116, 108]]  # y-spacing = 8px < 16px
+            }
+        ]
+        res = check_multi_connection_port_spacing(crowded_conns)
+        self.assertFalse(res["ok"])
+        self.assertGreaterEqual(len(res["invalid"]), 1)
+
+    def test_connection_label_placement(self):
+        """Test smart connection label placement midpoint calculation and perpendicular port clearance."""
+        from scripts.flowdraft.geometry import compute_connection_label_pos
+        points = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0)]
+        res = compute_connection_label_pos(points)
+        self.assertEqual(res["x"], 50.0)
+        self.assertEqual(res["y"], 0.0)
+        self.assertEqual(res["segment_index"], 0)
+
+        # Test port clearance offset when midpoint is near a port
+        ports = [(50.0, 0.0)]
+        res_near = compute_connection_label_pos(points, ports=ports, clearance_margin=24.0, perp_offset=12.0)
+        self.assertEqual(res_near["x"], 50.0)
+        self.assertEqual(res_near["y"], -12.0)
+        self.assertEqual(res_near["offset_y"], -12.0)
+
+    def test_diagram_bounds_computation(self):
+        """Test diagram bounding box computation enclosing all node positions and extents."""
+        from scripts.flowdraft.geometry import compute_diagram_bounds
+        nodes = [
+            {"x": 100.0, "y": 100.0, "width": 200.0, "height": 80.0},
+            {"x": 500.0, "y": 300.0, "width": 150.0, "height": 60.0},
+        ]
+        bounds = compute_diagram_bounds(nodes)
+        self.assertEqual(bounds["min_x"], 100.0)
+        self.assertEqual(bounds["min_y"], 100.0)
+        self.assertEqual(bounds["max_x"], 650.0)
+        self.assertEqual(bounds["max_y"], 360.0)
+        self.assertEqual(bounds["width"], 550.0)
+        self.assertEqual(bounds["height"], 260.0)
+        self.assertEqual(bounds["center_x"], 375.0)
+        self.assertEqual(bounds["center_y"], 230.0)
+
+    def test_directional_port_stubs(self):
+        """Test directional port normal vector stub calculation for NORTH, SOUTH, EAST, WEST."""
+        from scripts.flowdraft.geometry import add_directional_stubs, get_port_normal
+        self.assertEqual(get_port_normal("NORTH"), (0.0, -1.0))
+        self.assertEqual(get_port_normal("SOUTH"), (0.0, 1.0))
+        self.assertEqual(get_port_normal("EAST"), (1.0, 0.0))
+        self.assertEqual(get_port_normal("WEST"), (-1.0, 0.0))
+
+        start = (100.0, 100.0)
+        end = (300.0, 300.0)
+        pts = add_directional_stubs(start, end, start_side="EAST", end_side="WEST", stub_len=16.0)
+        self.assertEqual(pts[0], (100.0, 100.0))
+        self.assertEqual(pts[1], (116.0, 100.0))
+        self.assertEqual(pts[2], (284.0, 300.0))
+        self.assertEqual(pts[3], (300.0, 300.0))
+
+    def test_connection_arrow_straightening(self):
+        """Test near-collinear connection arrow path straightening within 12px threshold."""
+        from scripts.flowdraft.geometry import straighten_connection_path
+        # Test near-horizontal zig-zag offset (Δy = 4px < 12px)
+        near_h = [(100.0, 100.0), (200.0, 102.0), (300.0, 104.0)]
+        res_h = straighten_connection_path(near_h, snap_threshold=12.0)
+        self.assertEqual(res_h[0][1], 102.0)
+        self.assertEqual(res_h[-1][1], 102.0)
+        self.assertEqual(len(res_h), 2)  # intermediate collinear point simplified
+
+        # Test near-vertical zig-zag offset (Δx = 6px < 12px)
+        near_v = [(100.0, 100.0), (103.0, 200.0), (106.0, 300.0)]
+        res_v = straighten_connection_path(near_v, snap_threshold=12.0)
+        self.assertEqual(res_v[0][0], 103.0)
+        self.assertEqual(res_v[-1][0], 103.0)
+        self.assertEqual(len(res_v), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

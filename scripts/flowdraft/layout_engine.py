@@ -45,10 +45,10 @@ from . import constants as fc
 # Constants
 # ═══════════════════════════════════════════════════════════════════════════
 
-_CANVAS_MARGIN: float = 50.0          # px margin on all sides
-_PANEL_GAP_H: float = 40.0           # horizontal gap between top-level elements
-_PANEL_GAP_V: float = 100.0          # vertical gap between tiers
-_FREE_ELEMENT_GAP: float = 30.0      # gap when placing free elements next to peers
+_CANVAS_MARGIN: float = 60.0          # px margin on all sides
+_PANEL_GAP_H: float = 65.0           # horizontal gap between top-level elements
+_PANEL_GAP_V: float = 120.0          # vertical gap between tiers
+_FREE_ELEMENT_GAP: float = 45.0      # gap when placing free elements next to peers
 
 # Default panel inner-layout values (used when panel has no layout dict)
 _DEFAULT_DIRECTION: str = "row"
@@ -1276,7 +1276,7 @@ def _center_layout_on_canvas(
 
     # Anchor Y coordinates cleanly below header title & hero banner
     top_hero_h = sum(h.get("height", 120.0) + 20.0 for h in hero_nodes) if hero_nodes else 0.0
-    desired_top_y = (180.0 + top_hero_h + 20.0) if hero_nodes else (140.0 if has_title else 50.0)
+    desired_top_y = (145.0 + top_hero_h + 30.0) if hero_nodes else (140.0 if has_title else 50.0)
 
     min_y = min(n["y"] for n in positioned)
     dy = desired_top_y - min_y
@@ -1290,7 +1290,7 @@ def _center_layout_on_canvas(
         else:
             hw = node.get("width", 1400.0)
             node["x"] = target_cx - (hw / 2.0)
-            node["y"] = 180.0
+            node["y"] = 145.0 if has_title else 30.0
 
 
 def _scale_layout_uniformly(nodes: list[dict], scale: float) -> None:
@@ -1617,8 +1617,8 @@ def layout(
             if content_w > 0 and content_h > 0:
                 scale_x = avail_w / content_w
                 scale_y = avail_h / content_h
-                # Upscale small graph layouts up to 1.5x to fill canvas area cleanly
-                scale = min(1.5, scale_x, scale_y)
+                # Downscale layout if it exceeds available canvas area
+                scale = min(1.0, scale_x, scale_y)
                 
                 if abs(scale - 1.0) > 0.01:
                     _scale_layout_uniformly(nodes, scale)
@@ -1667,7 +1667,28 @@ def layout(
 
     # ── Step 5b: Edge Routing and Label Injection (Pass 6) ───────────
     existing_label_boxes = []
-    for conn in connections:
+
+    # Pre-calculate multi-connection port counts & indices to space out parallel ports
+    from_port_counts: dict[tuple[str, str], int] = {}
+    to_port_counts: dict[tuple[str, str], int] = {}
+    from_port_indices: dict[int, int] = {}
+    to_port_indices: dict[int, int] = {}
+
+    for idx_c, conn in enumerate(connections):
+        src_id = conn.get("from")
+        tgt_id = conn.get("to")
+        if not src_id or not tgt_id:
+            continue
+        fp = (conn.get("fromPort") or conn.get("exitPort") or "bottom").lower()
+        tp = (conn.get("toPort") or conn.get("entryPort") or "top").lower()
+        src_key = (src_id, fp)
+        tgt_key = (tgt_id, tp)
+        from_port_indices[idx_c] = from_port_counts.get(src_key, 0)
+        from_port_counts[src_key] = from_port_counts.get(src_key, 0) + 1
+        to_port_indices[idx_c] = to_port_counts.get(tgt_key, 0)
+        to_port_counts[tgt_key] = to_port_counts.get(tgt_key, 0) + 1
+
+    for idx_c, conn in enumerate(connections):
         src_id = conn.get("from")
         tgt_id = conn.get("to")
         src_node = nodes_map.get(src_id)
@@ -1683,6 +1704,32 @@ def layout(
         
         p_start = get_shape_port_coords(src_node, from_port, tgt_center)
         p_end = get_shape_port_coords(tgt_node, to_port, src_center)
+
+        # Distribute shared port coordinates to prevent overlapping arrowheads
+        src_idx = from_port_indices.get(idx_c, 0)
+        src_cnt = from_port_counts.get((src_id, from_port.lower()), 1)
+        tgt_idx = to_port_indices.get(idx_c, 0)
+        tgt_cnt = to_port_counts.get((tgt_id, to_port.lower()), 1)
+
+        if src_cnt > 1:
+            off_s = (src_idx - (src_cnt - 1) / 2.0) * 16.0
+            if from_port.lower() in ("top", "bottom", "north", "south"):
+                p_start = (p_start[0] + off_s, p_start[1])
+            else:
+                p_start = (p_start[0], p_start[1] + off_s)
+
+        if tgt_cnt > 1:
+            off_t = (tgt_idx - (tgt_cnt - 1) / 2.0) * 16.0
+            if to_port.lower() in ("top", "bottom", "north", "south"):
+                p_end = (p_end[0] + off_t, p_end[1])
+            else:
+                p_end = (p_end[0], p_end[1] + off_t)
+
+        from .geometry import get_port_normal, straighten_connection_path
+        sn = get_port_normal(from_port)
+        en = get_port_normal(to_port)
+        p_start_stub = (p_start[0] + sn[0] * 16.0, p_start[1] + sn[1] * 16.0)
+        p_end_stub = (p_end[0] + en[0] * 16.0, p_end[1] + en[1] * 16.0)
         
         # Define dynamic obstacle exclusions: exclude the src/tgt nodes and any of their ancestor panels
         excluded_ids = {src_id, tgt_id}
@@ -1693,7 +1740,7 @@ def layout(
                 curr = nodes_map.get(curr["parent"])
         obstacles = [n for n in nodes if n["id"] not in excluded_ids and not n["id"].startswith("decor_") and n.get("type") != "panel"]
         
-        # Run A* or fallback (exclude src_node and tgt_node from soft_cards so start and end port cells are not penalized)
+        # Run A* or fallback between stubs
         soft_cards = []
         soft_panels = [n for n in nodes if n.get("type") == "panel" and n["id"] not in excluded_ids]
         for nid in (src_id, tgt_id):
@@ -1703,13 +1750,15 @@ def layout(
                 if p_node and p_node not in soft_panels:
                     soft_panels.append(p_node)
         
-        routed_points = route_orthogonal_astar(
-            p_start, p_end, obstacles, canvas_w, canvas_h,
+        middle_points = route_orthogonal_astar(
+            p_start_stub, p_end_stub, obstacles, canvas_w, canvas_h,
             soft_cards=soft_cards, soft_panels=soft_panels
         )
-        if not routed_points:
-            routed_points = fallback_orthogonal_route(p_start, p_end)
-            
+        if not middle_points:
+            middle_points = fallback_orthogonal_route(p_start_stub, p_end_stub)
+
+        full_raw = [p_start] + middle_points + [p_end]
+        routed_points = straighten_connection_path(full_raw, snap_threshold=12.0)
         conn["points"] = routed_points
         
         # Position label
@@ -1914,7 +1963,7 @@ def layout(
         bw = 255.0
         bh = 40.0
         bx = (outer_border_x + outer_border_w) - bw
-        by = 143.0
+        by = 45.0
         if bx < 600.0:
             bx = canvas_w - 270.0
             

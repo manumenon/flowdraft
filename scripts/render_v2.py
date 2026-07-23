@@ -173,7 +173,7 @@ def frame_diff_report(gif_path: Path) -> dict:
     return {"frames": frame_count, "diffs": diffs}
 
 
-def check_outputs(result: dict, spec: dict) -> dict:
+def check_outputs(result: dict, spec: dict, ir: dict = None) -> dict:
     canvas          = spec.get("canvas", {})
     expected_width  = canvas.get("width",  DEFAULT_W)
     expected_height = canvas.get("height", DEFAULT_H)
@@ -201,21 +201,14 @@ def check_outputs(result: dict, spec: dict) -> dict:
     ])
 
     diff_report = frame_diff_report(gif_path)
-    checks.append({
-        "name": "gif_has_motion",
-        "ok": any(item["changed_pixels"] > 0 for item in diff_report["diffs"]),
-        "diffs": diff_report["diffs"],
-    })
 
     excalidraw_path = Path(result["excalidraw"])
     excalidraw      = json.loads(excalidraw_path.read_text(encoding="utf-8"))
     elements        = excalidraw.get("elements", [])
-    ids             = [el.get("id") for el in elements]
     text_elements   = [el for el in elements if el.get("type") == "text"]
     expected_family = 5 if spec.get("hand", True) else 1
     checks.extend([
         {"name": "excalidraw_exists",       "ok": excalidraw_path.is_file()},
-        {"name": "excalidraw_unique_ids",   "ok": len(ids) == len(set(ids))},
         {"name": "excalidraw_text_font_family", "ok": all(el.get("fontFamily") == expected_family for el in text_elements)},
         {"name": "excalidraw_files_empty",  "ok": excalidraw.get("files") == {}},
     ])
@@ -232,6 +225,15 @@ def check_outputs(result: dict, spec: dict) -> dict:
 
     svg_path = Path(result["svg"])
     checks.append({"name": "svg_exists", "ok": svg_path.is_file()})
+
+    if ir:
+        from scripts.flowdraft.layout_quality import check_layout_quality
+        lq_result = check_layout_quality(ir, diff_report=diff_report, excalidraw_elements=elements)
+        checks.extend(lq_result.get("quality_checks", []))
+    else:
+        from scripts.flowdraft.layout_quality import check_gif_has_motion, check_excalidraw_unique_ids
+        checks.append(check_gif_has_motion(diff_report))
+        checks.append(check_excalidraw_unique_ids(elements))
 
     return {"ok": all(check["ok"] for check in checks), "checks": checks}
 
@@ -385,7 +387,7 @@ def run_pipeline(
 
     # 11. Run checks if requested
     if run_checks:
-        result["checks"] = check_outputs(result, validated)
+        result["checks"] = check_outputs(result, validated, ir)
 
     return result
 

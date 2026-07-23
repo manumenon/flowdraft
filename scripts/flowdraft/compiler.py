@@ -701,7 +701,9 @@ def _measure_panel(
     badge = element.get("badge", "")
 
     # Title region (always at top-left inside padding)
-    title_w_budget = 400.0
+    panel_w = float(element.get("width", 600.0) or 600.0)
+    badge_clearance = 140.0 if badge else 0.0
+    title_w_budget = max(200.0, panel_w - pad["left"] - pad["right"] - badge_clearance)
     title_h_budget = 34.0
 
     _, t_size, t_w, t_h = _measure_text(
@@ -713,7 +715,7 @@ def _measure_panel(
         "title": {
             "x": pad["left"],
             "y": 15,
-            "w": title_w_budget,
+            "w": min(title_w_budget, t_w + 10.0),
             "h": max(title_h_budget, t_h),
             "size": t_size,
             "min_size": 12,
@@ -726,7 +728,7 @@ def _measure_panel(
     # Subtitle (below title in header area)
     s_w, s_h = 0.0, 0.0
     if subtitle:
-        sub_y = offsets["title"]["y"] + offsets["title"]["h"] + 6.0
+        sub_y = offsets["title"]["y"] + offsets["title"]["h"] + 4.0
         _, s_size, s_w, s_h = _measure_text(
             draw, subtitle, title_w_budget, 24, 14,
             min_size=10, hand=style.get("hand", True), bold=False,
@@ -734,7 +736,7 @@ def _measure_panel(
         offsets["subtitle"] = {
             "x": pad["left"],
             "y": sub_y,
-            "w": title_w_budget,
+            "w": max(title_w_budget, s_w + 40.0),
             "h": s_h,
             "size": s_size,
             "min_size": 10,
@@ -752,7 +754,7 @@ def _measure_panel(
         )
         offsets["badge"] = {
             "x_anchor": "right",   # renderer places relative to panel right edge
-            "y": 15,
+            "y": 18,
             "w": bg_w + 16,        # chip padding
             "h": bg_h + 8,
             "size": bg_size,
@@ -923,7 +925,7 @@ def _flatten_elements(
 
         # Copy through auxiliary fields the renderer may need
         for aux_key in (
-            "thought", "badge", "subtitle", "label",
+            "thought", "badge", "subtitle", "label", "bullets",
             "size", "align", "opacity", "fixed", "out_of_flow",
         ):
             if aux_key in elem:

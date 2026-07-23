@@ -16,6 +16,10 @@ import '@xyflow/react/dist/style.css';
 import type { FlowSpec } from '../types/spec';
 import { compileSpec, THEMES } from '../utils/specCompiler';
 import { useFlowLayout } from '../hooks/useFlowLayout';
+import { useAlignmentGuides } from '../hooks/useAlignmentGuides';
+import { AlignmentGuidesOverlay } from './AlignmentGuidesOverlay';
+import { useMultiSelectionAlignment } from '../hooks/useMultiSelectionAlignment';
+import { MultiSelectionToolbar } from './MultiSelectionToolbar';
 
 import RoutedEdge from './edges/RoutedEdge';
 import CardNode from './nodes/CardNode';
@@ -76,6 +80,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   tourStep,
 }) => {
   const { runLayout, isLayoutRunning, isWorkerReady } = useFlowLayout();
+  const { calculateSnap, guides, clearGuides } = useAlignmentGuides(6, snapToGrid);
+  const { alignNodes } = useMultiSelectionAlignment();
   const { screenToFlowPosition, getNodes, fitView, getViewport, setViewport } = useReactFlow();
   const nodesInitialized = useNodesInitialized();
   const [promptLayoutAlert, setPromptLayoutAlert] = useState(false);
@@ -146,6 +152,8 @@ export const Canvas: React.FC<CanvasProps> = ({
   const [nodes, setNodes, onNodesChange] = useNodesState<any>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<any>([]);
   const [, setCanvasSize] = useState({ width: 1920, height: 1440 });
+
+  const selectedNodes = useMemo(() => nodes.filter((n: any) => n.selected), [nodes]);
 
   const totalSelected = useMemo(() => {
     return nodes.filter((n: any) => n.selected).length + edges.filter((e: any) => e.selected).length;
@@ -638,8 +646,12 @@ export const Canvas: React.FC<CanvasProps> = ({
           onNodeSelect?.(null);
           onEdgeSelect?.('', '', -1);
         }}
-        onNodeDrag={isPureRender ? undefined : (_, node) => {
+        onNodeDrag={isPureRender ? undefined : (event, node) => {
           if (node.position) {
+            const snapped = calculateSnap(node, nodes, event);
+            node.position.x = snapped.x;
+            node.position.y = snapped.y;
+
             setEdges((eds) =>
               eds.map((edge) => {
                 if (edge.source === node.id || edge.target === node.id) {
@@ -655,11 +667,12 @@ export const Canvas: React.FC<CanvasProps> = ({
               cancelAnimationFrame((window as any).__DRAG_RAF__);
             }
             (window as any).__DRAG_RAF__ = requestAnimationFrame(() => {
-              onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes, true);
+              onNodeDragStop?.(node.id, snapped.x, snapped.y, nodes, true);
             });
           }
         }}
-        onNodeDragStop={isPureRender ? undefined : (_, node) => {
+        onNodeDragStop={isPureRender ? undefined : (event, node) => {
+          clearGuides();
           if ((window as any).__DRAG_RAF__) {
             cancelAnimationFrame((window as any).__DRAG_RAF__);
           }
@@ -675,7 +688,8 @@ export const Canvas: React.FC<CanvasProps> = ({
             })
           );
           if (node.position) {
-            onNodeDragStop?.(node.id, node.position.x, node.position.y, nodes, false);
+            const snapped = calculateSnap(node, nodes, event);
+            onNodeDragStop?.(node.id, snapped.x, snapped.y, nodes, false);
           }
         }}
         onConnect={isPureRender ? undefined : (conn) => {
@@ -701,6 +715,13 @@ export const Canvas: React.FC<CanvasProps> = ({
         minZoom={0.1}
         maxZoom={4}
       >
+        <AlignmentGuidesOverlay guides={guides} />
+        {!isPureRender && (
+          <MultiSelectionToolbar
+            selectedNodes={selectedNodes}
+            onAlign={(action) => alignNodes(action, selectedNodes, setNodes, onNodeDragStop)}
+          />
+        )}
         {!isPureRender && (
           <Background
             variant={

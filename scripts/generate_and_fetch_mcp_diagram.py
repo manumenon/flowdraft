@@ -20,7 +20,7 @@ async def generate_and_fetch():
     print(" GENERATING COMPLEX DIAGRAM VIA MCP SERVER & FETCHING MEDIA")
     print("=================================================================")
 
-    artifact_dir = r"C:\Users\Administrator\.gemini\antigravity\brain\1cf9cb3b-5bd2-4c9f-9283-ce35d98320c4"
+    artifact_dir = r"C:\Users\Administrator\.gemini\antigravity\brain\1795903d-57da-4bfa-8507-8380557ec048"
     os.makedirs(artifact_dir, exist_ok=True)
 
     complex_spec = {

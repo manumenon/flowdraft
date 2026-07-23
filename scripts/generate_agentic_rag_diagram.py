@@ -34,20 +34,6 @@ def build_agentic_rag_spec() -> dict:
             "duration": 2.0
         },
         "elements": [
-            # Top Full-Width Hero Summary Banner
-            {
-                "id": "hero_summary",
-                "type": "hero",
-                "title": "Production-Grade Agentic RAG Architecture",
-                "body": "Key Architectural Pillars",
-                "width": 2000,
-                "bullets": [
-                    "Agentic query & document enrichment for high-precision retrieval inputs",
-                    "Hybrid retrieval combining dense vector search, sparse BM25, and LLM reranking",
-                    "Built-in evaluation, golden test datasets, and continuous telemetry feedback"
-                ]
-            },
-
             # --- ROW 1 LEFT: INGESTION PIPELINE ---
             {
                 "id": "panel_doc_proc",

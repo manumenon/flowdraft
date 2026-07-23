@@ -501,6 +501,8 @@ def render_group_shape(ex: Excal, draw: ImageDraw.ImageDraw, node: dict) -> None
 
 _SHAPE_RENDERERS = {
     "card":        render_card_shape,
+    "hero":        render_card_shape,
+    "hero_card":   render_card_shape,
     "diamond":     render_diamond_shape,
     "input":       render_input_shape,
     "group":       render_group_shape,
@@ -512,6 +514,8 @@ _SHAPE_RENDERERS = {
 
 _CONTENT_RENDERERS = {
     "card":        render_card_content,
+    "hero":        render_card_content,
+    "hero_card":   render_card_content,
     "diamond":     render_diamond_content,
     "input":       render_input_content,
     "group":       render_card_content,

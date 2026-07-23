@@ -118,7 +118,7 @@ def animate_frame(base: Image.Image, idx: int, total: int, spec: dict = None) ->
     canvas_meta = spec.get("canvas", {})
     fps = canvas_meta.get("fps", 30.0)
     duration = canvas_meta.get("duration", 3.0)
-    speed = canvas_meta.get("speed", 1.0)
+    speed = canvas_meta.get("speed", 0.08)
     t_seconds = idx / fps if fps > 0 else 0.0
 
     # Remap colours for white/light theme so dots pop on bright backgrounds
@@ -140,13 +140,13 @@ def animate_frame(base: Image.Image, idx: int, total: int, spec: dict = None) ->
         interpolated_color = interpolate_color(dot_color, THEME.get("white", "#ffffff"), color_cycle * 0.4)
         
         # Size factor driven by time
-        size_factor = 0.85 + 0.3 * (0.5 + 0.5 * math.sin(2.0 * math.pi * progress * speed * 2.0 + offset))
+        size_factor = 0.85 + 0.3 * (0.5 + 0.5 * math.sin(2.0 * math.pi * progress * speed + offset))
 
         # Comet tail parts
         from .gif import fix_comet_position
         for trail, base_strength in [(0, 1.0), (-0.030, 0.68), (-0.058, 0.42), (-0.086, 0.22)]:
             # Opacity variation over time
-            opacity_factor = 0.8 + 0.2 * math.sin(2.0 * math.pi * progress * speed * 3.0 + trail)
+            opacity_factor = 0.85 + 0.15 * math.sin(2.0 * math.pi * progress * speed + trail)
             strength = base_strength * opacity_factor
             
             pos = fix_comet_position(progress * speed + offset + trail)

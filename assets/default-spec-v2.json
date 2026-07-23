@@ -3,7 +3,9 @@
     "width": 1920,
     "height": 1440,
     "fps": 30,
-    "frames": 90
+    "frames": 90,
+    "speed": 0.08,
+    "duration": 3.0
   },
   "hand": false,
   "theme": "dark",
@@ -20,12 +22,12 @@
       "title": "Telemetry & Knowledge Ingest",
       "layout": {
         "direction": "column",
-        "gap": 20,
+        "gap": 24,
         "padding": {
-          "left": 12,
-          "right": 12,
-          "top": 36,
-          "bottom": 12
+          "left": 24,
+          "right": 24,
+          "top": 56,
+          "bottom": 20
         }
       },
       "style": {
@@ -98,12 +100,12 @@
       "subtitle": "(Asynchronous distributed pipeline)",
       "layout": {
         "direction": "row",
-        "gap": 20,
+        "gap": 32,
         "padding": {
-          "left": 12,
-          "right": 12,
-          "top": 36,
-          "bottom": 12
+          "left": 24,
+          "right": 24,
+          "top": 56,
+          "bottom": 20
         }
       },
       "style": {
@@ -220,12 +222,12 @@
       "badge": "event driven",
       "layout": {
         "direction": "column",
-        "gap": 17,
+        "gap": 24,
         "padding": {
-          "left": 12,
-          "right": 12,
-          "top": 36,
-          "bottom": 12
+          "left": 24,
+          "right": 24,
+          "top": 56,
+          "bottom": 20
         }
       },
       "style": {
@@ -286,12 +288,12 @@
       "subtitle": "(Encrypted state persistence & WAL journal tier)",
       "layout": {
         "direction": "row",
-        "gap": 28,
+        "gap": 32,
         "padding": {
-          "left": 12,
-          "right": 12,
-          "top": 36,
-          "bottom": 12
+          "left": 24,
+          "right": 24,
+          "top": 56,
+          "bottom": 20
         }
       },
       "style": {
@@ -377,12 +379,12 @@
       "title": "Agent Execution Fabric",
       "layout": {
         "direction": "column",
-        "gap": 14,
+        "gap": 20,
         "padding": {
-          "left": 12,
-          "right": 12,
-          "top": 36,
-          "bottom": 12
+          "left": 24,
+          "right": 24,
+          "top": 56,
+          "bottom": 20
         }
       },
       "style": {
@@ -509,14 +511,14 @@
       "from": "decision",
       "to": "core_0",
       "exitPort": "left",
-      "entryPort": "bottom",
+      "entryPort": "left",
       "label": "No"
     },
     {
       "from": "output",
       "to": "right_0",
-      "exitPort": "right",
-      "entryPort": "left"
+      "exitPort": "top",
+      "entryPort": "bottom"
     },
     {
       "from": "left_0",
@@ -527,26 +529,26 @@
     {
       "from": "core_2",
       "to": "store_2",
-      "exitPort": "bottom",
-      "entryPort": "top"
+      "exitPort": "top",
+      "entryPort": "bottom"
     },
     {
       "from": "core_3",
       "to": "store_3",
-      "exitPort": "bottom",
-      "entryPort": "top"
+      "exitPort": "top",
+      "entryPort": "bottom"
     },
     {
       "from": "store_3",
-      "to": "right_0",
-      "exitPort": "right",
-      "entryPort": "left"
+      "to": "left_1",
+      "exitPort": "left",
+      "entryPort": "right"
     },
     {
       "from": "right_0",
       "to": "decision",
       "exitPort": "left",
-      "entryPort": "bottom",
+      "entryPort": "top",
       "label": "Feedback Loop"
     },
     {
@@ -601,30 +603,6 @@
       "text": "Ingest Events",
       "attachTo": "left_panel",
       "position": "top-label"
-    },
-    {
-      "text": "Dynamic Compile",
-      "from": "store_3",
-      "to": "right_0",
-      "position": "midpoint"
-    },
-    {
-      "text": "Feedback Loop",
-      "from": "right_0",
-      "to": "decision",
-      "position": "midpoint"
-    },
-    {
-      "text": "Yes / Pass",
-      "from": "decision",
-      "to": "output",
-      "position": "midpoint"
-    },
-    {
-      "text": "No / Fail (Retry)",
-      "from": "decision",
-      "to": "core_0",
-      "position": "midpoint"
     }
   ]
 }
