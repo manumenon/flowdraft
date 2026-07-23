@@ -161,8 +161,11 @@ async def render_frames(spec: dict, theme: str, format: str, job_id: Optional[st
                 # Let rendering settle
                 await page.evaluate("() => new Promise(requestAnimationFrame)")
 
-                # Capture screenshot
-                screenshot = await page.screenshot(type="png", timeout=60000)
+                # Capture screenshot (use full_page=True for static renders to prevent vertical/horizontal cropping)
+                if is_static:
+                    screenshot = await page.screenshot(type="png", full_page=True, timeout=60000)
+                else:
+                    screenshot = await page.screenshot(type="png", timeout=60000)
                 frames_data.append(screenshot)
         finally:
             try:

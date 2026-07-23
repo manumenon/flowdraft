@@ -27,30 +27,55 @@ export const CardNode: React.FC<NodeProps> = (props) => {
     border: '1.5px solid var(--surface-1)',
   };
 
+  const status = data.status || data.state;
+  let statusColor = null;
+  if (status === 'healthy' || status === 'active') statusColor = '#10b981';
+  else if (status === 'streaming' || status === 'syncing') statusColor = '#06b6d4';
+  else if (status === 'warning' || status === 'busy') statusColor = '#f59e0b';
+  else if (data.glowColor) statusColor = data.glowColor;
+
+  const variant = data.variant || style.variant;
+  const VARIANT_MAP: Record<string, { bg: string; border: string; accent: string }> = {
+    coral: { bg: 'rgba(244, 63, 94, 0.14)', border: '#f43f5e', accent: '#fda4af' },
+    peach: { bg: 'rgba(249, 115, 22, 0.14)', border: '#f97316', accent: '#fed7aa' },
+    mint: { bg: 'rgba(16, 185, 129, 0.14)', border: '#10b981', accent: '#a7f3d0' },
+    sky: { bg: 'rgba(14, 165, 233, 0.14)', border: '#0ea5e9', accent: '#bae6fd' },
+    amber: { bg: 'rgba(245, 158, 11, 0.14)', border: '#f59e0b', accent: '#fde68a' },
+    purple: { bg: 'rgba(168, 85, 247, 0.14)', border: '#a855f7', accent: '#e9d5ff' },
+    emerald: { bg: 'rgba(5, 150, 105, 0.14)', border: '#059669', accent: '#6ee7b7' }
+  };
+  const variantStyle = variant ? VARIANT_MAP[variant] : null;
+
+  const nodeBg = variantStyle ? variantStyle.bg : (isTransparent ? 'transparent' : 'var(--node-bg)');
+  const nodeBorderColor = variantStyle ? variantStyle.border : (selected ? strokeColor : (statusColor || 'var(--border-default)'));
+  const effectiveAccent = variantStyle ? variantStyle.accent : (statusColor || accentColor);
+
   return (
     <div
-      className={`relative px-4 py-3.5 flex flex-col justify-between h-full w-full select-none transition-shadow duration-200 animate-zoom-in ${
+      className={`relative px-4 py-3.5 flex flex-col justify-between h-full w-full select-none transition-all duration-300 animate-zoom-in ${
         selected 
           ? 'shadow-premium ring-1 ring-indigo-500/40' 
           : 'hover:shadow-xl cursor-pointer'
       }`}
       style={{
-        backgroundColor: isTransparent ? 'transparent' : 'var(--node-bg)',
-        border: isBorderless ? 'none' : `${strokeWidth}px solid ${selected ? strokeColor : 'var(--border-default)'}`,
+        backgroundColor: nodeBg,
+        border: isBorderless ? 'none' : `${strokeWidth}px solid ${nodeBorderColor}`,
         borderRadius: `${cornerRadius}px`,
         color: 'var(--node-fg)',
-        boxShadow: selected
-          ? `0 0 16px 2px ${strokeColor}`
-          : isPureRender
-            ? 'none'
-            : '0 8px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02)',
+        boxShadow: statusColor || variantStyle
+          ? `0 0 20px 2px ${(statusColor || variantStyle?.border)}33, 0 8px 30px rgba(0,0,0,0.04)`
+          : selected
+            ? `0 0 16px 2px ${strokeColor}`
+            : isPureRender
+              ? 'none'
+              : '0 8px 30px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02)',
       }}
     >
-      {/* 3.5px top border colored accent strip */}
+      {/* Top border colored accent strip */}
       {!isTransparent && (
         <div
           className="absolute top-0 left-0 right-0 h-[3.5px] rounded-t-lg"
-          style={{ backgroundColor: accentColor }}
+          style={{ backgroundColor: effectiveAccent }}
         />
       )}
 
@@ -68,21 +93,37 @@ export const CardNode: React.FC<NodeProps> = (props) => {
       <Handle type="source" position={Position.Right} id="source-right" style={handleStyle} />
 
       {/* Node Content */}
-      <div className="flex items-center gap-2 mb-1.5 mt-1">
-        {data.icon && (
-          <div className="p-1 rounded-md bg-surface-3 border border-border-themed">
-            <Icon name={data.icon as string} color={accentColor} size={15} />
-          </div>
+      <div className="flex items-center justify-between gap-2 mb-1.5 mt-1">
+        <div className="flex items-center gap-2">
+          {data.icon && (
+            <div className="p-1 rounded-md bg-surface-3 border border-border-themed">
+              <Icon name={data.icon as string} color={statusColor || accentColor} size={15} />
+            </div>
+          )}
+          <span
+            className="text-xs font-bold tracking-wide whitespace-normal break-words"
+            style={{
+              color: statusColor || accentColor,
+              fontWeight: isBold ? 'bold' : '700',
+            }}
+          >
+            {data.title || ''}
+          </span>
+        </div>
+
+        {/* Live Status Pulsing Dot */}
+        {statusColor && (
+          <span className="relative flex h-2.5 w-2.5 shrink-0">
+            <span
+              className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+              style={{ backgroundColor: statusColor }}
+            />
+            <span
+              className="relative inline-flex rounded-full h-2.5 w-2.5"
+              style={{ backgroundColor: statusColor }}
+            />
+          </span>
         )}
-        <span
-          className="text-xs font-bold tracking-wide whitespace-normal break-words"
-          style={{
-            color: accentColor,
-            fontWeight: isBold ? 'bold' : '700',
-          }}
-        >
-          {data.title || ''}
-        </span>
       </div>
 
       {data.body && (

@@ -389,6 +389,11 @@ def _measure_card(
     base_w = max(element.get("width", 0) or 0, min_w)
     base_h = max(element.get("height", 0) or 0, min_h)
 
+    if not element.get("width"):
+        max_str_len = max(len(title), (len(body) // 2) if body else 0)
+        if max_str_len > 18:
+            base_w = max(base_w, min(280.0, 200.0 + (max_str_len - 18) * 4.5))
+
     # ── Icon region ──────────────────────────────────────────────────
     icon_x = pad_l
     icon_y = pad_t
@@ -784,6 +789,22 @@ def _measure_panel(
     }
 
 
+def _measure_hero(
+    element: dict,
+    draw: ImageDraw.ImageDraw,
+    style: dict,
+) -> dict:
+    """Compute width, height, and layout_offsets for a top summary ``hero`` banner."""
+    min_w = max(element.get("width", 0) or 0, 780.0)
+    bullets = element.get("bullets", []) or []
+    base_h = 100.0 + len(bullets) * 28.0
+    return {
+        "width": min_w,
+        "height": max(element.get("height", 0) or 0, base_h),
+        "layout_offsets": {}
+    }
+
+
 # Dispatcher table: type → measurer function
 _MEASURERS: dict[str, Any] = {
     "card":     _measure_card,
@@ -793,6 +814,8 @@ _MEASURERS: dict[str, Any] = {
     "panel":    _measure_panel,
     "group":    _measure_panel,
     "cylinder": _measure_card,
+    "hero":      _measure_hero,
+    "hero_card": _measure_hero,
     "cloud":    _measure_card,
     "ellipse":  _measure_card,
 }

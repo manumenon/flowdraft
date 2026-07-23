@@ -1261,36 +1261,36 @@ def _center_layout_on_canvas(
     canvas_h: float,
     has_title: bool = False,
 ) -> None:
-    """Translate all diagram node coordinates so that the entire layout is centered on the canvas."""
-    positioned = [n for n in nodes if n.get("x") is not None and n.get("y") is not None]
+    hero_nodes = [n for n in nodes if n.get("type") in ("hero", "hero_card") or n.get("variant") in ("hero", "hero_card") or n.get("id", "").startswith("hero")]
+    positioned = [n for n in nodes if n not in hero_nodes and n.get("x") is not None and n.get("y") is not None]
     if not positioned:
         return
 
     min_x = min(n["x"] for n in positioned)
-    min_y = min(n["y"] for n in positioned)
-    max_x = max(n["x"] + n["width"] for n in positioned)
-    max_y = max(n["y"] + n["height"] for n in positioned)
-
+    max_x = max(n["x"] + n.get("width", 0.0) for n in positioned)
     content_w = max_x - min_x
-    content_h = max_y - min_y
 
     target_cx = canvas_w / 2.0
-    if has_title:
-        target_cy = 130.0 + (canvas_h - 130.0) / 2.0
-    else:
-        target_cy = canvas_h / 2.0
-
     current_cx = min_x + content_w / 2.0
-    current_cy = min_y + content_h / 2.0
-
     dx = target_cx - current_cx
-    dy = target_cy - current_cy
+
+    # Anchor Y coordinates cleanly below header title & hero banner
+    top_hero_h = sum(h.get("height", 120.0) + 20.0 for h in hero_nodes) if hero_nodes else 0.0
+    desired_top_y = (180.0 + top_hero_h + 20.0) if hero_nodes else (140.0 if has_title else 50.0)
+
+    min_y = min(n["y"] for n in positioned)
+    dy = desired_top_y - min_y
 
     for node in nodes:
-        if node.get("x") is not None:
-            node["x"] += dx
-        if node.get("y") is not None:
-            node["y"] += dy
+        if node not in hero_nodes:
+            if node.get("x") is not None:
+                node["x"] += dx
+            if node.get("y") is not None:
+                node["y"] += dy
+        else:
+            hw = node.get("width", 1400.0)
+            node["x"] = target_cx - (hw / 2.0)
+            node["y"] = 180.0
 
 
 def _scale_layout_uniformly(nodes: list[dict], scale: float) -> None:
@@ -1615,11 +1615,12 @@ def layout(
                 avail_h = canvas_h - 2 * margin
                 
             if content_w > 0 and content_h > 0:
-                scale_x = min(1.0, avail_w / content_w)
-                scale_y = min(1.0, avail_h / content_h)
-                scale = min(scale_x, scale_y)
+                scale_x = avail_w / content_w
+                scale_y = avail_h / content_h
+                # Upscale small graph layouts up to 1.5x to fill canvas area cleanly
+                scale = min(1.5, scale_x, scale_y)
                 
-                if scale < 1.0:
+                if abs(scale - 1.0) > 0.01:
                     _scale_layout_uniformly(nodes, scale)
                     nodes_map = {n["id"]: n for n in nodes}
 

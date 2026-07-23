@@ -9,6 +9,7 @@ import {
    Panel,
    MiniMap,
    useReactFlow,
+   useNodesInitialized,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -25,6 +26,7 @@ import LabelNode from './nodes/LabelNode';
 import CylinderNode from './nodes/CylinderNode';
 import CloudNode from './nodes/CloudNode';
 import EllipseNode from './nodes/EllipseNode';
+import { HeroNode } from './nodes/HeroNode';
 import { Play, RotateCcw, AppWindow, ChevronUp, ChevronDown, Pause, Sparkles } from 'lucide-react';
 import { gsap } from 'gsap';
 
@@ -38,6 +40,8 @@ const nodeTypes = {
   cylinder: CylinderNode,
   cloud: CloudNode,
   ellipse: EllipseNode,
+  hero: HeroNode,
+  hero_card: HeroNode,
 };
 
 const edgeTypes = {
@@ -73,6 +77,7 @@ export const Canvas: React.FC<CanvasProps> = ({
 }) => {
   const { runLayout, isLayoutRunning, isWorkerReady } = useFlowLayout();
   const { screenToFlowPosition, getNodes, fitView, getViewport, setViewport } = useReactFlow();
+  const nodesInitialized = useNodesInitialized();
   const [promptLayoutAlert, setPromptLayoutAlert] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const prevLengthsRef = useRef({ elements: spec.elements?.length || 0, connections: spec.connections?.length || 0 });
@@ -322,7 +327,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       );
 
       setCanvasSize({ width: canvasWidth, height: canvasHeight });
-      (window as any).__LAYOUT_COMPLETE__ = true;
       setTimeout(() => {
         fitView({ duration: 800, padding: 0.2 });
       }, 50);
@@ -441,9 +445,19 @@ export const Canvas: React.FC<CanvasProps> = ({
         });
       });
       setCanvasSize({ width: 1920, height: 1440 });
-      (window as any).__LAYOUT_COMPLETE__ = true;
     }
   }, [compiled.flatElements, spec.connections, spec.title, runLayout, setNodes, setCanvasSize]);
+
+  // Trigger fitView and signal layout completion to Playwright only after React Flow node DOM elements are fully initialized & measured
+  useEffect(() => {
+    if (nodesInitialized) {
+      const timer = setTimeout(() => {
+        fitView({ padding: 0.12, duration: 0 });
+        (window as any).__LAYOUT_COMPLETE__ = true;
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [nodesInitialized, fitView]);
 
   // Run layout on mount if canvas mode is not absolute and has no fixed nodes
   useEffect(() => {
@@ -454,8 +468,6 @@ export const Canvas: React.FC<CanvasProps> = ({
       if (isWorkerReady) {
         executeLayout();
       }
-    } else {
-      (window as any).__LAYOUT_COMPLETE__ = true;
     }
   }, [layoutStructureKey, compiled.canvas.mode, executeLayout, isWorkerReady]);
 

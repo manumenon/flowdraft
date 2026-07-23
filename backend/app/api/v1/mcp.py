@@ -2,6 +2,8 @@ import os
 import sys
 import uuid
 import json
+import base64
+from datetime import datetime
 from typing import Dict, Any, List, Optional
 from sqlalchemy.future import select
 from sqlalchemy import delete
@@ -97,6 +99,38 @@ STARTER_TEMPLATES: Dict[str, dict] = {
         "connections": [
             { "from": "client", "to": "idp", "label": "POST /token", "style": "solid" }
         ]
+    },
+    "fintech_platform": {
+        "version": "2.0",
+        "theme": "dark",
+        "title": { "prefix": "Global", "highlight": "FinTech Payment Backbone" },
+        "signature": "@FlowDraft",
+        "canvas": { "width": 2560, "height": 1440, "layoutDirection": "LR" },
+        "elements": [
+            { "id": "mobile_app", "type": "input", "title": "Mobile Banking", "icon": "file" },
+            { "id": "api_gw", "type": "card", "title": "PCI Gateway", "body": "Enforces rate limiting & mTLS", "icon": "shield" },
+            { "id": "ledger_db", "type": "cylinder", "title": "Immutable Ledger", "body": "PostgreSQL ACID ledger", "icon": "db" }
+        ],
+        "connections": [
+            { "from": "mobile_app", "to": "api_gw", "label": "Encrypted Payload" },
+            { "from": "api_gw", "to": "ledger_db", "label": "Commit Transaction" }
+        ]
+    },
+    "global_ai_mesh": {
+        "version": "2.0",
+        "theme": "dark",
+        "title": { "prefix": "Cognitive", "highlight": "AI Inference Mesh" },
+        "signature": "@FlowDraft",
+        "canvas": { "width": 2560, "height": 1440, "layoutDirection": "LR" },
+        "elements": [
+            { "id": "user_prompt", "type": "input", "title": "User Query", "icon": "file" },
+            { "id": "router_agent", "type": "card", "title": "Agentic Router", "body": "Dispatches domain workflows", "icon": "scan" },
+            { "id": "llm_cluster", "type": "card", "title": "vLLM Inference Cluster", "body": "Serves quantized model weights", "icon": "package" }
+        ],
+        "connections": [
+            { "from": "user_prompt", "to": "router_agent", "label": "Stream Query" },
+            { "from": "router_agent", "to": "llm_cluster", "label": "Parallel Prefill" }
+        ]
     }
 }
 
@@ -108,7 +142,7 @@ STARTER_TEMPLATES: Dict[str, dict] = {
 async def compile_diagram(spec: dict) -> str:
     """
     Validates and compiles a raw diagram specification JSON into element layout positioning and bounding box details.
-    Invokes the FlowDraft IR compiler and layout engine to return node coordinates, dimensions, ports, and connection routing metrics.
+    Invokes the FlowDraft IR compiler and layout engine to return node coordinates, dimensions, ports, annotations, and connection routing metrics.
     Returns structured JSON.
     """
     try:
@@ -154,6 +188,8 @@ async def compile_diagram(spec: dict) -> str:
                 "points": conn.get("points", [])
             })
 
+        annotations_summary = layout_ir.get("annotations", []) or norm_spec.get("annotations", [])
+
         bounding_box = {
             "min_x": round(min_x, 2) if min_x != float('inf') else 0,
             "min_y": round(min_y, 2) if min_y != float('inf') else 0,
@@ -166,17 +202,23 @@ async def compile_diagram(spec: dict) -> str:
         title_obj = norm_spec.get("title", {})
         title_str = f"{title_obj.get('prefix', '')} {title_obj.get('highlight', '')}".strip()
 
+        graph_density = round(len(connections_summary) / max(1, len(nodes_summary)), 2)
+        aspect_ratio = f"{round(cw / max(1, ch), 2)}:1"
+
         result = {
             "status": "compiled",
             "title": title_str,
             "version": norm_spec.get("version"),
             "theme": norm_spec.get("theme"),
             "canvas_dimensions": f"{cw}x{ch}",
+            "aspect_ratio": aspect_ratio,
             "element_count": len(nodes_summary),
             "connection_count": len(connections_summary),
+            "graph_density": graph_density,
             "bounding_box": bounding_box,
             "nodes": nodes_summary,
-            "connections": connections_summary
+            "connections": connections_summary,
+            "annotations": annotations_summary
         }
         return json.dumps(result, indent=2)
     except SpecError as e:
@@ -195,7 +237,7 @@ async def compile_diagram(spec: dict) -> str:
 async def validate_diagram_spec(spec: dict) -> str:
     """
     Performs thorough structural validation of a FlowDraft V2 diagram spec JSON.
-    Returns details on element count, connection count, canvas metrics, and any warnings.
+    Returns details on element count, connection count, canvas metrics, and diagnostic warnings (orphan nodes, invalid status).
     """
     try:
         norm_spec = validate_spec(spec)
@@ -205,12 +247,40 @@ async def validate_diagram_spec(spec: dict) -> str:
         
         warnings = []
         element_ids = {e.get("id") for e in elements}
+        connected_ids = set()
+
         for c in connections:
-            if c.get("from") not in element_ids:
-                warnings.append(f"Connection 'from' ID '{c.get('from')}' not found in elements.")
-            if c.get("to") not in element_ids:
-                warnings.append(f"Connection 'to' ID '{c.get('to')}' not found in elements.")
+            from_id = c.get("from")
+            to_id = c.get("to")
+            if from_id not in element_ids:
+                warnings.append(f"Connection 'from' ID '{from_id}' not found in elements.")
+            else:
+                connected_ids.add(from_id)
+            if to_id not in element_ids:
+                warnings.append(f"Connection 'to' ID '{to_id}' not found in elements.")
+            else:
+                connected_ids.add(to_id)
                 
+        # Check for orphan elements (unconnected nodes)
+        if len(elements) > 1:
+            for e in elements:
+                eid = e.get("id")
+                if eid and eid not in connected_ids and not e.get("parent"):
+                    warnings.append(f"Element '{eid}' ({e.get('title', '')}) is an orphan node (0 connections).")
+
+        # Validate status enum if specified
+        valid_statuses = {"healthy", "active", "streaming", "warning", "idle", "disabled"}
+        for e in elements:
+            status = e.get("status")
+            if status and status not in valid_statuses:
+                warnings.append(f"Element '{e.get('id')}' has unrecognized status '{status}'. Allowed: {sorted(list(valid_statuses))}")
+
+        # Validate layoutDirection if specified
+        layout_dir = canvas.get("layoutDirection")
+        valid_dirs = {"DOWN", "RIGHT", "LR", "TB", "HORIZONTAL", "VERTICAL"}
+        if layout_dir and str(layout_dir).upper() not in valid_dirs:
+            warnings.append(f"Canvas layoutDirection '{layout_dir}' is unrecognized. Recommended: 'LR' or 'DOWN'.")
+
         summary = {
             "valid": True,
             "version": norm_spec.get("version"),
@@ -235,12 +305,14 @@ async def validate_diagram_spec(spec: dict) -> str:
 @mcp.tool()
 async def list_templates() -> str:
     """
-    Lists available built-in starter diagram templates ('dataflow', 'microservices', 'auth_flow') with descriptions and visual themes.
+    Lists available built-in starter diagram templates ('dataflow', 'microservices', 'auth_flow', 'fintech_platform', 'global_ai_mesh') with descriptions and visual themes.
     """
     descriptions = {
         "dataflow": "Realtime Dataflow Engine processing Kafka streams with Timescale DB storage",
         "microservices": "Cloud Microservices Topology showing API Gateway and OAuth2 Auth Service",
-        "auth_flow": "OAuth2 Authentication Sequence between SPA Client and Identity Provider"
+        "auth_flow": "OAuth2 Authentication Sequence between SPA Client and Identity Provider",
+        "fintech_platform": "Global FinTech Payment Backbone with PCI Gateway and Immutable Ledger",
+        "global_ai_mesh": "Cognitive AI Inference Mesh with Agentic Router and vLLM Cluster"
     }
     return json.dumps({
         "templates": [
@@ -258,7 +330,7 @@ async def list_templates() -> str:
 @mcp.tool()
 async def get_template(name: str) -> str:
     """
-    Retrieves the complete JSON spec for a starter diagram template by name ('dataflow', 'microservices', 'auth_flow').
+    Retrieves the complete JSON spec for a starter diagram template by name.
     """
     if name not in STARTER_TEMPLATES:
         return json.dumps({
@@ -268,13 +340,16 @@ async def get_template(name: str) -> str:
     return json.dumps(STARTER_TEMPLATES[name], indent=2)
 
 @mcp.tool()
-async def list_saved_diagrams(limit: int = 10) -> str:
+async def list_saved_diagrams(limit: int = 10, query: Optional[str] = None) -> str:
     """
-    Lists diagrams stored in the database for the MCP system user.
+    Lists diagrams stored in the database for the MCP system user, with optional title keyword search.
     """
     async with async_session_maker() as db:
         user = await get_or_create_mcp_user(db)
-        stmt = select(Diagram).where(Diagram.user_id == user.id).limit(limit)
+        stmt = select(Diagram).where(Diagram.user_id == user.id)
+        if query and query.strip():
+            stmt = stmt.where(Diagram.title.ilike(f"%{query.strip()}%"))
+        stmt = stmt.limit(limit)
         res = await db.execute(stmt)
         diagrams = res.scalars().all()
         
@@ -323,9 +398,10 @@ async def get_saved_diagram(diagram_id: str) -> str:
         }, indent=2)
 
 @mcp.tool()
-async def save_diagram(title: str, spec: dict, description: Optional[str] = None, theme: str = "dark") -> str:
+async def save_diagram(title: str, spec: dict, description: Optional[str] = None, theme: str = "dark", diagram_id: Optional[str] = None) -> str:
     """
-    Validates and persists a diagram specification into the database under the MCP system user account.
+    Validates and persists or updates a diagram specification into the database under the MCP system user account.
+    If diagram_id is provided, updates the existing record (upsert).
     Returns structured JSON with diagram_id, status, title, and timestamps.
     """
     try:
@@ -337,22 +413,50 @@ async def save_diagram(title: str, spec: dict, description: Optional[str] = None
             "path": getattr(e, 'path', None)
         }, indent=2)
 
+    # Auto-extract title if title argument is empty or generic
+    if not title or not title.strip():
+        if isinstance(spec.get("title"), dict):
+            title = f"{spec['title'].get('prefix', '')} {spec['title'].get('highlight', '')}".strip()
+        if not title:
+            title = "Untitled FlowDraft Diagram"
+
     async with async_session_maker() as db:
         user = await get_or_create_mcp_user(db)
+        diagram = None
         
-        diagram = Diagram(
-            title=title,
-            description=description,
-            spec=spec,
-            theme=theme,
-            user_id=user.id
-        )
-        db.add(diagram)
+        if diagram_id:
+            try:
+                diag_uuid = uuid.UUID(diagram_id)
+                stmt = select(Diagram).where(Diagram.id == diag_uuid, Diagram.user_id == user.id)
+                res = await db.execute(stmt)
+                diagram = res.scalar_one_or_none()
+            except Exception:
+                diagram = None
+
+        if diagram:
+            diagram.title = title
+            if description is not None:
+                diagram.description = description
+            diagram.spec = spec
+            diagram.theme = theme
+            diagram.updated_at = datetime.utcnow()
+            status_str = "updated"
+        else:
+            diagram = Diagram(
+                title=title,
+                description=description,
+                spec=spec,
+                theme=theme,
+                user_id=user.id
+            )
+            db.add(diagram)
+            status_str = "saved"
+            
         await db.commit()
         await db.refresh(diagram)
         
         return json.dumps({
-            "status": "saved",
+            "status": status_str,
             "diagram_id": str(diagram.id),
             "title": diagram.title,
             "description": diagram.description,
@@ -395,22 +499,40 @@ async def delete_saved_diagram(diagram_id: str) -> str:
 @mcp.tool()
 async def trigger_export(spec: dict, format: str = "gif") -> str:
     """
-    Submits a diagram spec and media format (mp4, gif, or png) to the video export queue.
+    Submits a diagram spec and media format (mp4, gif, png, svg, or excalidraw) to the video export queue.
     Returns structured JSON with job_id, format, and status.
     """
     try:
-        validate_spec(spec)
+        norm_spec = validate_spec(spec)
+        ir = compile_spec(norm_spec)
+        layout(ir)
+        if "canvas" in ir and isinstance(ir["canvas"], dict):
+            if "canvas" not in norm_spec or not isinstance(norm_spec["canvas"], dict):
+                norm_spec["canvas"] = {}
+            norm_spec["canvas"]["width"] = max(norm_spec["canvas"].get("width", 1920), ir["canvas"].get("width", 1920))
+            norm_spec["canvas"]["height"] = max(norm_spec["canvas"].get("height", 1440), ir["canvas"].get("height", 1440))
+        spec = norm_spec
     except SpecError as e:
         return json.dumps({
             "status": "failed",
             "error": f"Validation failed: {e.reason}",
             "path": getattr(e, 'path', None)
         }, indent=2)
+    except Exception as e:
+        pass
 
-    if format not in ("mp4", "gif", "png"):
+    if format not in ("mp4", "gif", "png", "svg", "excalidraw"):
         return json.dumps({
             "status": "failed",
-            "error": "Unsupported format. Must be 'mp4', 'gif', or 'png'."
+            "error": "Unsupported format. Must be 'mp4', 'gif', 'png', 'svg', or 'excalidraw'."
+        }, indent=2)
+
+    # Check duration cap for animated exports
+    duration = spec.get("canvas", {}).get("duration", 2.0)
+    if format in ("mp4", "gif") and duration > 30.0:
+        return json.dumps({
+            "status": "failed",
+            "error": f"Export duration ({duration}s) exceeds maximum allowed limit of 30.0 seconds."
         }, indent=2)
 
     async with async_session_maker() as db:
@@ -450,10 +572,10 @@ async def trigger_export(spec: dict, format: str = "gif") -> str:
         }, indent=2)
 
 @mcp.tool()
-async def get_export_status(job_id: str) -> str:
+async def get_export_status(job_id: str, include_base64: bool = False) -> str:
     """
     Queries the status of an export job by its UUID.
-    Returns structured JSON with job_id, status, download_url, presigned_url, error_message, and file size metadata when completed.
+    Returns structured JSON with job_id, status, download_url, presigned_url, error_message, file size metadata, and optional base64 image content when requested.
     """
     try:
         job_uuid = uuid.UUID(job_id)
@@ -477,13 +599,16 @@ async def get_export_status(job_id: str) -> str:
         presigned_url = None
         proxy_url = None
         file_size = None
+        base64_data = None
 
         if job.status == "completed":
             proxy_url = f"/api/v1/export/{job_id}/download"
             storage = MinioStorage()
             object_name = f"{job_id}.{job.format}"
             try:
-                presigned_url = storage.get_download_url(object_name)
+                raw_presigned = storage.get_download_url(object_name)
+                # Replace internal Docker hostname minio:9000 with localhost:9000 for host client access
+                presigned_url = raw_presigned.replace("http://minio:9000", "http://localhost:9000")
                 job.download_url = proxy_url
                 await db.commit()
             except Exception as e:
@@ -492,17 +617,28 @@ async def get_export_status(job_id: str) -> str:
                 if storage.client:
                     stat = storage.client.stat_object(storage.bucket_name, object_name)
                     file_size = stat.size
+                    
+                    if include_base64 and job.format in ("png", "svg", "excalidraw"):
+                        response = storage.client.get_object(storage.bucket_name, object_name)
+                        img_bytes = response.read()
+                        response.close()
+                        response.release_conn()
+                        base64_data = base64.b64encode(img_bytes).decode("utf-8")
             except Exception:
                 file_size = None
 
-        return json.dumps({
+        out_dict = {
             "job_id": str(job.id),
             "status": job.status,
             "download_url": proxy_url,
             "presigned_url": presigned_url,
             "error_message": job.error_message,
             "file_size": file_size
-        }, indent=2)
+        }
+        if include_base64 and base64_data:
+            out_dict["base64_data"] = base64_data
+
+        return json.dumps(out_dict, indent=2)
 
 # ----------------------------------------------------------------------
 # MCP Resources & Prompts

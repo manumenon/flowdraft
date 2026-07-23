@@ -92,9 +92,9 @@ def route_with_elk(ir: dict) -> bool:
                 "elk.algorithm": "layered",
                 "elk.direction": "DOWN" if direction == "column" else "RIGHT",
                 "elk.spacing.nodeNode": str(gap),
-                "elk.layered.spacing.nodeNodeBetweenLayers": str(gap),
+                "elk.layered.spacing.nodeNodeBetweenLayers": str(gap + 15),
                 "elk.spacing.edgeNode": "20",
-                "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+                "elk.layered.nodePlacement.strategy": "BALANCED",
                 "elk.edgeRouting": "ORTHOGONAL",
                 "elk.padding": f"[top={top_pad},left=20,bottom=20,right=20]"
             }
@@ -108,11 +108,15 @@ def route_with_elk(ir: dict) -> bool:
     has_title = bool(ir.get("title"))
     top_root_pad = 200 if has_title else 80
 
+    canvas_opts = ir.get("canvas", {}) or {}
+    layout_dir = str(canvas_opts.get("layoutDirection", "DOWN")).upper()
+    elk_dir = "RIGHT" if layout_dir in ("RIGHT", "LR", "HORIZONTAL") else "DOWN"
+
     elk_root = {
         "id": "root",
         "layoutOptions": {
             "elk.algorithm": "layered",
-            "elk.direction": "DOWN",
+            "elk.direction": elk_dir,
             "elk.spacing.nodeNode": "80",
             "elk.layered.spacing.nodeNodeBetweenLayers": "90",
             "elk.spacing.edgeNode": "30",
@@ -132,7 +136,7 @@ def route_with_elk(ir: dict) -> bool:
     # Assemble hierarchy
     for node in nodes:
         nid = node["id"]
-        if nid.endswith("_footer") or node.get("_role") == "footer":
+        if nid.endswith("_footer") or node.get("_role") == "footer" or node.get("type") in ("hero", "hero_card") or node.get("variant") in ("hero", "hero_card") or nid.startswith("hero"):
             continue
         elk_node = elk_nodes[nid]
         parent_id = node.get("parent")
@@ -378,33 +382,73 @@ def route_with_elk(ir: dict) -> bool:
                 node["height"] = needed_h
 
     # Resolve vertical top-level overlaps if panels expanded
-    toplevel_nodes = [n for n in nodes if n.get("parent") is None]
-    toplevel_nodes.sort(key=lambda n: n["y"])
+    toplevel_nodes = [n for n in nodes if n.get("parent") is None and n.get("type") not in ("hero", "hero_card") and n.get("variant") not in ("hero", "hero_card") and not n.get("id", "").startswith("hero") and n.get("y") is not None and n.get("x") is not None]
+    toplevel_nodes.sort(key=lambda n: n.get("y", 0.0))
     for i in range(len(toplevel_nodes)):
         for j in range(i):
             prev = toplevel_nodes[j]
             curr = toplevel_nodes[i]
-            prev_bottom = prev["y"] + prev["height"]
-            prev_left, prev_right = prev["x"], prev["x"] + prev["width"]
-            curr_left, curr_right = curr["x"], curr["x"] + curr["width"]
+            prev_bottom = prev.get("y", 0.0) + prev.get("height", 0.0)
+            prev_left, prev_right = prev.get("x", 0.0), prev.get("x", 0.0) + prev.get("width", 0.0)
+            curr_left, curr_right = curr.get("x", 0.0), curr.get("x", 0.0) + curr.get("width", 0.0)
             if min(prev_right, curr_right) > max(prev_left, curr_left):
-                if curr["y"] < prev_bottom + 40.0:
-                    delta_y = (prev_bottom + 40.0) - curr["y"]
-                    curr["y"] += delta_y
+                if curr.get("y", 0.0) < prev_bottom + 40.0:
+                    delta_y = (prev_bottom + 40.0) - curr.get("y", 0.0)
+                    curr["y"] = curr.get("y", 0.0) + delta_y
                     for child in nodes:
-                        if child.get("parent") == curr["id"]:
+                        if child.get("parent") == curr["id"] and child.get("y") is not None:
                             child["y"] += delta_y
+
+    # Position hero summary banners top-centered below header title and shift top-level graph down
+    hero_nodes = [n for n in nodes if n.get("type") in ("hero", "hero_card") or n.get("variant") in ("hero", "hero_card") or n.get("id", "").startswith("hero")]
+    if hero_nodes:
+        total_hero_h = sum(h.get("height", 120.0) + 30.0 for h in hero_nodes)
+        for n in nodes:
+            if n.get("parent") is None and n not in hero_nodes and n.get("y") is not None:
+                n["y"] += total_hero_h
+
+        # Center hero banner across true center of graph bounding box
+        valid_nodes = [n for n in nodes if n not in hero_nodes and n.get("x") is not None]
+        if valid_nodes:
+            min_x = min(n["x"] for n in valid_nodes)
+            max_r = max(n["x"] + n.get("width", 0.0) for n in valid_nodes)
+            # Center hero summary banners top-centered above main graph
+        other_nodes = [n for n in nodes if n not in hero_nodes and n.get("x") is not None]
+        if other_nodes:
+            min_x = min(n["x"] for n in other_nodes)
+            max_r = max(n["x"] + n.get("width", 0.0) for n in other_nodes)
+            graph_center_x = (min_x + max_r) / 2.0
+        else:
+            graph_center_x = 1000.0
+
+        curr_hero_y = 130.0
+        for hero in hero_nodes:
+            hw = hero.get("width", 1400.0)
+            hero["x"] = graph_center_x - (hw / 2.0)
+            hero["y"] = curr_hero_y
+            curr_hero_y += hero.get("height", 120.0) + 20.0
     
-    # Store dynamic canvas size
-    max_node_r = 1000.0
-    max_node_b = 1000.0
-    for node in nodes:
-        if node.get("parent") is None:
-            max_node_r = max(max_node_r, node["x"] + node["width"] + 50.0)
-            max_node_b = max(max_node_b, node["y"] + node["height"] + 50.0)
-            
-    root_w = max(positioned_graph.get("width", 1000), max_node_r)
-    root_h = max(positioned_graph.get("height", 1000), max_node_b)
+    # Tight auto-crop canvas to exact content bounds + 60px padding
+    pos_nodes = [n for n in nodes if n.get("x") is not None and n.get("y") is not None]
+    if pos_nodes:
+        min_x = min(n["x"] for n in pos_nodes)
+        min_y = min(n["y"] for n in pos_nodes)
+        max_r = max(n["x"] + n.get("width", 0.0) for n in pos_nodes)
+        max_b = max(n["y"] + n.get("height", 0.0) for n in pos_nodes)
+
+        shift_x = 60.0 - min_x
+        shift_y = 40.0 - min_y
+
+        for n in pos_nodes:
+            n["x"] += shift_x
+            n["y"] += shift_y
+
+        root_w = int(max_r - min_x + 120.0)
+        root_h = int(max_b - min_y + 80.0)
+    else:
+        root_w = ir.get("canvas", {}).get("width", 1920)
+        root_h = ir.get("canvas", {}).get("height", 1080)
+
     if "canvas" not in ir:
         ir["canvas"] = {}
     ir["canvas"]["width"] = int(root_w)

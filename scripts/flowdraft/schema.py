@@ -31,7 +31,7 @@ from typing import Any, Dict, List, Optional, Set
 # ──────────────────────────────────────────────────────────────────────
 
 SUPPORTED_ELEMENT_TYPES: frozenset[str] = frozenset(
-    {"card", "diamond", "panel", "input", "label", "group", "cylinder", "cloud", "ellipse"}
+    {"card", "diamond", "panel", "input", "label", "group", "cylinder", "cloud", "ellipse", "hero", "hero_card"}
 )
 
 SUPPORTED_CONNECTION_STYLES: frozenset[str] = frozenset(
@@ -291,6 +291,10 @@ def _normalise_canvas(raw: Optional[dict], path: str = "canvas") -> Dict[str, An
     if abs(frames_val - round(frames_val)) > 1e-5:
         raise SpecError(f"frames must be an integer, got {frames_val}.", path=f"{path}.frames")
     canvas["frames"] = int(round(frames_val))
+    if "layoutDirection" in raw:
+        canvas["layoutDirection"] = raw["layoutDirection"]
+    if "layoutAlgorithm" in raw:
+        canvas["layoutAlgorithm"] = raw["layoutAlgorithm"]
 
     return canvas
 
@@ -607,6 +611,12 @@ def _normalise_connection(
         _require_type(color, str, path=f"{path}.color", label="color")
     normalised["color"] = color
 
+    # --- optional motion & flowing ------------------------------------
+    if "motion" in conn:
+        normalised["motion"] = conn["motion"]
+    if "flowing" in conn:
+        normalised["flowing"] = conn["flowing"]
+
     return normalised
 
 
@@ -716,10 +726,14 @@ def _normalise_annotation(
         normalised["from"] = ann_from
         normalised["to"] = ann_to
 
+    elif ann.get("x") is not None and ann.get("y") is not None:
+        normalised["x"] = float(ann["x"])
+        normalised["y"] = float(ann["y"])
+
     else:
         raise SpecError(
-            "Annotation must specify either 'attachTo' (element ID) or both "
-            "'from' and 'to' (connection midpoint).",
+            "Annotation must specify either 'attachTo' (element ID), both "
+            "'from' and 'to' (connection midpoint), or absolute ('x', 'y') coordinates.",
             path=path,
         )
 
