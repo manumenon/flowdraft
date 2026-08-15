@@ -27,6 +27,7 @@ from app.core.database import async_session_maker
 from app.models import ExportJob, Diagram, User
 from app.services.redis_broker import RedisBroker
 from app.services.storage import MinioStorage
+from app.services.ts_layout_bridge import run_ts_layout, resolve_annotation_positions, TsLayoutError
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
@@ -138,6 +139,22 @@ STARTER_TEMPLATES: Dict[str, dict] = {
 # MCP Tools
 # ----------------------------------------------------------------------
 
+def _canvas_layout_direction_to_ts(raw: Optional[str]) -> str:
+    """
+    Converts the legacy Python/ELK ``canvas.layoutDirection`` convention
+    (``"DOWN"``/``"RIGHT"``/``"LR"``/``"TB"``/``"HORIZONTAL"``/``"VERTICAL"``,
+    defaulting to ``"DOWN"`` when unset -- see
+    ``scripts/flowdraft/elk_layout.py``'s own normalisation of the same
+    field) into ``ts_layout_bridge.run_ts_layout``'s convention (exactly
+    ``"vertical"`` means top-to-bottom, anything else means left-to-right).
+    Keeps ``compile_diagram``'s default layout orientation, for specs that
+    don't set ``canvas.layoutDirection`` at all, unchanged across the engine
+    swap.
+    """
+    s = str(raw or "DOWN").upper()
+    return "vertical" if s in ("DOWN", "TB", "VERTICAL") else "horizontal"
+
+
 @mcp.tool()
 async def compile_diagram(spec: dict) -> str:
     """
@@ -147,48 +164,89 @@ async def compile_diagram(spec: dict) -> str:
     """
     try:
         norm_spec = validate_spec(spec)
-        ir = compile_spec(norm_spec)
+        elements = norm_spec.get("elements", [])
+        connections = norm_spec.get("connections", [])
         canvas = norm_spec.get("canvas", {})
         cw = canvas.get("width", 1920)
         ch = canvas.get("height", 1440)
-        layout_ir = layout(ir, cw, ch)
+
+        # The live validation gate (validate_spec, above) is unchanged. What
+        # used to compute positions from here -- compile_spec() + layout(),
+        # the legacy pure-Python engine -- is replaced by a subprocess call
+        # into the real TypeScript layout engine (the one whose output is
+        # actually shown to a human: see ts_layout_bridge.py's module
+        # docstring). validate_spec() already flattens elements/footers and
+        # assigns `parent` pointers, which is exactly the flat, parent-
+        # pointer shape the TS engine's own LayoutRequest expects.
+        bridge_result = run_ts_layout(
+            elements=elements,
+            connections=connections,
+            title=norm_spec.get("title"),
+            layout_direction=_canvas_layout_direction_to_ts(canvas.get("layoutDirection")),
+            layout_algorithm=canvas.get("layoutAlgorithm"),
+        )
+        positioned_nodes = bridge_result["nodes"]
+        connection_points = bridge_result["connection_points"]
+
+        # Rebuild each element's children-id list from parent back-references
+        # -- norm_spec's elements are already flat with `parent` set, so this
+        # mirrors the same rebuild scripts/flowdraft/compiler.py's
+        # compile_spec() used to do for the legacy IR's own "children" field.
+        children_by_parent: Dict[str, List[str]] = {}
+        for el in elements:
+            parent_id = el.get("parent")
+            if parent_id:
+                children_by_parent.setdefault(parent_id, []).append(el.get("id"))
 
         nodes_summary = []
         min_x, min_y = float('inf'), float('inf')
         max_x, max_y = float('-inf'), float('-inf')
 
-        for node in layout_ir.get("nodes", []):
-            x = node.get("x", 0)
-            y = node.get("y", 0)
-            w = node.get("width", 0)
-            h = node.get("height", 0)
+        for el in elements:
+            eid = el.get("id")
+            pos = positioned_nodes.get(eid, {})
+            x = pos.get("x", 0)
+            y = pos.get("y", 0)
+            w = pos.get("width", 0)
+            h = pos.get("height", 0)
             min_x = min(min_x, x)
             min_y = min(min_y, y)
             max_x = max(max_x, x + w)
             max_y = max(max_y, y + h)
 
             nodes_summary.append({
-                "id": node.get("id"),
-                "type": node.get("type"),
-                "title": node.get("title", ""),
+                "id": eid,
+                "type": el.get("type"),
+                "title": el.get("title", ""),
                 "x": round(x, 2),
                 "y": round(y, 2),
                 "width": round(w, 2),
                 "height": round(h, 2),
-                "parent": node.get("parent"),
-                "children": node.get("children", [])
+                "parent": el.get("parent"),
+                "children": children_by_parent.get(eid, [])
             })
 
         connections_summary = []
-        for conn in layout_ir.get("connections", []):
+        for i, conn in enumerate(connections):
+            points = connection_points[i] if i < len(connection_points) else []
             connections_summary.append({
                 "from": conn.get("from"),
                 "to": conn.get("to"),
                 "style": conn.get("style", "solid"),
-                "points": conn.get("points", [])
+                "points": points
             })
 
-        annotations_summary = layout_ir.get("annotations", []) or norm_spec.get("annotations", [])
+        # The TS engine itself doesn't compute annotation positions (the
+        # frontend attaches annotations directly onto their target node's
+        # own data and positions them via CSS at render time, never via
+        # layout-computed x/y). Coordinates are still part of this tool's
+        # external contract, so they're resolved here from the already-
+        # positioned nodes/routed connections the bridge just returned --
+        # see resolve_annotation_positions()'s docstring for why this lives
+        # in Python rather than in the TS engine.
+        annotations_summary = resolve_annotation_positions(
+            norm_spec.get("annotations", []), connections, positioned_nodes, connection_points
+        )
 
         bounding_box = {
             "min_x": round(min_x, 2) if min_x != float('inf') else 0,
@@ -226,6 +284,11 @@ async def compile_diagram(spec: dict) -> str:
             "status": "error",
             "error": f"Compilation failed: {e.reason}",
             "path": getattr(e, 'path', None)
+        }, indent=2)
+    except TsLayoutError as e:
+        return json.dumps({
+            "status": "error",
+            "error": f"Layout engine failed: {e}"
         }, indent=2)
     except Exception as e:
         return json.dumps({

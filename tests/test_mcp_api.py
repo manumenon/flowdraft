@@ -202,6 +202,71 @@ class TestMCPAPI(unittest.TestCase):
         self.assertEqual(data["status"], "error")
         self.assertIn("Compilation failed", data["error"])
 
+    def test_compile_diagram_ts_engine_nested_panels_no_overlap(self):
+        # Stage 6b regression: compile_diagram is now bridged to the TS
+        # layout engine (backend/app/services/ts_layout_bridge.py) instead
+        # of the legacy Python compile_spec()+layout() pair. This spec has
+        # nested panels (elements inside panels) and a panel footer
+        # (`center_panel`'s footer -> `center_footer`), so it exercises the
+        # parent-relative -> absolute coordinate accumulation the bridge is
+        # responsible for, not just flat/simple specs.
+        default_spec_path = os.path.join(project_root, "assets", "default-spec-v2.json")
+        with open(default_spec_path, "r", encoding="utf-8") as f:
+            spec = json.load(f)
+
+        res = asyncio.run(compile_diagram(spec))
+        data = json.loads(res)
+
+        self.assertEqual(data["status"], "compiled", data.get("error"))
+        self.assertGreater(data["element_count"], 20)
+        self.assertGreater(data["connection_count"], 0)
+        self.assertIn("bounding_box", data)
+
+        nodes = data["nodes"]
+        self.assertTrue(len(nodes) > 0)
+
+        # Every node must be positively/sanely positioned and sized.
+        for n in nodes:
+            self.assertIsInstance(n["x"], (int, float))
+            self.assertIsInstance(n["y"], (int, float))
+            self.assertGreaterEqual(n["width"], 0)
+            self.assertGreaterEqual(n["height"], 0)
+
+        # A nested panel's children must actually be positioned (a bridge
+        # bug in the parent-relative -> absolute conversion would leave
+        # these at (0, 0) or outside their panel's bounds).
+        by_id = {n["id"]: n for n in nodes}
+        self.assertIn("center_panel", by_id)
+        self.assertIn("center_footer", by_id)
+        panel = by_id["center_panel"]
+        footer = by_id["center_footer"]
+        self.assertGreaterEqual(footer["x"], panel["x"] - 2)
+        self.assertGreaterEqual(footer["y"], panel["y"] - 2)
+        self.assertLessEqual(footer["x"] + footer["width"], panel["x"] + panel["width"] + 2)
+        self.assertLessEqual(footer["y"] + footer["height"], panel["y"] + panel["height"] + 2)
+
+        # No two sibling node rects (same parent, including top-level
+        # siblings sharing `parent: None`) may overlap.
+        siblings_by_parent = {}
+        for n in nodes:
+            siblings_by_parent.setdefault(n["parent"], []).append(n)
+
+        def rects_overlap(a, b):
+            ax1, ay1, ax2, ay2 = a["x"], a["y"], a["x"] + a["width"], a["y"] + a["height"]
+            bx1, by1, bx2, by2 = b["x"], b["y"], b["x"] + b["width"], b["y"] + b["height"]
+            ix = min(ax2, bx2) - max(ax1, bx1)
+            iy = min(ay2, by2) - max(ay1, by1)
+            return ix > 1 and iy > 1  # >1px tolerance for touching edges
+
+        overlaps = []
+        for sibs in siblings_by_parent.values():
+            for i in range(len(sibs)):
+                for j in range(i + 1, len(sibs)):
+                    if rects_overlap(sibs[i], sibs[j]):
+                        overlaps.append((sibs[i]["id"], sibs[j]["id"]))
+
+        self.assertEqual(overlaps, [], f"Found overlapping sibling node rects: {overlaps}")
+
     def test_validate_diagram_spec_valid(self):
         res_str = asyncio.run(validate_diagram_spec(self.sample_spec))
         data = json.loads(res_str)

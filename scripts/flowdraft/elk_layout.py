@@ -457,6 +457,62 @@ def route_with_elk(ir: dict) -> bool:
             if needed_h > node["height"]:
                 node["height"] = needed_h
 
+    # Re-fit panel header title/subtitle text to each panel's FINAL width.
+    #
+    # compiler.py::_measure_panel() pre-measures title/subtitle/badge against a
+    # PLACEHOLDER panel width (600.0 default, badge_clearance hardcoded to 140.0)
+    # because the real width isn't known until ELK's compound-node auto-sizing
+    # (and the bounds-expansion pass above) runs. Without this step, the stale
+    # title box width from compile time can overflow the panel's real right edge
+    # or overlap the badge chip that renderer.py positions using the final width.
+    # This mirrors layout_engine.py::layout_panel_children()'s header re-wrap
+    # logic (the legacy/non-ELK path already does this correctly).
+    from scripts.flowdraft.layout_engine import _get_panel_padding
+    from scripts.flowdraft.compiler import _measure_text
+    from PIL import Image, ImageDraw
+    img_temp_hdr = Image.new("RGB", (1, 1))
+    draw_temp_hdr = ImageDraw.Draw(img_temp_hdr)
+
+    for node in nodes:
+        if node.get("type") != "panel":
+            continue
+        offsets = node.get("layout_offsets") or {}
+        if "title" not in offsets and "subtitle" not in offsets:
+            continue
+
+        pad = _get_panel_padding(node)
+        panel_w = max(float(node.get("width", 0.0) or 0.0), 100.0)
+        avail_w = max(50.0, panel_w - pad["left"] - pad["right"])
+        if "badge" in offsets:
+            avail_w = max(50.0, avail_w - (offsets["badge"]["w"] + 15.0))
+
+        if "title" in offsets:
+            title_off = offsets["title"]
+            title_off["w"] = avail_w
+            title_text = node.get("title", "")
+            if title_text:
+                _, t_size, t_w, t_h = _measure_text(
+                    draw_temp_hdr, title_text, avail_w, 200.0, title_off["size"],
+                    min_size=title_off["min_size"], hand=title_off["hand"], bold=title_off["bold"],
+                )
+                title_off["h"] = max(34.0, t_h)
+                title_off["size"] = t_size
+
+        if "subtitle" in offsets:
+            sub_avail_w = max(50.0, panel_w - pad["left"] - pad["right"])
+            subtitle_off = offsets["subtitle"]
+            subtitle_off["w"] = sub_avail_w
+            if "title" in offsets:
+                subtitle_off["y"] = offsets["title"]["y"] + offsets["title"]["h"] + 6.0
+            subtitle_text = node.get("subtitle", "")
+            if subtitle_text:
+                _, s_size, s_w, s_h = _measure_text(
+                    draw_temp_hdr, subtitle_text, sub_avail_w, 100.0, subtitle_off["size"],
+                    min_size=subtitle_off["min_size"], hand=subtitle_off["hand"], bold=subtitle_off["bold"],
+                )
+                subtitle_off["h"] = s_h
+                subtitle_off["size"] = s_size
+
     # Resolve vertical top-level overlaps if panels expanded
     toplevel_nodes = [n for n in nodes if n.get("parent") is None and n.get("type") not in ("hero", "hero_card") and n.get("variant") not in ("hero", "hero_card") and not n.get("id", "").startswith("hero") and n.get("y") is not None and n.get("x") is not None]
     toplevel_nodes.sort(key=lambda n: n.get("y", 0.0))

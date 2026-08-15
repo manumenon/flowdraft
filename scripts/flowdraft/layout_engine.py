@@ -1733,23 +1733,26 @@ def layout(
         
         # Define dynamic obstacle exclusions: exclude the src/tgt nodes and any of their ancestor panels
         excluded_ids = {src_id, tgt_id}
+        ancestor_panel_ids: set = set()
         for nid in (src_id, tgt_id):
             curr = nodes_map.get(nid)
             while curr and curr.get("parent"):
-                excluded_ids.add(curr["parent"])
-                curr = nodes_map.get(curr["parent"])
-        obstacles = [n for n in nodes if n["id"] not in excluded_ids and not n["id"].startswith("decor_") and n.get("type") != "panel"]
-        
+                parent_id = curr["parent"]
+                excluded_ids.add(parent_id)
+                parent_node = nodes_map.get(parent_id)
+                if parent_node and parent_node.get("type") == "panel":
+                    ancestor_panel_ids.add(parent_id)
+                curr = parent_node
+        # Any node that isn't the connection's own endpoints/ancestor-panel chain is a HARD
+        # obstacle, regardless of type — unrelated panels must block routes exactly like cards do.
+        obstacles = [n for n in nodes if n["id"] not in excluded_ids and not n["id"].startswith("decor_")]
+
         # Run A* or fallback between stubs
         soft_cards = []
-        soft_panels = [n for n in nodes if n.get("type") == "panel" and n["id"] not in excluded_ids]
-        for nid in (src_id, tgt_id):
-            curr = nodes_map.get(nid)
-            if curr and curr.get("parent"):
-                p_node = nodes_map.get(curr["parent"])
-                if p_node and p_node not in soft_panels:
-                    soft_panels.append(p_node)
-        
+        # Only the connection's own ancestor panels stay soft (enterable at a penalty) — an
+        # endpoint nested inside a panel legitimately can't avoid touching that panel's interior.
+        soft_panels = [n for n in nodes if n["id"] in ancestor_panel_ids]
+
         middle_points = route_orthogonal_astar(
             p_start_stub, p_end_stub, obstacles, canvas_w, canvas_h,
             soft_cards=soft_cards, soft_panels=soft_panels

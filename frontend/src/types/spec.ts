@@ -1,4 +1,4 @@
-export type ElementType = 'card' | 'diamond' | 'panel' | 'input' | 'label' | 'group' | 'cylinder' | 'cloud' | 'ellipse';
+export type ElementType = 'card' | 'diamond' | 'panel' | 'input' | 'label' | 'group' | 'cylinder' | 'cloud' | 'ellipse' | 'hero' | 'hero_card';
 export type PortType = 'top' | 'bottom' | 'left' | 'right';
 export type ConnectionStyle = 'solid' | 'dashed' | 'dotted';
 export type AnnotationPosition =
@@ -35,7 +35,7 @@ export interface StyleConfig {
 }
 
 export interface LayoutConfig {
-  direction?: 'row' | 'column';
+  direction?: 'row' | 'column' | 'flow' | 'grid';
   gap?: number;
   max_cols?: number;
   grid_cols?: number;

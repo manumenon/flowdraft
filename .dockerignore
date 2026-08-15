@@ -1,0 +1,9 @@
+.git
+**/node_modules
+frontend/dist
+frontend/dist-cli
+frontend/dist-ssr
+**/__pycache__
+**/*.pyc
+.pytest_cache
+scratch

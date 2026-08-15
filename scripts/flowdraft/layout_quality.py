@@ -131,6 +131,66 @@ def check_title_badge_clearance(nodes: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {"name": "title_badge_clearance", "ok": len(violations) == 0, "violations": violations}
 
 
+def check_panel_header_fits(nodes: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Assert every panel's own title text fits inside its own final bounds and
+    does not overlap its own badge chip.
+
+    This is distinct from ``check_title_badge_clearance``, which only checks
+    overlap against the page's big decorative title block (``decor_title_*``)
+    and says nothing about a panel's title overflowing its own panel or
+    colliding with its own badge.
+    """
+    from scripts.flowdraft.layout_engine import _get_panel_padding
+
+    violations = []
+    tol = 2.0
+
+    for n in nodes:
+        if n.get("type") != "panel":
+            continue
+        offsets = n.get("layout_offsets", {}) or {}
+        title_off = offsets.get("title")
+        if not title_off:
+            continue
+
+        nid = n.get("id", "")
+        panel_w = float(n.get("width", 0.0) or 0.0)
+
+        # Resolve padding the same way Part 1's elk_layout.py refit does.
+        pad_right = float(_get_panel_padding(n).get("right", 12.0))
+
+        title_x = float(title_off.get("x", 0.0))
+        title_w = float(title_off.get("w", 0.0))
+        title_right = title_x + title_w
+
+        # 1. Title overflowing the panel's own right edge.
+        panel_inner_right = panel_w - pad_right
+        if title_right > panel_inner_right + tol:
+            violations.append({
+                "node": nid,
+                "kind": "title_overflows_panel",
+                "title_right": title_right,
+                "panel_inner_right": panel_inner_right,
+                "overflow": title_right - panel_inner_right,
+            })
+
+        # 2. Title overlapping the panel's own badge chip.
+        badge_off = offsets.get("badge")
+        if badge_off:
+            badge_w = float(badge_off.get("w", 0.0))
+            badge_left = panel_w - badge_w - 15.0
+            if title_right > badge_left + tol:
+                violations.append({
+                    "node": nid,
+                    "kind": "title_overlaps_badge",
+                    "title_right": title_right,
+                    "badge_left": badge_left,
+                    "overlap": title_right - badge_left,
+                })
+
+    return {"name": "panel_header_fits", "ok": len(violations) == 0, "violations": violations}
+
+
 def check_directional_port_normal_stubs(connections: List[Dict[str, Any]], min_stub_len: float = 16.0) -> Dict[str, Any]:
     """Assert initial and final connection segments extend at least min_stub_len (16px) perpendicular normal stubs out of port sides."""
     invalid = []
@@ -237,6 +297,7 @@ def check_layout_quality(
         check_excalidraw_unique_ids(elements),
         check_gif_has_motion(diff_report or ir.get("_diff_report")),
         check_title_badge_clearance(nodes),
+        check_panel_header_fits(nodes),
         check_directional_port_normal_stubs(connections),
         check_multi_connection_port_spacing(connections, nodes),
     ]

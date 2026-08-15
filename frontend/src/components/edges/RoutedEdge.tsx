@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { EdgeLabelRenderer, useNodes, type EdgeProps } from '@xyflow/react';
 import { gsap } from 'gsap';
 import { getManhattanPath, type RectObstacle } from '../../utils/routing';
+import { routeAroundObstacles } from '../../utils/obstacleRouter';
 
 interface Segment {
   x1: number;
@@ -143,6 +144,8 @@ function getArcLengthMidpoint(points: [number, number][]): [number, number] {
 
 export const RoutedEdge: React.FC<EdgeProps> = ({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -178,16 +181,44 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
       return { x, y };
     };
 
-    return nodes.map((n) => {
-      const abs = getAbsPosition(n);
-      return {
-        x: abs.x,
-        y: abs.y,
-        width: n.measured?.width || n.width || (n.style?.width as number) || 180,
-        height: n.measured?.height || n.height || (n.style?.height as number) || 100,
-      };
-    });
-  }, [nodes]);
+    // Exclude this connection's own ancestor-panel chain (and the source/
+    // target nodes themselves) from the obstacle list. Walks parentId up the
+    // same way getAbsPosition does above. Excluding the source/target nodes
+    // is necessary, not just cosmetic: routeAroundObstacles' A* starts and
+    // ends exactly ON that node's own border, so leaving it in the obstacle
+    // set would make literally every candidate first/last step "collide"
+    // with its own endpoint's container, since the point sits inside that
+    // obstacle's expanded margin by construction.
+    const getAncestorChain = (nodeId: string | undefined): Set<string> => {
+      const chain = new Set<string>();
+      let curr = nodeId ? nodeMap.get(nodeId) : undefined;
+      if (curr) chain.add(curr.id);
+      while (curr && curr.parentId) {
+        const parent = nodeMap.get(curr.parentId);
+        if (!parent) break;
+        chain.add(parent.id);
+        curr = parent;
+      }
+      return chain;
+    };
+
+    const excluded = new Set<string>([
+      ...getAncestorChain(source),
+      ...getAncestorChain(target),
+    ]);
+
+    return nodes
+      .filter((n) => !excluded.has(n.id))
+      .map((n) => {
+        const abs = getAbsPosition(n);
+        return {
+          x: abs.x,
+          y: abs.y,
+          width: n.measured?.width || n.width || (n.style?.width as number) || 180,
+          height: n.measured?.height || n.height || (n.style?.height as number) || 100,
+        };
+      });
+  }, [nodes, source, target]);
 
   // 1. Shift source coordinates if multiple connections share the exit port
   let shiftedSourceX = sourceX;
@@ -241,7 +272,66 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
     }
   }
 
-  const rawPoints = staticPoints || getManhattanPath(
+  // A* obstacle avoidance is materially more expensive than the plain
+  // geometric corridor it replaces below, and this runs in a render body —
+  // memoize it so it only recomputes when the actual routing inputs change,
+  // not on every unrelated re-render (e.g. selection/hover state).
+  const rawPoints = useMemo(() => {
+    if (staticPoints) return staticPoints;
+
+    // Ideal Manhattan corridor (direction stubs + parallel/corridor fan
+    // differentiation) computed WITHOUT the old per-obstacle nudge — that
+    // weak single-obstacle adjustment is what's being replaced below.
+    const naive = getManhattanPath(
+      shiftedSourceX,
+      shiftedSourceY,
+      sourcePosition,
+      shiftedTargetX,
+      shiftedTargetY,
+      targetPosition,
+      midpointOffset
+    );
+
+    if (naive.length < 2) return naive;
+
+    // Does the naive corridor actually cut through any (ancestor/self
+    // excluded) obstacle's interior? Only pay for real A* routing when it
+    // does — the same "only intervene when actually broken" principle used
+    // for the static-path corrective check.
+    const segmentHitsObstacle = (p1: [number, number], p2: [number, number]): boolean => {
+      return obstacles.some((obs) => {
+        const minX = Math.min(p1[0], p2[0]);
+        const maxX = Math.max(p1[0], p2[0]);
+        const minY = Math.min(p1[1], p2[1]);
+        const maxY = Math.max(p1[1], p2[1]);
+        return maxX > obs.x && minX < obs.x + obs.width && maxY > obs.y && minY < obs.y + obs.height;
+      });
+    };
+
+    let hasCollision = false;
+    for (let i = 0; i < naive.length - 1 && !hasCollision; i++) {
+      if (segmentHitsObstacle(naive[i], naive[i + 1])) hasCollision = true;
+    }
+
+    if (!hasCollision) return naive;
+
+    // Real obstacle avoidance (grid A*) for the corridor between the two
+    // direction stubs — replaces the weak nudge that used to run here.
+    const p1 = naive[1];
+    const p2 = naive[naive.length - 2];
+    const routed = routeAroundObstacles(
+      { x: p1[0], y: p1[1] },
+      { x: p2[0], y: p2[1] },
+      obstacles
+    );
+
+    return [
+      naive[0],
+      ...routed.map((p) => [p.x, p.y] as [number, number]),
+      naive[naive.length - 1],
+    ];
+  }, [
+    staticPoints,
     shiftedSourceX,
     shiftedSourceY,
     sourcePosition,
@@ -249,8 +339,8 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
     shiftedTargetY,
     targetPosition,
     midpointOffset,
-    obstacles
-  );
+    obstacles,
+  ]);
 
   // Clone points to avoid mutating state references
   const basePoints = rawPoints.map((pt) => [...pt] as [number, number]);
