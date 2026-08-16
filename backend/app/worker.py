@@ -137,6 +137,27 @@ async def render_frames(spec: dict, theme: str, format: str, job_id: Optional[st
                 timeout=15000
             )
 
+            # __LAYOUT_COMPLETE__ reflects React/DOM state, not paint state --
+            # the diagram's node/edge elements can exist in the DOM (correct
+            # positions, correct content) for one or more frames before
+            # Chromium has actually composited them. Two concrete causes
+            # observed to intermittently (~1 in 3) produce a screenshot of
+            # only the static title/watermark with the entire diagram body
+            # not yet painted, despite the DOM already being fully correct:
+            #  1. Web fonts (Inter/JetBrains Mono/Caveat, loaded from Google
+            #     Fonts in index.html) swapping in late, causing a reflow
+            #     after first paint.
+            #  2. fitView()'s viewport transform / node entrance transitions
+            #     needing more than one frame to visually settle under
+            #     container CPU/network contention.
+            # Wait on both directly instead of guessing at a fixed delay:
+            # document.fonts.ready is the deterministic signal for (1), and
+            # a few consecutive animation frames covers (2) far more
+            # reliably than a single requestAnimationFrame did.
+            await page.evaluate("() => document.fonts ? document.fonts.ready : Promise.resolve()")
+            for _ in range(4):
+                await page.evaluate("() => new Promise(requestAnimationFrame)")
+
             # Freeze clock if clock controller is present
             await page.evaluate("""
                 if (window.__CLOCK_CONTROLLER__) {

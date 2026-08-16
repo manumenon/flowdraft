@@ -38,6 +38,23 @@ function App() {
   const pathname = window.location.pathname;
   const isRenderBox = pathname.startsWith('/render-box');
 
+  // Initialize synchronously, before any layout work has a chance to run.
+  // worker.py's Playwright capture waits on:
+  //   typeof window.__LAYOUT_COMPLETE__ === 'undefined' || window.__LAYOUT_COMPLETE__ === true
+  // (the `undefined` branch exists so the wait is a no-op on pages that never
+  // set this flag at all). Canvas.tsx only ever *sets* it to `true`, once
+  // layout genuinely finishes -- it never initializes a pending `false`
+  // state. Without this line, the property stays `undefined` for the entire
+  // time layout is actually running, which trivially satisfies the
+  // `undefined` branch immediately on page load, before ELK has even started
+  // -- so the wait_for_function resolves instantly and Playwright screenshots
+  // an empty canvas. Setting it to `false` here up front removes the
+  // `undefined` case entirely for this page, forcing the wait to hold out
+  // for the real `=== true` transition.
+  if (isRenderBox) {
+    (window as any).__LAYOUT_COMPLETE__ = false;
+  }
+
   // Activate clock hook in render-box mode for Playwright automation
   useClockHook(isRenderBox);
 

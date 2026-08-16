@@ -3,6 +3,7 @@ import sys
 import uuid
 import json
 import base64
+import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 from sqlalchemy.future import select
@@ -20,8 +21,6 @@ while current_dir and current_dir != os.path.dirname(current_dir):
     current_dir = os.path.dirname(current_dir)
 
 from scripts.flowdraft.schema import validate_spec, SpecError, SUPPORTED_ELEMENT_TYPES, SUPPORTED_CONNECTION_STYLES, SUPPORTED_THEMES, SUPPORTED_PORTS
-from scripts.flowdraft.compiler import compile_spec
-from scripts.flowdraft.layout_engine import layout
 
 from app.core.database import async_session_maker
 from app.models import ExportJob, Diagram, User
@@ -32,6 +31,8 @@ from app.services.ts_layout_bridge import run_ts_layout, resolve_annotation_posi
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 from fastapi import FastAPI, Response
+
+log = logging.getLogger(__name__)
 
 # Initialize FastMCP application
 mcp = FastMCP("FlowDraft MCP Server")
@@ -567,13 +568,42 @@ async def trigger_export(spec: dict, format: str = "gif") -> str:
     """
     try:
         norm_spec = validate_spec(spec)
-        ir = compile_spec(norm_spec)
-        layout(ir)
-        if "canvas" in ir and isinstance(ir["canvas"], dict):
-            if "canvas" not in norm_spec or not isinstance(norm_spec["canvas"], dict):
-                norm_spec["canvas"] = {}
-            norm_spec["canvas"]["width"] = max(norm_spec["canvas"].get("width", 1920), ir["canvas"].get("width", 1920))
-            norm_spec["canvas"]["height"] = max(norm_spec["canvas"].get("height", 1440), ir["canvas"].get("height", 1440))
+
+        # Widen the export canvas to fit the TS engine's own computed size,
+        # if the caller's declared canvas is too small -- must use the SAME
+        # engine that actually renders the export (see compile_diagram, and
+        # worker.py's /render-box Playwright screenshot, which sizes its
+        # viewport directly from this canvas width/height). This used to call
+        # the legacy Python compile_spec()+layout(), which computes an
+        # unrelated (and frequently much smaller) auto-fit size for the same
+        # content -- and, because layout() mutates its IR's canvas dict
+        # in-place while ir["canvas"] and norm_spec["canvas"] were the same
+        # object, the "widen only if larger" comparison below was silently
+        # comparing the shrunk value against itself, so the export canvas
+        # would collapse to the legacy engine's (irrelevant) size instead of
+        # ever actually widening. Getting the sizing hint from the real
+        # rendering engine instead fixes both problems at once.
+        declared_w = (norm_spec.get("canvas") or {}).get("width", 1920)
+        declared_h = (norm_spec.get("canvas") or {}).get("height", 1440)
+        canvas_meta = norm_spec.get("canvas") or {}
+        try:
+            bridge_result = run_ts_layout(
+                elements=norm_spec.get("elements", []),
+                connections=norm_spec.get("connections", []),
+                title=norm_spec.get("title"),
+                layout_direction=_canvas_layout_direction_to_ts(canvas_meta.get("layoutDirection")),
+                layout_algorithm=canvas_meta.get("layoutAlgorithm"),
+            )
+            ts_w = bridge_result.get("canvas", {}).get("width") or declared_w
+            ts_h = bridge_result.get("canvas", {}).get("height") or declared_h
+        except TsLayoutError as e:
+            log.warning(f"trigger_export: TS layout sizing hint failed, keeping declared canvas size {declared_w}x{declared_h}: {e}")
+            ts_w, ts_h = declared_w, declared_h
+
+        if "canvas" not in norm_spec or not isinstance(norm_spec["canvas"], dict):
+            norm_spec["canvas"] = {}
+        norm_spec["canvas"]["width"] = max(declared_w, ts_w)
+        norm_spec["canvas"]["height"] = max(declared_h, ts_h)
         spec = norm_spec
     except SpecError as e:
         return json.dumps({
@@ -582,7 +612,7 @@ async def trigger_export(spec: dict, format: str = "gif") -> str:
             "path": getattr(e, 'path', None)
         }, indent=2)
     except Exception as e:
-        pass
+        log.warning(f"trigger_export: non-fatal error while normalising/sizing spec, proceeding with raw input: {e}")
 
     if format not in ("mp4", "gif", "png", "svg", "excalidraw"):
         return json.dumps({

@@ -7,6 +7,22 @@
     <meta name="description" content="FlowDraft is an interactive, animated technical architecture and process diagram designer. Create, layout, and export stunning diagrams to video or GIF seamlessly." />
     <meta name="robots" content="index, follow" />
     <title>FlowDraft — Architecture Animator</title>
+    <script>
+      // Must run before ANY module script loads, not just before React mounts.
+      // worker.py's Playwright capture waits on:
+      //   typeof window.__LAYOUT_COMPLETE__ === 'undefined' || window.__LAYOUT_COMPLETE__ === true
+      // (the `undefined` branch is a no-op for pages that never set this flag
+      // at all). Setting this from inside App.tsx's component body is too
+      // late: that only runs once React actually mounts, which happens after
+      // the bundled JS has been fetched and parsed -- leaving a real window,
+      // between this HTML executing and React's first render, where the
+      // property is still `undefined` and Playwright's wait can resolve
+      // instantly against an empty page. Doing it here, synchronously, as
+      // the first script the page ever runs, removes that window entirely.
+      if (location.pathname.startsWith('/render-box')) {
+        window.__LAYOUT_COMPLETE__ = false;
+      }
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
