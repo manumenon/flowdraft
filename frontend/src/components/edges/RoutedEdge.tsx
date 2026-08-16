@@ -261,15 +261,24 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
 
   // 4. Calculate base points (invalidate static waypoints if handle coordinates drift during node drag)
   let staticPoints = edgeData.points as [number, number][] | undefined;
+  // Precomputed labelX/labelY were resolved against this SAME static path
+  // (see layoutCore.ts's resolveLabelPositions), so they go stale for
+  // exactly the same reasons/triggers staticPoints does below — track that
+  // together rather than duplicating the invalidation conditions.
+  let staticPointsValid = true;
   if (edgeData.isDragging) {
     staticPoints = undefined;
+    staticPointsValid = false;
   } else if (staticPoints && staticPoints.length >= 2) {
     const sDist = Math.hypot(staticPoints[0][0] - shiftedSourceX, staticPoints[0][1] - shiftedSourceY);
     const lastPt = staticPoints[staticPoints.length - 1];
     const tDist = Math.hypot(lastPt[0] - shiftedTargetX, lastPt[1] - shiftedTargetY);
     if (sDist > 15 || tDist > 15) {
       staticPoints = undefined;
+      staticPointsValid = false;
     }
+  } else {
+    staticPointsValid = false;
   }
 
   // A* obstacle avoidance is materially more expensive than the plain
@@ -435,7 +444,17 @@ export const RoutedEdge: React.FC<EdgeProps> = ({
     strokeDasharray = '2, 4';
   }
 
-  const midPoint = getArcLengthMidpoint(basePoints);
+  // Static first, live fallback — same pattern as points/staticPoints above:
+  // use the precomputed, collision-avoided position from
+  // layoutCore.ts's resolveLabelPositions when it's present and still valid
+  // for the current path, otherwise fall back to the old live per-edge
+  // calculation (edges with no label, or a path that's drifted/is
+  // mid-drag).
+  const hasPrecomputedLabelPos =
+    staticPointsValid && typeof edgeData.labelX === 'number' && typeof edgeData.labelY === 'number';
+  const midPoint: [number, number] = hasPrecomputedLabelPos
+    ? [edgeData.labelX, edgeData.labelY]
+    : getArcLengthMidpoint(basePoints);
 
   return (
     <g className="group cursor-pointer">

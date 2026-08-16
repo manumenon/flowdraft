@@ -946,6 +946,235 @@ export function postProcessLayoutResult(layoutResultData: any, elements: any[]):
   return layoutResultData;
 }
 
+// ── Global connection-label placement (ported from
+// scripts/flowdraft/layout_engine.py's Step 5b `position_connection_label`,
+// threaded through `existing_label_boxes`) ──────────────────────────────
+//
+// This is deliberately NOT folded into `postProcessLayoutResult` above:
+// that function only receives the raw nested ELK tree + `elements` (no
+// `connections`, so no label text) and edge points there are still
+// per-container-relative, not canvas-absolute — labels need both the
+// actual label text and a single consistent absolute coordinate frame to
+// check collisions against every other node/label at once. Callers
+// (useFlowLayout.ts's runtime pipeline, quality/checkLayoutQuality.ts's
+// test pipeline) call `resolveLabelPositions` themselves, once, right
+// after they've flattened the layout result into absolute-coordinate
+// nodes/edges — exactly the "called once, after all edges have their
+// routed points finalized" point in the pipeline.
+
+export interface LabelResolutionNode {
+  id: string;
+  type?: string;
+  /** Canvas-absolute position (flattenLayoutNodes's absX/absY convention). */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface LabelResolutionEdge {
+  id: string;
+  /** Canvas-absolute routed points, start to end (flattenLayoutEdges/collectEdges convention). */
+  points: [number, number][];
+  label?: string;
+}
+
+export interface ResolvedLabelPosition {
+  x: number;
+  y: number;
+}
+
+/**
+ * Estimates a connection label's rendered bounding box for collision
+ * purposes, approximating RoutedEdge.tsx's actual label badge styling (9px
+ * uppercase font-mono, px-2.5/py-1 padding, max-w-[160px] with wrapping).
+ *
+ * Python's `position_connection_label` uses one fixed 100x20 box for every
+ * label regardless of text length; a character-count estimate here instead
+ * catches exactly the failure mode a fixed box would miss — a long label
+ * like "EMIT PLAYBACK EVENT" needs materially more clearance than a short
+ * one like "VOD REQUEST", and treating both as the same 100px-wide box is
+ * what let the real overlap through in the first place.
+ */
+export function estimateLabelBoxSize(label: string): { width: number; height: number } {
+  const CHAR_WIDTH = 6; // ~9px monospace glyph advance
+  const PAD_X = 20; // px-2.5 left + right
+  const PAD_Y = 8; // py-1 top + bottom
+  const LINE_HEIGHT = 13; // ~9px font + leading-tight
+  const MAX_WIDTH = 160; // RoutedEdge.tsx's max-w-[160px]
+
+  const singleLineWidth = label.length * CHAR_WIDTH + PAD_X;
+  const width = Math.min(MAX_WIDTH, Math.max(40, singleLineWidth));
+  const lines = Math.max(1, Math.ceil(singleLineWidth / MAX_WIDTH));
+  const height = lines * LINE_HEIGHT + PAD_Y;
+  return { width, height };
+}
+
+const LABEL_CANDIDATE_FRACTIONS = [0.5, 0.35, 0.65, 0.2, 0.8];
+const LABEL_NORMAL_OFFSET = 12.0;
+
+function computeSegmentLengths(points: [number, number][]): number[] {
+  const lens: number[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    lens.push(Math.hypot(points[i + 1][0] - points[i][0], points[i + 1][1] - points[i][1]));
+  }
+  return lens;
+}
+
+/**
+ * Point on a polyline at cumulative `distance` from the start, plus the
+ * unit direction vector of the segment it lands on — generalizes
+ * RoutedEdge.tsx's `getArcLengthMidpoint` (which is hardcoded to the 50%
+ * point) to an arbitrary distance, since label placement needs to probe
+ * several candidate fractions along the same path.
+ */
+function pointAndDirectionAtDistance(
+  points: [number, number][],
+  segLengths: number[],
+  totalLength: number,
+  distance: number
+): { x: number; y: number; ux: number; uy: number } {
+  if (points.length === 0) return { x: 0, y: 0, ux: 1, uy: 0 };
+  if (points.length === 1) return { x: points[0][0], y: points[0][1], ux: 1, uy: 0 };
+  if (totalLength === 0) return { x: points[0][0], y: points[0][1], ux: 1, uy: 0 };
+
+  const target = Math.max(0, Math.min(totalLength, distance));
+  let accumulated = 0;
+
+  for (let i = 0; i < segLengths.length; i++) {
+    const len = segLengths[i];
+    if (len === 0) continue;
+    if (accumulated + len >= target || i === segLengths.length - 1) {
+      const remaining = target - accumulated;
+      const ratio = Math.min(1, Math.max(0, remaining / len));
+      const [x1, y1] = points[i];
+      const [x2, y2] = points[i + 1];
+      return {
+        x: x1 + ratio * (x2 - x1),
+        y: y1 + ratio * (y2 - y1),
+        ux: (x2 - x1) / len,
+        uy: (y2 - y1) / len,
+      };
+    }
+    accumulated += len;
+  }
+
+  const last = points[points.length - 1];
+  return { x: last[0], y: last[1], ux: 1, uy: 0 };
+}
+
+function boxesOverlap(
+  a: { x1: number; y1: number; x2: number; y2: number },
+  b: { x1: number; y1: number; x2: number; y2: number }
+): boolean {
+  return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
+}
+
+/**
+ * Resolves every labeled edge's on-canvas label position in a SINGLE
+ * sequential pass with mutual awareness of every other label already
+ * placed — the direct port of Python's Step 5b loop over
+ * `position_connection_label(routed_points, label, nodes,
+ * existing_label_boxes)`.
+ *
+ * Before this existed, RoutedEdge.tsx computed each edge's label position
+ * independently at render time (`getArcLengthMidpoint(basePoints)`, with
+ * zero awareness of any other edge's label), which produced real, confirmed
+ * overlaps in dense diagrams: two nearly-parallel connections' labels
+ * ("VOD REQUEST" and "EMIT PLAYBACK EVENT") landed stacked directly on top
+ * of each other in a real rendered export.
+ *
+ * For each labeled edge, in `edges` array order (the running
+ * `existingLabelBoxes` list is exactly why order matters, same as Python's
+ * loop): starts at the arc-length midpoint (fraction 0.5) of its own routed
+ * `points`, offset `LABEL_NORMAL_OFFSET` px along the local segment's
+ * normal so the label sits beside the line rather than on top of it
+ * (horizontal-ish segments offset upward, vertical-ish offset rightward —
+ * matching Python's `abs(ux) > abs(uy)` rule exactly). If that position's
+ * estimated label box collides with a non-panel node or an already-placed
+ * label box, tries the next candidate fraction along the SAME path
+ * (0.35 / 0.65 / 0.2 / 0.8, Python instead slides in small pixel steps
+ * along the local tangent — this walks further along the actual routed
+ * path instead, which tolerates sharper bends better) until one is clear,
+ * falling back to the original midpoint (best effort, matching Python's
+ * "keep colliding position if nothing else works" fallback) if none are.
+ *
+ * Returns a Map from edge id to its resolved `{x, y}` rather than mutating
+ * a particular edge shape in place, since callers (useFlowLayout.ts,
+ * quality checks) each merge this onto a different edge representation as
+ * `labelX`/`labelY`.
+ */
+export function resolveLabelPositions(
+  edges: LabelResolutionEdge[],
+  nodes: LabelResolutionNode[]
+): Map<string, ResolvedLabelPosition> {
+  // Panels are excluded from the obstacle set, same as Python
+  // (`if node.get("type") != "panel"`) — a label sitting over its own
+  // enclosing panel's background is normal and expected; only concrete
+  // leaf-node bodies (and other labels) should push a label aside.
+  const obstacles = nodes
+    .filter((n) => n.type !== 'panel')
+    .map((n) => ({ x1: n.x, y1: n.y, x2: n.x + n.width, y2: n.y + n.height }));
+
+  const existingLabelBoxes: { x1: number; y1: number; x2: number; y2: number }[] = [];
+  const result = new Map<string, ResolvedLabelPosition>();
+
+  edges.forEach((edge) => {
+    const label = edge.label;
+    if (!label || !edge.points || edge.points.length === 0) return;
+
+    const { width: lblW, height: lblH } = estimateLabelBoxSize(label);
+    const boxAt = (x: number, y: number) => ({
+      x1: x - lblW / 2,
+      y1: y - lblH / 2,
+      x2: x + lblW / 2,
+      y2: y + lblH / 2,
+    });
+    const collides = (box: { x1: number; y1: number; x2: number; y2: number }): boolean =>
+      obstacles.some((o) => boxesOverlap(box, o)) || existingLabelBoxes.some((o) => boxesOverlap(box, o));
+
+    const segLengths = computeSegmentLengths(edge.points);
+    const totalLength = segLengths.reduce((sum, l) => sum + l, 0);
+
+    let chosenX: number | null = null;
+    let chosenY: number | null = null;
+    let fallbackX = edge.points[0][0];
+    let fallbackY = edge.points[0][1];
+
+    for (let i = 0; i < LABEL_CANDIDATE_FRACTIONS.length; i++) {
+      const fraction = LABEL_CANDIDATE_FRACTIONS[i];
+      const { x: px, y: py, ux, uy } = pointAndDirectionAtDistance(
+        edge.points,
+        segLengths,
+        totalLength,
+        fraction * totalLength
+      );
+      const [nx, ny] = Math.abs(ux) > Math.abs(uy) ? [0, -1] : [1, 0];
+      const lx = px + LABEL_NORMAL_OFFSET * nx;
+      const ly = py + LABEL_NORMAL_OFFSET * ny;
+
+      if (i === 0) {
+        fallbackX = lx;
+        fallbackY = ly;
+      }
+
+      if (!collides(boxAt(lx, ly))) {
+        chosenX = lx;
+        chosenY = ly;
+        break;
+      }
+    }
+
+    const finalX = chosenX ?? fallbackX;
+    const finalY = chosenY ?? fallbackY;
+
+    existingLabelBoxes.push(boxAt(finalX, finalY));
+    result.set(edge.id, { x: finalX, y: finalY });
+  });
+
+  return result;
+}
+
 /**
  * Full Node-callable layout pipeline: builds the ELK input graph, runs it
  * through plain (non-Worker) elkjs, and post-processes the result into the

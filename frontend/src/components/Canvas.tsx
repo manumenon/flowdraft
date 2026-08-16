@@ -327,6 +327,8 @@ export const Canvas: React.FC<CanvasProps> = ({
               data: {
                 ...edge.data,
                 points: match.points,
+                labelX: match.labelX,
+                labelY: match.labelY,
               },
             };
           }

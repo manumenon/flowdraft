@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ElementSpec, ConnectionSpec } from '../types/spec';
+import { resolveLabelPositions, type LabelResolutionNode, type LabelResolutionEdge } from '../workers/layoutCore';
 import LayoutWorkerImport from '../workers/layout.worker?worker';
 
 const LayoutWorker = (LayoutWorkerImport as any).default || LayoutWorkerImport;
@@ -16,6 +17,9 @@ export interface PositionedNodeInfo {
 export interface PositionedEdgeInfo {
   id: string;
   points: [number, number][];
+  /** Canvas-absolute, collision-avoided label position (see layoutCore.ts's resolveLabelPositions). Undefined for unlabeled edges. */
+  labelX?: number;
+  labelY?: number;
 }
 
 export function useFlowLayout() {
@@ -127,6 +131,59 @@ export function useFlowLayout() {
 
              collectNodes(graph, null);
              collectEdges(graph, 0, 0);
+
+             // Resolve every labeled edge's on-canvas label position once,
+             // globally, with mutual awareness of every other edge's label
+             // and every node's bounding box — replaces the old per-edge,
+             // render-time-only `getArcLengthMidpoint` call in
+             // RoutedEdge.tsx that had zero awareness of other labels (see
+             // layoutCore.ts's resolveLabelPositions for the full
+             // rationale/port of layout_engine.py's Step 5b). Needs
+             // canvas-absolute node boxes (positionedNodes stays
+             // parent-relative, matching React Flow's own convention — see
+             // quality/types.ts's flattenLayoutNodes for the identical
+             // accumulation this mirrors) and each edge's label text
+             // (recovered from `connections` by the index encoded in the
+             // ELK edge id, `edge-${from}-${to}-${i}` — the same convention
+             // quality/types.ts's flattenLayoutEdges relies on).
+             const elementsById = new Map<string, ElementSpec>();
+             elements.forEach((el) => elementsById.set(el.id, el));
+
+             const labelResolutionNodes: LabelResolutionNode[] = [];
+             const collectAbsoluteNodeBoxes = (elkNode: any, absX: number, absY: number) => {
+               const isRoot = elkNode.id === 'root';
+               const nodeAbsX = absX + (elkNode.x || 0);
+               const nodeAbsY = absY + (elkNode.y || 0);
+               if (!isRoot) {
+                 labelResolutionNodes.push({
+                   id: elkNode.id,
+                   type: elementsById.get(elkNode.id)?.type,
+                   x: nodeAbsX,
+                   y: nodeAbsY,
+                   width: elkNode.width || 0,
+                   height: elkNode.height || 0,
+                 });
+               }
+               (elkNode.children || []).forEach((child: any) =>
+                 collectAbsoluteNodeBoxes(child, isRoot ? 0 : nodeAbsX, isRoot ? 0 : nodeAbsY)
+               );
+             };
+             collectAbsoluteNodeBoxes(graph, 0, 0);
+
+             const labelResolutionEdges: LabelResolutionEdge[] = positionedEdges.map((pe) => {
+               const match = /-(\d+)$/.exec(pe.id);
+               const idx = match ? Number(match[1]) : -1;
+               return { id: pe.id, points: pe.points, label: connections[idx]?.label };
+             });
+
+             const labelPositions = resolveLabelPositions(labelResolutionEdges, labelResolutionNodes);
+             positionedEdges.forEach((pe) => {
+               const pos = labelPositions.get(pe.id);
+               if (pos) {
+                 pe.labelX = pos.x;
+                 pe.labelY = pos.y;
+               }
+             });
 
              resolve({
                positionedNodes,

@@ -50,6 +50,10 @@ export interface QualityConnection {
   toPort?: string;
   /** Canvas-absolute [x, y] points along the routed edge, start to end. */
   points: [number, number][];
+  label?: string;
+  /** Canvas-absolute resolved label position (see layoutCore.ts's resolveLabelPositions). */
+  labelX?: number;
+  labelY?: number;
 }
 
 export interface QualityCheckResult {
@@ -163,6 +167,7 @@ export function flattenLayoutEdges(layoutResult: any, connections: any[]): Quali
       fromPort: conn.fromPort,
       toPort: conn.toPort,
       points: e.points,
+      label: conn.label,
     };
   });
 }

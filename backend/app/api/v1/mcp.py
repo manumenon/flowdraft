@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 import json
+import math
 import base64
 import logging
 from datetime import datetime
@@ -596,6 +597,14 @@ async def trigger_export(spec: dict, format: str = "gif") -> str:
             )
             ts_w = bridge_result.get("canvas", {}).get("width") or declared_w
             ts_h = bridge_result.get("canvas", {}).get("height") or declared_h
+            # ELK's layout root width/height are frequently non-integer
+            # (fractional port/spacing math), but this value flows straight
+            # into worker.py's Playwright `page.new_page(viewport=...)`,
+            # which requires an int and throws otherwise -- ceil (not round)
+            # so we never shrink below what the engine says it actually
+            # needs to fit the content.
+            ts_w = math.ceil(ts_w)
+            ts_h = math.ceil(ts_h)
         except TsLayoutError as e:
             log.warning(f"trigger_export: TS layout sizing hint failed, keeping declared canvas size {declared_w}x{declared_h}: {e}")
             ts_w, ts_h = declared_w, declared_h

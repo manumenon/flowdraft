@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import math
 import base64
 import asyncio
 import logging
@@ -99,6 +100,13 @@ async def render_frames(spec: dict, theme: str, format: str, job_id: Optional[st
     height = canvas_spec.get("height", 1080) or 1080
     width = max(100, width)
     height = max(100, height)
+    # Playwright's new_page(viewport=...) requires ints and raises otherwise.
+    # Callers (e.g. mcp.py's trigger_export, which widens the canvas using
+    # the TS layout engine's own fractional ELK-computed size) can hand this
+    # a float; last-resort ceil here so a fractional canvas size can never
+    # crash the render regardless of which caller produced it.
+    width = math.ceil(width)
+    height = math.ceil(height)
     fps = canvas_spec.get("fps", 30) or 30
 
     frames_count = canvas_spec.get("frames")

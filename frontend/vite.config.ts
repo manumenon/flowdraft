@@ -27,6 +27,19 @@ export default defineConfig({
       external: ['web-worker'],
     },
   },
+  build: {
+    // Same "web-worker" externalization as the `worker` block above, but for
+    // the MAIN app bundle: useFlowLayout.ts now imports resolveLabelPositions
+    // directly from layoutCore.ts (not just via layout.worker.ts), which
+    // pulls elkjs's guarded, never-invoked `require('web-worker')` Node
+    // fallback into the main build's module graph too. Without this, the
+    // production `vite build` fails outright ("Rolldown failed to resolve
+    // import 'web-worker'") since only the worker chunk's bundler had this
+    // external configured.
+    rollupOptions: {
+      external: ['web-worker'],
+    },
+  },
   server: {
     port: 3000,
   },
