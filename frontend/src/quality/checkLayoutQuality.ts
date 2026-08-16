@@ -8,6 +8,7 @@ import { checkDirectionalPortNormalStubs } from './checkDirectionalPortNormalStu
 import { checkMultiConnectionPortSpacing } from './checkMultiConnectionPortSpacing';
 import { checkNoUnrelatedPanelCrossings } from './checkNoUnrelatedPanelCrossings';
 import { checkNoLabelOverlaps } from './checkNoLabelOverlaps';
+import { checkColumnRowAlignment } from './checkColumnRowAlignment';
 
 export type { QualityNode, QualityConnection, QualityCheckResult };
 export {
@@ -22,6 +23,7 @@ export { checkDirectionalPortNormalStubs } from './checkDirectionalPortNormalStu
 export { checkMultiConnectionPortSpacing } from './checkMultiConnectionPortSpacing';
 export { checkNoUnrelatedPanelCrossings } from './checkNoUnrelatedPanelCrossings';
 export { checkNoLabelOverlaps } from './checkNoLabelOverlaps';
+export { checkColumnRowAlignment } from './checkColumnRowAlignment';
 
 export interface LayoutQualityReport {
   ok: boolean;
@@ -41,7 +43,8 @@ export interface LayoutQualityReport {
  */
 export function checkLayoutQuality(
   nodes: QualityNode[],
-  connections: QualityConnection[]
+  connections: QualityConnection[],
+  rootLayoutDirection?: string
 ): LayoutQualityReport {
   // Resolve every labeled connection's on-canvas label position once,
   // globally — mirrors exactly what useFlowLayout.ts's runtime pipeline
@@ -77,6 +80,7 @@ export function checkLayoutQuality(
     checkMultiConnectionPortSpacing(connections),
     checkNoUnrelatedPanelCrossings(nodes, connections),
     checkNoLabelOverlaps(connectionsWithLabels),
+    checkColumnRowAlignment(nodes, rootLayoutDirection),
   ];
 
   return {

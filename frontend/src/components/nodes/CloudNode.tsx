@@ -1,7 +1,17 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import Icon from './Icon';
+import { useShrinkToFitWidestWord } from '../../hooks/useShrinkToFitWidestWord';
+
+// See useShrinkToFitWidestWord.ts for the full rationale. CloudNode's title
+// and body sit stacked (icon above title above body) in a max-w-[70%]
+// centered column, same structural shape as CylinderNode, so no sibling
+// width needs to be reserved.
+const TITLE_BASE_FONT_PX = 12; // text-xs
+const TITLE_MIN_FONT_PX = 8;
+const BODY_BASE_FONT_PX = 10; // text-[10px]
+const BODY_MIN_FONT_PX = 7;
 
 export const CloudNode: React.FC<NodeProps> = (props) => {
   const { selected } = props;
@@ -14,6 +24,13 @@ export const CloudNode: React.FC<NodeProps> = (props) => {
   const accentColor = style.color || '#06b6d4';
   const isBorderless = !!style.borderless;
   const isTransparent = !!style.transparent;
+
+  const titleText = String(data.title || '');
+  const bodyText = String(data.body || '');
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const bodyRef = useRef<HTMLSpanElement>(null);
+  const titleFontSize = useShrinkToFitWidestWord(titleRef, titleText, TITLE_BASE_FONT_PX, TITLE_MIN_FONT_PX);
+  const bodyFontSize = useShrinkToFitWidestWord(bodyRef, bodyText, BODY_BASE_FONT_PX, BODY_MIN_FONT_PX);
 
   const handleStyle = {
     opacity: isPureRender ? 0 : 0.8,
@@ -76,12 +93,20 @@ export const CloudNode: React.FC<NodeProps> = (props) => {
       {/* Text Content overlay */}
       <div className="z-10 flex flex-col items-center justify-center p-4 text-center mt-2 max-w-[70%]">
         {data.icon && <Icon name={data.icon as string} color={accentColor} size={16} className="mb-1" />}
-        <span className="text-xs font-extrabold tracking-wide text-text-primary whitespace-normal break-words max-w-full">
-          {data.title || ''}
+        <span
+          ref={titleRef}
+          className="font-extrabold tracking-wide text-text-primary whitespace-normal break-words max-w-full"
+          style={{ fontSize: titleFontSize }}
+        >
+          {titleText}
         </span>
-        {data.body && (
-          <span className="text-[10px] font-mono text-text-secondary font-medium mt-0.5 whitespace-normal break-words max-w-full">
-            {data.body}
+        {bodyText && (
+          <span
+            ref={bodyRef}
+            className="font-mono text-text-secondary font-medium mt-0.5 whitespace-normal break-words max-w-full"
+            style={{ fontSize: bodyFontSize }}
+          >
+            {bodyText}
           </span>
         )}
       </div>

@@ -1,7 +1,17 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import Icon from './Icon';
+import { useShrinkToFitWidestWord } from '../../hooks/useShrinkToFitWidestWord';
+
+// See useShrinkToFitWidestWord.ts for the full rationale. Unlike
+// CylinderNode/CloudNode, EllipseNode's optional icon sits beside the title
+// in the same row (not stacked above it), so the icon's live rendered
+// width is reserved out of the row's measured width before fitting --
+// otherwise the icon's share of the row would be counted as budget the
+// title text doesn't actually have.
+const TITLE_BASE_FONT_PX = 12; // text-xs
+const TITLE_MIN_FONT_PX = 8;
 
 export const EllipseNode: React.FC<NodeProps> = (props) => {
   const { selected } = props;
@@ -15,6 +25,13 @@ export const EllipseNode: React.FC<NodeProps> = (props) => {
   const isBorderless = !!style.borderless;
   const isTransparent = !!style.transparent;
   const isBold = !!style.bold;
+
+  const titleText = String(data.title || '');
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const iconRef = useRef<HTMLDivElement>(null);
+  const titleFontSize = useShrinkToFitWidestWord(titleRef, titleText, TITLE_BASE_FONT_PX, TITLE_MIN_FONT_PX, {
+    reservedRefs: [iconRef],
+  });
 
   const handleStyle = {
     opacity: isPureRender ? 0 : 0.8,
@@ -56,20 +73,29 @@ export const EllipseNode: React.FC<NodeProps> = (props) => {
 
       {/* Content */}
       <div className="flex flex-col items-center justify-center text-center max-w-[85%]">
-        <div className="flex items-center justify-center gap-1.5 mb-0.5">
+        {/* min-w-0 on the row and the span: without it, this flex item's
+            automatic minimum size is its content's min-content, and
+            `break-words` (unlike `overflow-wrap: anywhere`) does not count
+            toward reducing that per the flex sizing spec, so the row
+            couldn't actually be squeezed below the title's natural
+            (unbroken) width -- see CardNode.tsx's identical comment for
+            the live-rendering-confirmed version of this failure mode. */}
+        <div className="flex items-center justify-center gap-1.5 mb-0.5 min-w-0">
           {data.icon && (
-            <div className="p-1 rounded-md bg-surface-3 border border-border-themed">
+            <div ref={iconRef} className="p-1 rounded-md bg-surface-3 border border-border-themed flex-shrink-0">
               <Icon name={data.icon as string} color={accentColor} size={14} />
             </div>
           )}
           <span
-            className="text-xs font-bold tracking-wide whitespace-normal break-words"
+            ref={titleRef}
+            className="font-bold tracking-wide whitespace-normal break-words min-w-0"
             style={{
               color: accentColor,
               fontWeight: isBold ? 'bold' : '700',
+              fontSize: titleFontSize,
             }}
           >
-            {data.title || ''}
+            {titleText}
           </span>
         </div>
 

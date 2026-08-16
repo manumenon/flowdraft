@@ -1,7 +1,15 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import Icon from './Icon';
+import { useShrinkToFitWidestWord } from '../../hooks/useShrinkToFitWidestWord';
+
+// See useShrinkToFitWidestWord.ts for the full rationale. The title's
+// immediate parent is the whole node row (its fixed React-Flow-measured
+// box), shared with the icon and, when present, the annotations tray, so
+// both are reserved out of the row's measured width before fitting.
+const TITLE_BASE_FONT_PX = 12; // text-xs
+const TITLE_MIN_FONT_PX = 8;
 
 export const InputNode: React.FC<NodeProps> = (props) => {
   const { selected } = props;
@@ -15,6 +23,14 @@ export const InputNode: React.FC<NodeProps> = (props) => {
   const accentColor = style.color || '#f59e0b';
   const isBorderless = !!style.borderless;
   const isTransparent = !!style.transparent;
+
+  const titleText = String(data.title || '');
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const iconRef = useRef<HTMLDivElement>(null);
+  const annotationsRef = useRef<HTMLDivElement>(null);
+  const titleFontSize = useShrinkToFitWidestWord(titleRef, titleText, TITLE_BASE_FONT_PX, TITLE_MIN_FONT_PX, {
+    reservedRefs: [iconRef, annotationsRef],
+  });
 
   const handleStyle = {
     opacity: isPureRender ? 0 : 0.8,
@@ -65,14 +81,22 @@ export const InputNode: React.FC<NodeProps> = (props) => {
       <Handle type="target" position={Position.Right} id="target-right" style={handleStyle} />
       <Handle type="source" position={Position.Right} id="source-right" style={handleStyle} />
 
-      {data.icon && <Icon name={data.icon as string} color={accentColor} size={15} className="flex-shrink-0 ml-1" />}
-      <span className="text-xs font-semibold tracking-wide whitespace-normal break-words flex-grow text-text-primary">
-        {data.title || ''}
+      {data.icon && (
+        <div ref={iconRef} className="flex-shrink-0 ml-1">
+          <Icon name={data.icon as string} color={accentColor} size={15} />
+        </div>
+      )}
+      <span
+        ref={titleRef}
+        className="font-semibold tracking-wide whitespace-normal break-words min-w-0 flex-grow text-text-primary"
+        style={{ fontSize: titleFontSize }}
+      >
+        {titleText}
       </span>
 
       {/* Render Annotations if defined in spec */}
       {data.annotations && data.annotations.length > 0 && (
-        <div className="flex flex-wrap gap-1 pointer-events-none z-10 ml-auto">
+        <div ref={annotationsRef} className="flex flex-wrap gap-1 pointer-events-none z-10 ml-auto">
           {data.annotations.map((ann: any, idx: number) => (
             <div
               key={idx}

@@ -21,6 +21,19 @@ function resolveSide(word: string | undefined, fallback: PortSide): PortSide {
  * from layout_quality.py's check_directional_port_normal_stubs, reusing
  * `getPortNormal` from directionalPorts.ts (already correct, previously
  * unused) exactly as Python's port reused `get_port_normal` from geometry.py.
+ *
+ * A bend-free 2-point connection (pts.length === 2 — the whole path is a
+ * single straight segment directly between its two ports, no bend at all)
+ * is exempt from the length floor: the "stub" concept this guards against
+ * is a route that turns too sharply right after leaving a port, reading as
+ * the line clipping the node's edge — with FIXED_SIDE ports and ORTHOGONAL
+ * routing, a 2-point segment can only exist when the two ports already sit
+ * directly in line, so it's inherently a single clean run the full
+ * distance in the correct direction with no turn to clip against,
+ * regardless of how short that distance is (e.g. two directly-stacked
+ * panel children only `layout.gap` apart, which can legitimately be well
+ * under 16px — see layoutCore.ts's postProcessLayoutResult's row/column
+ * reprojection, whose adjacent-stack connectors are exactly this shape).
  */
 export function checkDirectionalPortNormalStubs(
   connections: QualityConnection[],
@@ -33,6 +46,7 @@ export function checkDirectionalPortNormalStubs(
     const cid = conn.id || `${conn.from}->${conn.to}`;
     const pts = conn.points;
     if (!pts || pts.length < 2) return;
+    if (pts.length === 2) return;
 
     const p0 = pts[0];
     const p1 = pts[1];

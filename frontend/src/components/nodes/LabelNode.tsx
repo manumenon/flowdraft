@@ -1,11 +1,23 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
+import { useShrinkToFitWidestWord } from '../../hooks/useShrinkToFitWidestWord';
+
+// See useShrinkToFitWidestWord.ts for the full rationale. The title span's
+// parent is the node's own fixed React-Flow-measured box (Handles are
+// absolutely positioned and don't consume row space), so no sibling width
+// needs to be reserved.
+const TITLE_BASE_FONT_PX = 11; // text-[11px]
+const TITLE_MIN_FONT_PX = 7;
 
 export const LabelNode: React.FC<NodeProps> = (props) => {
   const { selected } = props;
   const data = props.data as any;
   const isPureRender = data.isPureRender || window.location.pathname.includes('/render-box');
+
+  const titleText = String(data.title || '');
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const titleFontSize = useShrinkToFitWidestWord(titleRef, titleText, TITLE_BASE_FONT_PX, TITLE_MIN_FONT_PX);
 
   const handleStyle = {
     opacity: isPureRender ? 0 : 0.8,
@@ -32,8 +44,12 @@ export const LabelNode: React.FC<NodeProps> = (props) => {
       <Handle type="target" position={Position.Right} id="right" style={handleStyle} />
       <Handle type="source" position={Position.Right} id="right" style={handleStyle} />
 
-      <span className="text-[11px] font-bold font-mono text-center break-words max-w-full text-text-secondary tracking-wider">
-        {data.title || ''}
+      <span
+        ref={titleRef}
+        className="font-bold font-mono text-center break-words max-w-full text-text-secondary tracking-wider"
+        style={{ fontSize: titleFontSize }}
+      >
+        {titleText}
       </span>
     </div>
   );

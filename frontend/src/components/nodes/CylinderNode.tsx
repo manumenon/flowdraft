@@ -1,115 +1,19 @@
-import React, { useLayoutEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import Icon from './Icon';
+import { useShrinkToFitWidestWord } from '../../hooks/useShrinkToFitWidestWord';
 
-// Shrinks a title/body span's font-size (never its box) just enough that its
-// single widest word fits the available text column, so the browser's
-// `overflow-wrap: break-word` fallback never has to chop a word mid-syllable
-// ("Warehous" / "e") -- mirrors scripts/flowdraft/text.py's fit_text
-// "emergency font scaling" (binary-search a size that fits, measured via a
-// real text-measurement API) but is scoped to just the widest word rather
-// than the whole string, since the goal here is only to avoid ugly mid-word
-// breaks, not to keep the title on one line.
-//
-// Deliberately a pure text-rendering tweak: it never touches node.width/
-// height/style.width/style.height or the box the wrapper <div> below
-// occupies (that stays "100%/100%" of whatever React Flow measured), so it
-// cannot perturb React Flow's measured-size bookkeeping the way changing
-// computeNodeDimensions's output did (see layoutCore.ts's
-// computeNodeDimensions doc comment for that history/regression).
-//
-// CSS `hyphens: auto` was tried first as a zero-JS alternative but doesn't
-// actually break "Warehouse" at a syllable boundary in Chromium (verified
-// empirically -- the property parses and `getComputedStyle` reports
-// 'auto', but headless Chromium here still hard-splits the word), so this
-// canvas-measured approach is used instead; it depends only on Canvas 2D
-// text measurement, which Chromium supports reliably.
+// See useShrinkToFitWidestWord.ts for the full rationale (canvas-measured
+// widest-word shrink to avoid the browser's `overflow-wrap: break-word`
+// fallback chopping a word mid-syllable, e.g. "Warehous" / "e"). This was
+// the original, live-verified implementation of that fix; the hook itself
+// now lives in the shared file so CardNode, CloudNode, EllipseNode,
+// InputNode, LabelNode, and PanelNode can reuse it.
 const TITLE_BASE_FONT_PX = 12; // text-xs
 const TITLE_MIN_FONT_PX = 8;
 const BODY_BASE_FONT_PX = 10; // text-[10px]
 const BODY_MIN_FONT_PX = 7;
-
-let measureCanvasCtx: CanvasRenderingContext2D | null | undefined;
-function getMeasureCtx(): CanvasRenderingContext2D | null {
-  if (measureCanvasCtx === undefined) {
-    const canvas = document.createElement('canvas');
-    measureCanvasCtx = canvas.getContext('2d');
-  }
-  return measureCanvasCtx;
-}
-
-/** Font size (px) that fits `text`'s single widest word into `availablePx`, clamped to [minPx, basePx]. */
-function fitWidestWordFontSize(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  fontFamily: string,
-  fontWeight: string,
-  availablePx: number,
-  basePx: number,
-  minPx: number
-): number {
-  const words = text.split(/\s+/).filter(Boolean);
-  if (!words.length || !(availablePx > 0)) return basePx;
-
-  ctx.font = `${fontWeight} ${basePx}px ${fontFamily}`;
-  let widest = 0;
-  for (const w of words) {
-    const width = ctx.measureText(w).width;
-    if (width > widest) widest = width;
-  }
-  if (widest <= availablePx) return basePx;
-
-  const scaled = Math.floor((basePx * availablePx) / widest);
-  return Math.max(minPx, Math.min(basePx, scaled));
-}
-
-/**
- * Measures `text` against `spanRef`'s parent column width (its clientWidth
- * minus its own padding -- the actual constrained text column, since that
- * parent is an unconstrained-width flex child capped by `max-w-[80%]`, so
- * its rendered width reflects the real budget regardless of how the text
- * inside currently happens to wrap) and returns the font size to apply.
- * Re-measures whenever `text` changes; box/container size here is static
- * per layout run (cylinder dimensions are a fixed per-type default, see
- * specCompiler.ts), so no ResizeObserver is needed.
- */
-function useShrinkToFitWidestWord(
-  spanRef: React.RefObject<HTMLSpanElement | null>,
-  text: string,
-  basePx: number,
-  minPx: number
-): number {
-  const [fontSize, setFontSize] = useState(basePx);
-
-  useLayoutEffect(() => {
-    const el = spanRef.current;
-    const parent = el?.parentElement;
-    const ctx = getMeasureCtx();
-    if (!el || !parent || !ctx || !text) {
-      setFontSize(basePx);
-      return;
-    }
-
-    const parentStyle = window.getComputedStyle(parent);
-    const paddingX = parseFloat(parentStyle.paddingLeft || '0') + parseFloat(parentStyle.paddingRight || '0');
-    const availablePx = parent.clientWidth - paddingX;
-
-    const spanStyle = window.getComputedStyle(el);
-    const size = fitWidestWordFontSize(
-      ctx,
-      text,
-      spanStyle.fontFamily,
-      spanStyle.fontWeight,
-      availablePx,
-      basePx,
-      minPx
-    );
-    setFontSize(size);
-  }, [text, basePx, minPx]);
-
-  return fontSize;
-}
 
 export const CylinderNode: React.FC<NodeProps> = (props) => {
   const { selected } = props;

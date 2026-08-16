@@ -1,6 +1,18 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Handle, Position, NodeResizer } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
+import { useShrinkToFitWidestWord } from '../../hooks/useShrinkToFitWidestWord';
+
+// See useShrinkToFitWidestWord.ts for the full rationale. The title and
+// subtitle already live in their own dedicated `min-w-0 flex-1` column,
+// separate from the (flex-shrink-0) badge -- that flex-basis:0 column is
+// deterministically sized independent of its own text content, so its
+// clientWidth is a reliable "available width" budget without needing to
+// reserve the badge's width explicitly.
+const TITLE_BASE_FONT_PX = 10; // text-[10px]
+const TITLE_MIN_FONT_PX = 7;
+const SUBTITLE_BASE_FONT_PX = 10; // text-[10px]
+const SUBTITLE_MIN_FONT_PX = 7;
 
 export const PanelNode: React.FC<NodeProps> = (props) => {
   const { selected } = props;
@@ -14,6 +26,13 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
   const accentColor = style.color || '#22c86f';
   const isBorderless = !!style.borderless;
   const isTransparent = !!style.transparent;
+
+  const titleText = String(data.title || '');
+  const subtitleText = String(data.subtitle || '');
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const subtitleRef = useRef<HTMLSpanElement>(null);
+  const titleFontSize = useShrinkToFitWidestWord(titleRef, titleText, TITLE_BASE_FONT_PX, TITLE_MIN_FONT_PX);
+  const subtitleFontSize = useShrinkToFitWidestWord(subtitleRef, subtitleText, SUBTITLE_BASE_FONT_PX, SUBTITLE_MIN_FONT_PX);
 
   const handleStyle = {
     opacity: isPureRender ? 0 : 0.8,
@@ -67,12 +86,20 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
       {/* Premium Header Title & Subtitle Badge */}
       <div className="absolute top-3.5 left-4 right-4 flex items-start justify-between pointer-events-none select-none gap-2 z-10">
         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-          <span className="text-[10px] font-extrabold tracking-widest uppercase break-words leading-tight" style={{ color: strokeColor }}>
-            {data.title || ''}
+          <span
+            ref={titleRef}
+            className="font-extrabold tracking-widest uppercase break-words leading-tight"
+            style={{ color: strokeColor, fontSize: titleFontSize }}
+          >
+            {titleText}
           </span>
-          {data.subtitle && (
-            <span className="text-[10px] leading-tight font-medium italic text-text-secondary break-words">
-              {data.subtitle}
+          {subtitleText && (
+            <span
+              ref={subtitleRef}
+              className="leading-tight font-medium italic text-text-secondary break-words"
+              style={{ fontSize: subtitleFontSize }}
+            >
+              {subtitleText}
             </span>
           )}
         </div>

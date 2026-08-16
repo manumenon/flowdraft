@@ -1,7 +1,15 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import Icon from './Icon';
+import { useShrinkToFitWidestWord } from '../../hooks/useShrinkToFitWidestWord';
+
+// See useShrinkToFitWidestWord.ts for the full rationale. The title's
+// immediate parent is the icon+title row (icon stacked beside, not above,
+// the title, unlike CylinderNode/CloudNode), so the icon's live rendered
+// width is reserved out of that row's measured width before fitting.
+const TITLE_BASE_FONT_PX = 12; // text-xs
+const TITLE_MIN_FONT_PX = 8;
 
 export const CardNode: React.FC<NodeProps> = (props) => {
   const { selected } = props;
@@ -16,6 +24,13 @@ export const CardNode: React.FC<NodeProps> = (props) => {
   const isBorderless = !!style.borderless;
   const isTransparent = !!style.transparent;
   const isBold = !!style.bold;
+
+  const titleText = String(data.title || '');
+  const titleRef = useRef<HTMLSpanElement>(null);
+  const iconRef = useRef<HTMLDivElement>(null);
+  const titleFontSize = useShrinkToFitWidestWord(titleRef, titleText, TITLE_BASE_FONT_PX, TITLE_MIN_FONT_PX, {
+    reservedRefs: [iconRef],
+  });
 
   // Handles configuration
   const handleStyle = {
@@ -94,20 +109,32 @@ export const CardNode: React.FC<NodeProps> = (props) => {
 
       {/* Node Content */}
       <div className="flex items-center justify-between gap-2 mb-1.5 mt-1">
-        <div className="flex items-center gap-2">
+        {/* min-w-0 is required, not cosmetic: without it this flex item's
+            automatic minimum size is its content's min-content, and
+            `break-words` (unlike `overflow-wrap: anywhere`) does NOT count
+            toward reducing that per the flex sizing spec -- so without
+            min-w-0 this row cannot actually be shrunk below the widest
+            word's natural width, and just silently overflows past the
+            card's right edge instead of respecting titleFontSize
+            (confirmed via live rendering: title measured to overflow the
+            card by ~29px despite the hook picking a font size that, if
+            actually honored, would have fit). */}
+        <div className="flex items-center gap-2 min-w-0">
           {data.icon && (
-            <div className="p-1 rounded-md bg-surface-3 border border-border-themed">
+            <div ref={iconRef} className="p-1 rounded-md bg-surface-3 border border-border-themed flex-shrink-0">
               <Icon name={data.icon as string} color={statusColor || accentColor} size={15} />
             </div>
           )}
           <span
-            className="text-xs font-bold tracking-wide whitespace-normal break-words"
+            ref={titleRef}
+            className="font-bold tracking-wide whitespace-normal break-words min-w-0"
             style={{
               color: statusColor || accentColor,
               fontWeight: isBold ? 'bold' : '700',
+              fontSize: titleFontSize,
             }}
           >
-            {data.title || ''}
+            {titleText}
           </span>
         </div>
 

@@ -61,7 +61,7 @@ self.onmessage = async (event: MessageEvent) => {
     (self as any).postMessage = originalPostMessage;
 
     if (layoutResult && !layoutResult.error && layoutResult.data) {
-      const finalGraph = postProcessLayoutResult(layoutResult.data, elements);
+      const finalGraph = postProcessLayoutResult(layoutResult.data, elements, layoutDirection);
       self.postMessage({ success: true, graph: finalGraph });
     } else {
       console.error("WORKER: Layout failed, layoutResult error:", layoutResult?.error);

@@ -18,6 +18,7 @@
 // elkjs end-to-end) is for non-Worker callers: vitest and the future CLI.
 import ELK from 'elkjs';
 import type { ElementSpec, ConnectionSpec, TitleConfig } from '../types/spec';
+import { getPortNormal, type PortSide } from '../utils/directionalPorts';
 
 export interface LayoutRequest {
   elements: ElementSpec[];
@@ -268,6 +269,227 @@ function fixShortEdgeStubs(node: any, minStubLen = 16): void {
 }
 
 /**
+ * Propagates a moved node's canvas-absolute (dx, dy) displacement onto
+ * itself and every one of its descendants in the ELK result tree. Used by
+ * postProcessLayoutResult's row/column direction-mismatch reprojection:
+ * only the moved node's own position relative to ITS OWN parent changed —
+ * nothing inside it moved relative to IT — so every descendant's absolute
+ * displacement is identical to its own. Deltas accumulate (added to, not
+ * overwritten) so a node nested inside two independently-reprojected
+ * ancestor panels correctly picks up both shifts.
+ */
+function applyDeltaToSubtree(
+  resultNode: any,
+  dx: number,
+  dy: number,
+  deltaMap: Map<string, { dx: number; dy: number }>
+): void {
+  const prev = deltaMap.get(resultNode.id);
+  deltaMap.set(resultNode.id, { dx: (prev?.dx || 0) + dx, dy: (prev?.dy || 0) + dy });
+  (resultNode.children || []).forEach((child: any) => applyDeltaToSubtree(child, dx, dy, deltaMap));
+}
+
+/**
+ * Recovers which known node id a `${id}-port-...` ELK port id belongs to —
+ * either the plain `${id}-port-${side}` shape or a fanned
+ * `${id}-port-${side}-${direction}-${idx}` one (see makeSidePort /
+ * makeFannedPorts) — by prefix match, preferring the longest matching id in
+ * case one node's id happens to be a prefix of another's (defensive; real
+ * ids only need to satisfy checkUniqueNodeIds's uniqueness, not
+ * prefix-freedom).
+ */
+function resolvePortOwnerId(portId: string | undefined, nodeIds: string[]): string | undefined {
+  if (!portId) return undefined;
+  let best: string | undefined;
+  for (const id of nodeIds) {
+    if (portId.startsWith(`${id}-port-`) && (!best || id.length > best.length)) {
+      best = id;
+    }
+  }
+  return best;
+}
+
+/**
+ * Recovers the `top`/`bottom`/`left`/`right` side word a port id encodes —
+ * the plain `${ownerId}-port-${side}` shape or a fanned
+ * `${ownerId}-port-${side}-${direction}-${idx}` one (see makeSidePort /
+ * makeFannedPorts) — given the already-resolved owner node id.
+ */
+function extractPortSideWord(portId: string | undefined, ownerId: string | undefined): PortSideWord | undefined {
+  if (!portId || !ownerId) return undefined;
+  const prefix = `${ownerId}-port-`;
+  if (!portId.startsWith(prefix)) return undefined;
+  const word = portId.slice(prefix.length).split('-')[0];
+  return word === 'top' || word === 'bottom' || word === 'left' || word === 'right' ? word : undefined;
+}
+
+/**
+ * Translates one end of an edge's polyline by `delta` (that endpoint
+ * node's accumulated displacement) and reconstructs the adjacent bend
+ * point so the near leg (moved port -> corner) stays orthogonal AND
+ * points the right way (outward, matching the port's own normal via
+ * getPortNormal) — not just orthogonal in some arbitrary direction, which
+ * a naive translation can get backwards (confirmed via a real layout dump
+ * against stressSpec.ts: a Y-only-adjusted corner that kept farAnchor's X
+ * unchanged produced a diagonal leg once the swapped axis assignment was
+ * fixed; a further case then surfaced where `delta`'s component along the
+ * port's own normal exceeded the ORIGINAL leg's length, which flips
+ * farAnchor onto the wrong side of the newly-moved port even with the
+ * axes right — both are handled below).
+ *
+ * Near leg's cross-axis (the one that stays constant while leaving the
+ * port — e.g. a SOUTH-exit's first leg is vertical, so its cross-axis is
+ * X) always comes from the port's OWN new position. For the along-axis
+ * (the one the port normal points along), two candidates:
+ *  - Reuse `farAnchor`'s (the next point out along the path, otherwise
+ *    untouched) coordinate on that axis — keeps the FAR leg
+ *    (corner -> farAnchor) orthogonal too, for free. Used whenever it
+ *    still points the correct way out from the new port (the common case
+ *    — most deltas are small relative to the original stub).
+ *  - Otherwise (farAnchor ended up on the wrong side of the moved port,
+ *    or dead on top of it): fall back to extending a fresh stub outward
+ *    from the new port along its normal, at least as long as the
+ *    original one — guarantees a validly-signed near leg even though the
+ *    far leg (corner -> farAnchor) may end up mildly non-orthogonal in
+ *    this rarer case. `fixShortEdgeStubs` (already run unconditionally on
+ *    every edge at the end of postProcessLayoutResult) extends anything
+ *    still short after this, so getting the exact minimum length isn't
+ *    this function's job either way.
+ *
+ * `endIdx`/`cornerIdx`/`farIdx` index into BOTH `readPts` (the edge's
+ * ORIGINAL, pre-repair polyline — read only, never written, so the other
+ * end's correction reading the same array is unaffected by this one
+ * running first) and `writePts` (the output being built — only
+ * `writePts[endIdx]`/`writePts[cornerIdx]` are written here).
+ */
+function reanchorEdgeEnd(
+  readPts: [number, number][],
+  writePts: [number, number][],
+  endIdx: number,
+  cornerIdx: number,
+  farIdx: number,
+  delta: { dx: number; dy: number },
+  sideWord: PortSideWord | undefined,
+  minStubLen = 18
+): void {
+  const oldPort = readPts[endIdx];
+  const newPort: [number, number] = [oldPort[0] + delta.dx, oldPort[1] + delta.dy];
+  writePts[endIdx] = newPort;
+
+  if (farIdx < 0 || farIdx >= readPts.length || !sideWord) return;
+  const normal = getPortNormal(SIDE_TO_ELK[sideWord] as PortSide);
+  const farAnchor = readPts[farIdx];
+
+  const alongIdx: 0 | 1 = normal.x !== 0 ? 0 : 1;
+  const crossIdx: 0 | 1 = alongIdx === 0 ? 1 : 0;
+  const normalAlong = alongIdx === 0 ? normal.x : normal.y;
+
+  const corner: [number, number] = [0, 0];
+  corner[crossIdx] = newPort[crossIdx];
+
+  const farAlongIfReused = (farAnchor[alongIdx] - newPort[alongIdx]) * normalAlong;
+  if (farAlongIfReused > 0.01) {
+    corner[alongIdx] = farAnchor[alongIdx];
+  } else {
+    const oldCorner = readPts[cornerIdx];
+    const oldStubLen = Math.abs(oldCorner[alongIdx] - oldPort[alongIdx]);
+    const stubLen = Math.max(oldStubLen, minStubLen);
+    corner[alongIdx] = newPort[alongIdx] + normalAlong * stubLen;
+  }
+
+  writePts[cornerIdx] = corner;
+}
+
+/**
+ * Repairs every edge that touches a node moved by postProcessLayoutResult's
+ * row/column direction-mismatch reprojection — without this, an edge's
+ * `sections` would still reflect ELK's OWN pre-reprojection (diagonal
+ * cascade) port coordinates, leaving it dangling away from the node's real
+ * final position. (The exact same class of staleness turns out to already
+ * affect flow/grid's identical splice-after-layout technique too — found
+ * while investigating this fix, confirmed via a real layout dump, but left
+ * alone here as a separate, pre-existing issue outside this fix's scope.)
+ *
+ * Two repair strategies, depending on the edge:
+ *  - An edge directly between two ADJACENT members of a reprojected stack
+ *    (`stackAdjacencyPairs`, either direction) is replaced outright with a
+ *    straight connector between its two ports' real final coordinates — a
+ *    clean stack's own connector geometry is known exactly, so there's no
+ *    reason to keep patching up ELK's old, diagonally-routed path for it.
+ *  - Every other edge touching a moved node has its near endpoint
+ *    translated by that node's accumulated displacement (itself, or
+ *    inherited from a moved ancestor panel — see applyDeltaToSubtree) via
+ *    `reanchorEdgeEnd`, which also reconstructs the adjacent bend point so
+ *    the near leg stays a valid, orthogonal, checkDirectionalPortNormalStubs
+ *    -compliant stub — guard: only when there's a genuine adjacent bend
+ *    AND a next point beyond it to anchor onto (>= 4 points total, mirroring
+ *    ensureMinimumEdgeStubs's same guard — with exactly 3 points the single
+ *    interior point would be shared by both ends' corrections). Not a full
+ *    re-route, but guarantees the edge actually reaches the node's real
+ *    port instead of a stale one.
+ */
+function repairEdgesForReprojectedNodes(
+  node: any,
+  nodeDelta: Map<string, { dx: number; dy: number }>,
+  stackAdjacencyPairs: Set<string>,
+  nodeIds: string[]
+): void {
+  (node.edges || []).forEach((edge: any) => {
+    const srcPortId = edge.sources?.[0];
+    const tgtPortId = edge.targets?.[0];
+    const srcId = resolvePortOwnerId(srcPortId, nodeIds);
+    const tgtId = resolvePortOwnerId(tgtPortId, nodeIds);
+    const srcDelta = srcId ? nodeDelta.get(srcId) : undefined;
+    const tgtDelta = tgtId ? nodeDelta.get(tgtId) : undefined;
+    if (!srcDelta && !tgtDelta) return;
+
+    const isCleanPair = Boolean(
+      srcId && tgtId && (stackAdjacencyPairs.has(`${srcId}->${tgtId}`) || stackAdjacencyPairs.has(`${tgtId}->${srcId}`))
+    );
+
+    (edge.sections || []).forEach((sec: any) => {
+      const pts: [number, number][] = [
+        [sec.startPoint.x, sec.startPoint.y],
+        ...(sec.bendPoints || []).map((bp: any) => [bp.x, bp.y] as [number, number]),
+        [sec.endPoint.x, sec.endPoint.y],
+      ];
+
+      let newPts: [number, number][];
+      if (isCleanPair) {
+        newPts = [
+          srcDelta ? [pts[0][0] + srcDelta.dx, pts[0][1] + srcDelta.dy] : pts[0],
+          tgtDelta
+            ? [pts[pts.length - 1][0] + tgtDelta.dx, pts[pts.length - 1][1] + tgtDelta.dy]
+            : pts[pts.length - 1],
+        ];
+      } else {
+        newPts = pts.map((p) => [...p] as [number, number]);
+        if (srcDelta && newPts.length >= 4) {
+          reanchorEdgeEnd(pts, newPts, 0, 1, 2, srcDelta, extractPortSideWord(srcPortId, srcId));
+        } else if (srcDelta) {
+          newPts[0] = [pts[0][0] + srcDelta.dx, pts[0][1] + srcDelta.dy];
+        }
+        if (tgtDelta && newPts.length >= 4) {
+          const last = newPts.length - 1;
+          reanchorEdgeEnd(pts, newPts, last, last - 1, last - 2, tgtDelta, extractPortSideWord(tgtPortId, tgtId));
+        } else if (tgtDelta) {
+          const last = newPts.length - 1;
+          newPts[last] = [pts[last][0] + tgtDelta.dx, pts[last][1] + tgtDelta.dy];
+        }
+      }
+
+      sec.startPoint = { x: newPts[0][0], y: newPts[0][1] };
+      sec.endPoint = { x: newPts[newPts.length - 1][0], y: newPts[newPts.length - 1][1] };
+      sec.bendPoints = newPts.slice(1, -1).map(([x, y]) => ({ x, y }));
+    });
+  });
+
+  (node.children || []).forEach((child: any) =>
+    repairEdgesForReprojectedNodes(child, nodeDelta, stackAdjacencyPairs, nodeIds)
+  );
+}
+
+/**
  * Box-packs a panel's children into row-major "flow" (wrap after N columns,
  * row height = tallest child in that row) or fixed-column "grid" (uniform
  * cell pitch = max width/height across ALL children, row-major placement)
@@ -370,12 +592,22 @@ export function computeFlowGridPositions(
   return { width: overallW, height: totalH };
 }
 
+/** The ELK 'org.eclipse.elk.direction' value the root graph gets — shared
+ * between buildElkGraph (which sets it) and postProcessLayoutResult (which
+ * needs to know it to detect panels whose own declared direction is a
+ * mismatch elkjs won't honor — see the "row/column panels whose declared
+ * ELK direction" block there). Single source of truth so the two can never
+ * drift apart. */
+function resolveRootElkDirection(layoutDirection?: string): 'DOWN' | 'RIGHT' {
+  return layoutDirection === 'vertical' ? 'DOWN' : 'RIGHT';
+}
+
 // Reserved top padding (title/subtitle) for each panel, computed from a
 // fixed assumed chars-per-line since the panel's real final width isn't
 // known until ELK has laid it out. Shared by buildElkGraph (which uses it to
 // pad ELK's own child layout) and postProcessLayoutResult (which reconciles
 // it against the panel's real final width).
-function computePanelHeaderPad(elements: any[]): Record<string, number> {
+export function computePanelHeaderPad(elements: any[]): Record<string, number> {
   const panelHeaders: Record<string, number> = {};
   elements.forEach((node: any) => {
     if (node.type === 'panel') {
@@ -577,7 +809,7 @@ export function buildElkGraph(request: LayoutRequest): any {
 
   const topRootPad = title ? 150 : 60;
   const rootAlgorithm = layoutAlgorithm || 'layered';
-  const rootDirection = layoutDirection === 'vertical' ? 'DOWN' : 'RIGHT';
+  const rootDirection = resolveRootElkDirection(layoutDirection);
 
   const elkRoot: any = {
     id: 'root',
@@ -745,9 +977,20 @@ export function buildElkGraph(request: LayoutRequest): any {
  * Mutates and returns the same graph object that was passed in (matching the
  * layout worker's prior behavior of mutating `layoutResult.data` in place).
  */
-export function postProcessLayoutResult(layoutResultData: any, elements: any[]): any {
+export function postProcessLayoutResult(layoutResultData: any, elements: any[], layoutDirection?: string): any {
   const nodesMap = new Map<string, any>();
   elements.forEach((n: any) => nodesMap.set(n.id, n));
+
+  const elementOrderIndex = new Map<string, number>();
+  elements.forEach((n: any, idx: number) => elementOrderIndex.set(n.id, idx));
+
+  const rootElkDir = resolveRootElkDirection(layoutDirection);
+
+  // Populated by the row/column direction-mismatch reprojection below and
+  // consumed by repairEdgesForReprojectedNodes at the end of this function —
+  // see that block for the full rationale.
+  const nodeDeltaMap = new Map<string, { dx: number; dy: number }>();
+  const stackAdjacencyPairs = new Set<string>();
 
   const flatResultNodes: any[] = [];
   const collectNodes = (node: any) => {
@@ -791,6 +1034,11 @@ export function postProcessLayoutResult(layoutResultData: any, elements: any[]):
       }
     }
 
+    // Hoisted so the row/column reprojection branch below can use it as
+    // computeFlowGridPositions's originY (it needs to run before the header
+    // reconciliation block further down, which also reads this same value).
+    const topPad = panelHeaders[panelId] || 40.0;
+
     const allChildren = flatResultNodes.filter(
       (n) => nodesMap.get(n.id)?.parent === panelId
     );
@@ -808,6 +1056,114 @@ export function postProcessLayoutResult(layoutResultData: any, elements: any[]):
           c.y = srcNode.y;
         }
       });
+    } else if (allChildren.length > 1) {
+      // row/column panels whose declared ELK direction doesn't match the
+      // root's effective direction hit a documented elkjs limitation
+      // (github.com/kieler/elkjs#26): INCLUDE_CHILDREN lays this whole
+      // panel out as part of ONE unified layered graph, and a mismatched
+      // child's own 'org.eclipse.elk.direction' (set below in buildElkGraph)
+      // is silently ignored in favor of the inherited root direction — ELK
+      // still ranks these children correctly (via the real edges between
+      // them, same layered algorithm as everywhere else in the graph), but
+      // places each rank along the ROOT's primary axis instead of the
+      // panel's own declared one, producing a diagonal cascade (both x AND
+      // y increasing together) instead of a clean single-axis stack.
+      //
+      // The RANK ORDER ELK already computed is still trustworthy — only the
+      // GEOMETRY is wrong. So: recover that order by sorting the children
+      // along whichever axis the root's direction actually drove ranking on
+      // (confirmed empirically: it's always the root's own primary axis,
+      // never the panel's declared one — see the investigation this fix
+      // grew out of). Children with no edges between them (hence no rank
+      // dependency, sharing the same rank) tie-break to declared array
+      // order, exactly like flow/grid's own default. Then re-project onto a
+      // clean single-axis stack using the exact same box-packing primitive
+      // flow/grid panels already rely on: 'flow' mode with maxCols=1 for a
+      // column stack (every "row" holds exactly one child => a single
+      // column, left-aligned), or maxCols=childCount for a row stack (every
+      // child in one "row" => top-aligned, increasing x).
+      const panelElkDir = panelDirection === 'column' ? 'DOWN' : 'RIGHT';
+      if (panelElkDir !== rootElkDir) {
+        const rankAxisValue = (c: any) => (rootElkDir === 'DOWN' ? (c.y || 0) : (c.x || 0));
+        const originalPositions = new Map<string, { x: number; y: number }>(
+          allChildren.map((c) => [c.id, { x: c.x || 0, y: c.y || 0 }])
+        );
+
+        const orderedIds = allChildren
+          .slice()
+          .sort((a, b) => {
+            const diff = rankAxisValue(a) - rankAxisValue(b);
+            if (Math.abs(diff) > 0.5) return diff;
+            return (elementOrderIndex.get(a.id) ?? 0) - (elementOrderIndex.get(b.id) ?? 0);
+          })
+          .map((c) => c.id);
+
+        const gap = node.layout?.gap ?? 20;
+        const resultChildrenMap = new Map<string, any>(allChildren.map((c) => [c.id, c]));
+        const maxCols = panelDirection === 'column' ? 1 : Math.max(1, orderedIds.length);
+        const { width: contentW, height: contentH } = computeFlowGridPositions(
+          orderedIds,
+          resultChildrenMap,
+          gap,
+          'flow',
+          maxCols,
+          padLeft,
+          topPad
+        );
+
+        // Safety guard: if this panel has a disproportionately large child
+        // (a nested sub-panel dwarfing its siblings is the real case this
+        // guards — see tool_grid_subpanel under stressSpec.ts's
+        // right_agent_panel), a clean single-axis stack can genuinely need
+        // MORE room than ELK's own diagonally-cascaded (buggy, but more
+        // 2D-compact) layout did — e.g. stacking a 943px-tall nested panel
+        // below two 140px cards, instead of spreading all three across a
+        // diagonal, makes the whole panel far taller than ELK originally
+        // sized it. Growing the panel's footprint beyond what ELK already
+        // reserved at the root level is unsafe: other, unrelated edges
+        // elsewhere in the graph were routed assuming only the ORIGINAL
+        // footprint was reserved, opaque space, and confirmed (via a real
+        // checkNoUnrelatedPanelCrossings run against stressSpec.ts, during
+        // development) to cut through the newly-extended region once it's
+        // grown. Bail out of reprojecting THIS panel's children if it would
+        // grow past ELK's own reserved size in either axis — leaving its
+        // diagonal cascade in place is a known, pre-existing (not
+        // newly-introduced) limitation, safer than a fresh routing
+        // regression. Most panels never hit this (their stacked content is
+        // smaller than ELK's cascade, not larger — see the padding note
+        // just below) — this only defers the harder, disproportionate case.
+        const neededWidth = padLeft + contentW + padRight;
+        const neededHeight = topPad + contentH + padBottom;
+        if (neededWidth > (resultPanel.width || 0) + 0.5 || neededHeight > (resultPanel.height || 0) + 0.5) {
+          allChildren.forEach((c: any) => {
+            const orig = originalPositions.get(c.id);
+            if (orig) {
+              c.x = orig.x;
+              c.y = orig.y;
+            }
+          });
+        } else {
+          // Record adjacent-in-stack pairs (an edge directly between them,
+          // if any, gets replaced outright with a clean straight connector
+          // by repairEdgesForReprojectedNodes below — we know exactly what
+          // a clean stack's own connector should look like) and every
+          // moved child's canvas-absolute displacement, propagated onto its
+          // own descendants too (a moved sub-panel's children didn't move
+          // relative to IT, but did move in absolute terms).
+          for (let i = 0; i < orderedIds.length - 1; i++) {
+            stackAdjacencyPairs.add(`${orderedIds[i]}->${orderedIds[i + 1]}`);
+          }
+          allChildren.forEach((c: any) => {
+            const orig = originalPositions.get(c.id);
+            if (!orig) return;
+            const dx = (c.x || 0) - orig.x;
+            const dy = (c.y || 0) - orig.y;
+            if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+              applyDeltaToSubtree(c, dx, dy, nodeDeltaMap);
+            }
+          });
+        }
+      }
     }
 
     if (allChildren.length > 0) {
@@ -842,8 +1198,7 @@ export function postProcessLayoutResult(layoutResultData: any, elements: any[]):
 
       // 14px top offset ("top-3.5") + ~12.5px per wrapped line + a little breathing room.
       const realHeaderH = 14 + realTitleLines * 13.5 + realSubtitleLines * 13.5 + 12;
-      const reservedTopPad = panelHeaders[panelId] || 40.0;
-      const shortfall = realHeaderH - reservedTopPad;
+      const shortfall = realHeaderH - topPad;
 
       if (shortfall > 0) {
         allChildren.forEach((c: any) => {
@@ -898,6 +1253,15 @@ export function postProcessLayoutResult(layoutResultData: any, elements: any[]):
         resultPanel.children.push(resultFooter);
       }
   });
+
+  // Repair edges that touch a node the row/column reprojection above moved
+  // — without this they'd still reflect ELK's own pre-reprojection
+  // (diagonal-cascade) port coordinates. See repairEdgesForReprojectedNodes
+  // for the two repair strategies it applies.
+  if (nodeDeltaMap.size > 0) {
+    const allNodeIds = elements.map((el: any) => el.id);
+    repairEdgesForReprojectedNodes(layoutResultData, nodeDeltaMap, stackAdjacencyPairs, allNodeIds);
+  }
 
   // Post-process hero summary nodes to position them top-centered and shift other graph nodes down
   const heroNodes = elements.filter((n: any) =>
@@ -1012,6 +1376,17 @@ export function estimateLabelBoxSize(label: string): { width: number; height: nu
 
 const LABEL_CANDIDATE_FRACTIONS = [0.5, 0.35, 0.65, 0.2, 0.8];
 const LABEL_NORMAL_OFFSET = 12.0;
+// Minimum required clearance between two label boxes, in px. A plain AABB
+// intersection test (margin 0) only catches labels that literally overlap —
+// live testing found a near-miss it lets through: two edges leaving the same
+// node on the same side (e.g. two parallel "exit right" connections) can
+// each get a clear candidate position whose boxes end up touching or
+// nearly touching, with their connector lines visibly crossing right at
+// that point, while still passing checkNoLabelOverlaps' own strict (no
+// margin) test. Only applied to label-vs-label checks (not label-vs-node
+// obstacles) — this is specifically the same-direction-parallel-edges
+// pattern, not a general "give labels more breathing room" change.
+const MIN_LABEL_GAP = 8.0;
 
 function computeSegmentLengths(points: [number, number][]): number[] {
   const lens: number[] = [];
@@ -1063,11 +1438,21 @@ function pointAndDirectionAtDistance(
   return { x: last[0], y: last[1], ux: 1, uy: 0 };
 }
 
+/**
+ * `margin` (default 0, i.e. the original plain AABB intersection test)
+ * inflates `a` by `margin` on every side before testing, so two boxes
+ * within `margin` px of each other (touching or a near-miss short of it)
+ * count as a collision, not just boxes that literally intersect. Used by
+ * `resolveLabelPositions` with MIN_LABEL_GAP for label-vs-label checks —
+ * see that constant's comment for why a plain intersection test alone
+ * wasn't enough there.
+ */
 function boxesOverlap(
   a: { x1: number; y1: number; x2: number; y2: number },
-  b: { x1: number; y1: number; x2: number; y2: number }
+  b: { x1: number; y1: number; x2: number; y2: number },
+  margin = 0
 ): boolean {
-  return a.x1 < b.x2 && a.x2 > b.x1 && a.y1 < b.y2 && a.y2 > b.y1;
+  return a.x1 - margin < b.x2 && a.x2 + margin > b.x1 && a.y1 - margin < b.y2 && a.y2 + margin > b.y1;
 }
 
 /**
@@ -1131,7 +1516,8 @@ export function resolveLabelPositions(
       y2: y + lblH / 2,
     });
     const collides = (box: { x1: number; y1: number; x2: number; y2: number }): boolean =>
-      obstacles.some((o) => boxesOverlap(box, o)) || existingLabelBoxes.some((o) => boxesOverlap(box, o));
+      obstacles.some((o) => boxesOverlap(box, o)) ||
+      existingLabelBoxes.some((o) => boxesOverlap(box, o, MIN_LABEL_GAP));
 
     const segLengths = computeSegmentLengths(edge.points);
     const totalLength = segLengths.reduce((sum, l) => sum + l, 0);
@@ -1187,5 +1573,5 @@ export async function computeLayout(request: LayoutRequest): Promise<any> {
   const elkRoot = buildElkGraph(request);
   const elk = new ELK();
   const layoutResultData = await elk.layout(elkRoot);
-  return postProcessLayoutResult(layoutResultData, request.elements);
+  return postProcessLayoutResult(layoutResultData, request.elements, request.layoutDirection);
 }
