@@ -42,7 +42,7 @@ export const DecisionNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className="relative w-full h-full select-none transition-all duration-200 animate-zoom-in cursor-pointer"
+      className={`relative w-full h-full select-none transition-all duration-200 cursor-pointer ${isPureRender ? '' : 'animate-zoom-in'}`}
       style={{
         filter: selected 
           ? `drop-shadow(0 0 8px ${accentColor})` 

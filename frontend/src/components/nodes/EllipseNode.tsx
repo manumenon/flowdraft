@@ -44,7 +44,7 @@ export const EllipseNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative px-5 py-3.5 flex flex-col items-center justify-center h-full w-full rounded-full select-none transition-shadow duration-200 animate-zoom-in ${
+      className={`relative px-5 py-3.5 flex flex-col items-center justify-center h-full w-full rounded-full select-none transition-shadow duration-200 ${isPureRender ? '' : 'animate-zoom-in'} ${
         selected ? 'shadow-premium ring-1 ring-pink-500/40' : 'hover:shadow-xl cursor-pointer'
       }`}
       style={{

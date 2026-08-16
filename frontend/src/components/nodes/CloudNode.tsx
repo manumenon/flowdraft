@@ -43,7 +43,7 @@ export const CloudNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center select-none transition-all duration-200 animate-zoom-in ${
+      className={`relative flex flex-col items-center justify-center select-none transition-all duration-200 ${isPureRender ? '' : 'animate-zoom-in'} ${
         selected ? 'ring-1 ring-indigo-500/40 rounded-xl' : 'cursor-pointer'
       }`}
       style={{

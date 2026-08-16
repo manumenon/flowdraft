@@ -29,7 +29,7 @@ export const LabelNode: React.FC<NodeProps> = (props) => {
   };
 
   return (
-    <div className={`relative px-3 py-1.5 select-none w-full h-full flex items-center justify-center rounded-lg border border-dashed transition-all duration-300 animate-zoom-in ${
+    <div className={`relative px-3 py-1.5 select-none w-full h-full flex items-center justify-center rounded-lg border border-dashed transition-all duration-300 ${isPureRender ? '' : 'animate-zoom-in'} ${
       selected 
         ? 'bg-surface-2/80 border-accent shadow-glow-blue scale-[1.02]' 
         : 'bg-surface-0/40 border-border-themed hover:border-border-strong hover:bg-surface-1/40 hover:scale-[1.03] cursor-pointer'

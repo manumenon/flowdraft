@@ -67,7 +67,7 @@ export const CardNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative px-4 py-3.5 flex flex-col justify-between h-full w-full select-none transition-all duration-300 animate-zoom-in ${
+      className={`relative px-4 py-3.5 flex flex-col justify-between h-full w-full select-none transition-all duration-300 ${isPureRender ? '' : 'animate-zoom-in'} ${
         selected 
           ? 'shadow-premium ring-1 ring-indigo-500/40' 
           : 'hover:shadow-xl cursor-pointer'

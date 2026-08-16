@@ -43,7 +43,7 @@ export const InputNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative px-4 py-2.5 flex items-center justify-start h-full w-full select-none gap-2 transition-shadow duration-200 animate-zoom-in ${
+      className={`relative px-4 py-2.5 flex items-center justify-start h-full w-full select-none gap-2 transition-shadow duration-200 ${isPureRender ? '' : 'animate-zoom-in'} ${
         selected 
           ? 'shadow-premium ring-1 ring-amber-500/40' 
           : 'hover:shadow-lg cursor-pointer'

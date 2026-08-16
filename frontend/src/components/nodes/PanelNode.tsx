@@ -45,9 +45,9 @@ export const PanelNode: React.FC<NodeProps> = (props) => {
 
   return (
     <div
-      className={`relative h-full w-full select-none transition-shadow duration-200 animate-zoom-in ${
+      className={`relative h-full w-full select-none transition-shadow duration-200 ${isPureRender ? '' : 'animate-zoom-in'} ${
         selected ? 'shadow-premium ring-1 ring-emerald-500/40' : ''
-      } ${isTransparent ? '' : 'animated-panel-gradient'}`}
+      } ${isTransparent || isPureRender ? '' : 'animated-panel-gradient'}`}
       style={{
         backdropFilter: isTransparent ? 'none' : 'blur(12px)',
         WebkitBackdropFilter: isTransparent ? 'none' : 'blur(12px)',
